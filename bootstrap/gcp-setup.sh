@@ -5,8 +5,9 @@
 set -euo pipefail
 
 PROJECT_ID="${PROJECT_ID:-project-d28840cd-be2f-4901-85e}"
-ZONE="${ZONE:-asia-south1-a}"
-CLUSTER="${CLUSTER:-aio-cicd}"
+# LOCATION may be a zone (asia-south1-a) or a region (asia-south1) - existing clusters are reused as-is
+LOCATION="${LOCATION:-asia-south1}"
+CLUSTER="${CLUSTER:-cluster-1}"
 GH_USER="${GH_USER:-satrishabh}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -19,15 +20,19 @@ INGRESS_NGINX_VERSION=controller-v1.11.2
 step() { echo; echo "==> $*"; }
 
 # ---------------------------------------------------------------- 1. cluster
-step "GKE cluster $CLUSTER ($ZONE)"
+step "GKE cluster $CLUSTER ($LOCATION)"
 gcloud config set project "$PROJECT_ID" >/dev/null
 gcloud services enable container.googleapis.com
-if ! gcloud container clusters describe "$CLUSTER" --zone "$ZONE" >/dev/null 2>&1; then
-  gcloud container clusters create "$CLUSTER" --zone "$ZONE" \
+if ! gcloud container clusters describe "$CLUSTER" --location "$LOCATION" >/dev/null 2>&1; then
+  gcloud container clusters create "$CLUSTER" --location "$LOCATION" --node-locations "${LOCATION%-?}-a" \
     --num-nodes 2 --machine-type e2-standard-4 --disk-size 50 \
     --release-channel regular --enable-ip-alias
 fi
-gcloud container clusters get-credentials "$CLUSTER" --zone "$ZONE"
+gcloud container clusters get-credentials "$CLUSTER" --location "$LOCATION"
+if [ "$(gcloud container clusters describe "$CLUSTER" --location "$LOCATION" --format='value(autopilot.enabled)')" = "True" ]; then
+  echo "NOTE: Autopilot cluster - pods get default resources; Kaniko runs as root (allowed, non-privileged)."
+fi
+kubectl get nodes -o wide
 
 # ---------------------------------------------------------------- 2. ingress (free nip.io DNS)
 step "ingress-nginx"
@@ -142,6 +147,6 @@ cat <<EOF
     (do the same for each app image after its first CI build, e.g. sample-app)
  3. Open ${PUBLIC_URL}, sign in, New project -> https://github.com/${GH_USER}/sample-app
 
- Stop all costs: gcloud container clusters delete ${CLUSTER} --zone ${ZONE}
+ Stop all costs: gcloud container clusters delete ${CLUSTER} --location ${LOCATION}
 ==================================================================
 EOF

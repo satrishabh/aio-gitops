@@ -1,0 +1,50 @@
+# Simple single-instance Postgres using the cluster's default StorageClass (works on any cloud).
+# For production consider a managed DB or an operator (CloudNativePG) and point DB_URL at it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: aio-postgres
+  namespace: aio-platform
+spec:
+  selector: { app: aio-postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aio-postgres
+  namespace: aio-platform
+spec:
+  serviceName: aio-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: aio-postgres }
+  template:
+    metadata:
+      labels: { app: aio-postgres }
+    spec:
+      securityContext: { fsGroup: 999 }
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{ containerPort: 5432 }]
+          env:
+            - { name: POSTGRES_DB, value: aio }
+            - name: POSTGRES_USER
+              valueFrom: { secretKeyRef: { name: aio-platform-secrets, key: DB_USER } }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: aio-platform-secrets, key: DB_PASSWORD } }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          readinessProbe:
+            exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d aio"] }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 10Gi } }

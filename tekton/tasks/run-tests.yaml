@@ -1,0 +1,41 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: run-tests
+spec:
+  description: >
+    Language-agnostic test step. Runs TEST_COMMAND inside TEST_IMAGE
+    (e.g. maven:3.9-eclipse-temurin-21 + "mvn -B verify",
+    node:20 + "npm ci && npm test", golang:1.22 + "go test ./...").
+    If TEST_COMMAND is empty the step is skipped (tests may live in the Dockerfile).
+  params:
+    - name: TEST_IMAGE
+      type: string
+      default: alpine:3.20
+    - name: TEST_COMMAND
+      type: string
+      default: ""
+    - name: CONTEXT
+      type: string
+      default: "."
+  workspaces:
+    - name: source
+  steps:
+    - name: test
+      image: $(params.TEST_IMAGE)
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT)
+      env:
+        - name: TEST_COMMAND
+          value: $(params.TEST_COMMAND)
+      computeResources:
+        requests: { cpu: 500m, memory: 512Mi }
+        limits: { cpu: "2", memory: 2Gi }
+      script: |
+        #!/bin/sh
+        set -eu
+        if [ -z "$TEST_COMMAND" ]; then
+          echo "No TEST_COMMAND provided - skipping tests."
+          exit 0
+        fi
+        echo "Running: $TEST_COMMAND"
+        sh -c "$TEST_COMMAND"

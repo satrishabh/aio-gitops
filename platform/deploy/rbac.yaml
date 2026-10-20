@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aio-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aio-platform
+  namespace: aio-platform
+---
+# Least privilege inside the CI namespace: create/watch PipelineRuns, read TaskRuns and step logs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-ci
+  namespace: ci
+rules:
+  - apiGroups: ["tekton.dev"]
+    resources: ["pipelineruns"]
+    verbs: ["create", "get", "list", "watch", "patch", "update"]
+  - apiGroups: ["tekton.dev"]
+    resources: ["taskruns"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-ci
+  namespace: ci
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-ci

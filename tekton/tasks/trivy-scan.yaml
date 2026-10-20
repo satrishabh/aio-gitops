@@ -1,0 +1,56 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trivy-scan
+spec:
+  description: >
+    Scan the pushed image. Emits SUMMARY (critical=N,high=N,medium=N,low=N) for the portal,
+    then fails the pipeline on findings at or above SEVERITY.
+  params:
+    - name: IMAGE_URL
+    - name: SEVERITY
+      default: HIGH,CRITICAL
+    - name: IGNORE_UNFIXED
+      default: "true"
+  results:
+    - name: SUMMARY
+      description: Vulnerability counts by severity
+  workspaces:
+    - name: dockerconfig
+      mountPath: /root/.docker
+  volumes:
+    - name: trivy-cache
+      emptyDir: {}
+  stepTemplate:
+    image: aquasec/trivy:0.54.1
+    env:
+      - name: DOCKER_CONFIG
+        value: /root/.docker
+      - name: TRIVY_CACHE_DIR
+        value: /cache
+    volumeMounts:
+      - name: trivy-cache
+        mountPath: /cache
+    computeResources:
+      requests: { cpu: 250m, memory: 512Mi }
+      limits: { cpu: "1", memory: 2Gi }
+  steps:
+    - name: summarize
+      script: |
+        #!/bin/sh
+        set -eu
+        FLAGS=""
+        [ "$(params.IGNORE_UNFIXED)" = "true" ] && FLAGS="--ignore-unfixed"
+        trivy image --no-progress --exit-code 0 $FLAGS --format json --output /cache/report.json "$(params.IMAGE_URL)"
+        count() { grep -c "\"Severity\": \"$1\"" /cache/report.json || true; }
+        printf "critical=%s,high=%s,medium=%s,low=%s" \
+          "$(count CRITICAL)" "$(count HIGH)" "$(count MEDIUM)" "$(count LOW)" > "$(results.SUMMARY.path)"
+        cat "$(results.SUMMARY.path)"; echo
+    - name: gate
+      script: |
+        #!/bin/sh
+        set -eu
+        FLAGS=""
+        [ "$(params.IGNORE_UNFIXED)" = "true" ] && FLAGS="--ignore-unfixed"
+        trivy image --no-progress --skip-db-update --exit-code 1 $FLAGS \
+          --severity "$(params.SEVERITY)" "$(params.IMAGE_URL)"

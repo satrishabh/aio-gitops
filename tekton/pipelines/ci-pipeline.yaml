@@ -1,0 +1,90 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: ci-pipeline
+spec:
+  description: >
+    Cloud-agnostic CI: clone -> test -> build & push (tag = git SHA) -> scan -> bump GitOps (dev).
+    Works for any language that ships a Dockerfile.
+  params:
+    - name: repo-url
+    - name: revision
+      default: main
+    - name: app-name
+    - name: image
+      description: e.g. ghcr.io/my-org/my-app or docker.io/myuser/my-app
+    - name: dockerfile
+      default: ./Dockerfile
+    - name: context
+      default: "."
+    - name: test-image
+      default: alpine:3.20
+    - name: test-command
+      default: ""
+    - name: gitops-repo
+    - name: gitops-branch
+      default: main
+    - name: gitops-values-file
+      default: helm/app/values-dev.yaml
+    - name: deploy
+      description: '"true" on push to main; "false" for PRs (build/scan only)'
+      default: "true"
+  workspaces:
+    - name: source
+    - name: dockerconfig
+    - name: github-token
+  tasks:
+    - name: clone
+      taskRef: { name: git-clone }
+      params:
+        - { name: url, value: $(params.repo-url) }
+        - { name: revision, value: $(params.revision) }
+      workspaces:
+        - { name: source, workspace: source }
+
+    - name: test
+      runAfter: [clone]
+      taskRef: { name: run-tests }
+      params:
+        - { name: TEST_IMAGE, value: $(params.test-image) }
+        - { name: TEST_COMMAND, value: $(params.test-command) }
+        - { name: CONTEXT, value: $(params.context) }
+      workspaces:
+        - { name: source, workspace: source }
+
+    - name: build-push
+      runAfter: [test]
+      taskRef: { name: kaniko-build-push }
+      params:
+        - { name: IMAGE, value: $(params.image) }
+        - { name: TAG, value: $(tasks.clone.results.short-sha) }
+        - { name: DOCKERFILE, value: $(params.dockerfile) }
+        - { name: CONTEXT, value: $(params.context) }
+      workspaces:
+        - { name: source, workspace: source }
+        - { name: dockerconfig, workspace: dockerconfig }
+
+    - name: scan
+      runAfter: [build-push]
+      taskRef: { name: trivy-scan }
+      params:
+        - { name: IMAGE_URL, value: $(tasks.build-push.results.IMAGE_URL) }
+      workspaces:
+        - { name: dockerconfig, workspace: dockerconfig }
+
+    - name: deploy-dev
+      runAfter: [scan]
+      when:
+        - input: $(params.deploy)
+          operator: in
+          values: ["true"]
+      taskRef: { name: update-gitops }
+      params:
+        - { name: GITOPS_REPO, value: $(params.gitops-repo) }
+        - { name: GITOPS_BRANCH, value: $(params.gitops-branch) }
+        - { name: VALUES_FILE, value: $(params.gitops-values-file) }
+        - { name: IMAGE, value: $(params.image) }
+        - { name: TAG, value: $(tasks.clone.results.short-sha) }
+        - { name: APP_NAME, value: $(params.app-name) }
+      workspaces:
+        - { name: github-token, workspace: github-token }

@@ -1,0 +1,48 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: kaniko-build-push
+spec:
+  description: >
+    Build an image from any Dockerfile with Kaniko (no Docker daemon, works on any
+    Kubernetes cluster/cloud) and push it to GHCR / Docker Hub / any OCI registry.
+  params:
+    - name: IMAGE
+      description: Full image ref without tag, e.g. ghcr.io/my-org/my-app or docker.io/myuser/my-app
+    - name: TAG
+    - name: DOCKERFILE
+      default: ./Dockerfile
+    - name: CONTEXT
+      default: "."
+    - name: EXTRA_ARGS
+      type: array
+      default: []
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      description: Secret containing config.json (registry credentials)
+      mountPath: /kaniko/.docker
+  results:
+    - name: IMAGE_DIGEST
+    - name: IMAGE_URL
+  steps:
+    - name: build-and-push
+      image: gcr.io/kaniko-project/executor:v1.23.2
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests: { cpu: 500m, memory: 1Gi }
+        limits: { cpu: "2", memory: 4Gi }
+      args:
+        - --dockerfile=$(params.DOCKERFILE)
+        - --context=$(workspaces.source.path)/$(params.CONTEXT)
+        - --destination=$(params.IMAGE):$(params.TAG)
+        - --digest-file=$(results.IMAGE_DIGEST.path)
+        - --cache=true
+        - --cache-repo=$(params.IMAGE)-cache
+        - --snapshot-mode=redo
+        - $(params.EXTRA_ARGS[*])
+    - name: write-url
+      image: alpine:3.20
+      script: |
+        #!/bin/sh
+        printf "%s" "$(params.IMAGE):$(params.TAG)" > "$(results.IMAGE_URL.path)"

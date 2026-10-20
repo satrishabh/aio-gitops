@@ -1,0 +1,48 @@
+# One Argo CD Application per environment.
+# dev/staging auto-sync; prod is manual sync (explicit approval gate).
+# To target another cluster on another cloud, register it with `argocd cluster add` and set `server`.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: app-envs
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - { env: dev,     server: https://kubernetes.default.svc, autoSync: true }
+          - { env: staging, server: https://kubernetes.default.svc, autoSync: true }
+          - { env: prod,    server: https://kubernetes.default.svc, autoSync: false }
+  template:
+    metadata:
+      name: "app-{{.env}}"
+      labels: { env: "{{.env}}" }
+    spec:
+      project: apps
+      source:
+        repoURL: https://github.com/satrishabh/aio-gitops.git
+        targetRevision: main
+        path: helm/app
+        helm:
+          valueFiles:
+            - values.yaml
+            - "values-{{.env}}.yaml"
+      destination:
+        server: "{{.server}}"
+        namespace: "app-{{.env}}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 3
+          backoff: { duration: 10s, factor: 2, maxDuration: 3m }
+  templatePatch: |
+    {{- if .autoSync }}
+    spec:
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+    {{- end }}

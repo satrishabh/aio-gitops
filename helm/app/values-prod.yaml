@@ -1,0 +1,15 @@
+replicaCount: 3
+image:
+  repository: ghcr.io/satrishabh/my-app
+  tag: "0.0.0"
+resources:
+  requests: { cpu: 250m, memory: 512Mi }
+  limits:   { cpu: "1", memory: 1Gi }
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+ingress:
+  enabled: true
+  host: app.REPLACE_DOMAIN
+  tls: true

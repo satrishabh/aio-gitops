@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: apps
+  namespace: argocd
+spec:
+  description: Application workloads deployed via GitOps
+  sourceRepos:
+    - https://github.com/satrishabh/aio-gitops.git
+  destinations:
+    - { server: https://kubernetes.default.svc, namespace: app-dev }
+    - { server: https://kubernetes.default.svc, namespace: app-staging }
+    - { server: https://kubernetes.default.svc, namespace: app-prod }
+    # per-project namespaces created by the AIO platform: <project>-<env>
+    - { server: https://kubernetes.default.svc, namespace: "*-dev" }
+    - { server: https://kubernetes.default.svc, namespace: "*-staging" }
+    - { server: https://kubernetes.default.svc, namespace: "*-prod" }
+  clusterResourceWhitelist:
+    - { group: "", kind: Namespace }
+  namespaceResourceWhitelist:
+    - { group: "*", kind: "*" }

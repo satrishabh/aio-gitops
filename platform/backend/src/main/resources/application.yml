@@ -1,0 +1,72 @@
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: aio-platform
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aio}
+    username: ${DB_USER:aio}
+    password: ${DB_PASSWORD:aio}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID:changeme}
+            client-secret: ${GITHUB_CLIENT_SECRET:changeme}
+            scope: read:user,read:org
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
+  public-url: ${APP_PUBLIC_URL:}
+  # Image prefix; image = <registry>/<project-name>
+  registry: ${APP_REGISTRY:ghcr.io/satrishabh}
+  # Optional: if set, each env gets ingress host <project>-<env>.<base-domain>
+  base-domain: ${APP_BASE_DOMAIN:}
+  tekton:
+    namespace: ${TEKTON_NAMESPACE:ci}
+    pipeline: ci-pipeline
+    service-account: pipeline-runner
+    storage-size: 2Gi
+    registry-secret: registry-credentials
+    github-token-secret: github-token
+  gitops:
+    repo-url: ${GITOPS_REPO_URL:https://github.com/satrishabh/aio-gitops.git}
+    owner: ${GITOPS_OWNER:satrishabh}
+    repo: ${GITOPS_REPO:aio-gitops}
+    branch: ${GITOPS_BRANCH:main}
+    apps-path: apps
+    chart-path: helm/app
+  argocd:
+    url: ${ARGOCD_URL:https://argocd-server.argocd.svc}
+    token: ${ARGOCD_TOKEN:}
+    project: apps
+    destination-server: https://kubernetes.default.svc
+    insecure: ${ARGOCD_INSECURE:true}
+  github:
+    api-url: https://api.github.com
+    token: ${GITHUB_TOKEN:}
+  security:
+    # Comma-separated. If both lists are empty, any GitHub user can log in (not recommended).
+    allowed-users: ${ALLOWED_USERS:}
+    allowed-orgs: ${ALLOWED_ORGS:}
+    # Who may approve production promotions. Empty = any logged-in user except the requester.
+    approvers: ${APPROVERS:}

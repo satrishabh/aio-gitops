@@ -1,0 +1,9 @@
+replicaCount: 1
+image:
+  repository: ghcr.io/satrishabh/my-app
+  tag: "0.0.0"
+pdb:
+  enabled: false
+ingress:
+  enabled: true
+  host: app-dev.REPLACE_DOMAIN

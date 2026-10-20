@@ -1,0 +1,55 @@
+nameOverride: ""
+replicaCount: 2
+
+image:
+  repository: ghcr.io/satrishabh/my-app
+  tag: "0.0.0"          # overwritten by CI with the git SHA; never "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []    # e.g. [{ name: ghcr-pull }] for private images
+serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the AIO platform)
+
+containerPort: 8080
+
+env: []                 # [{ name: FOO, value: bar }]
+envFrom: []             # [{ secretRef: { name: app-secrets } }]
+
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 20
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits:   { cpu: 500m, memory: 512Mi }
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 10001
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false   # set true if your app allows it
+  capabilities: { drop: [ALL] }
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  host: app.example.com
+  tls: false
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+
+pdb:
+  enabled: true
+  minAvailable: 1

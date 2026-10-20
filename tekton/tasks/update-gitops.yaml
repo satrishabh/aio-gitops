@@ -1,0 +1,49 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: update-gitops
+spec:
+  description: >
+    Bump image.repository/image.tag in a Helm values file inside the GitOps repo and push.
+    Argo CD picks up the commit and syncs the environment.
+  params:
+    - name: GITOPS_REPO
+      description: HTTPS URL of the GitOps repo, e.g. https://github.com/my-org/gitops.git
+    - name: GITOPS_BRANCH
+      default: main
+    - name: VALUES_FILE
+      description: Path in GitOps repo, e.g. helm/app/values-dev.yaml
+    - name: IMAGE
+    - name: TAG
+    - name: APP_NAME
+  workspaces:
+    - name: github-token
+      description: Secret with key "token" (GitHub PAT / App token with contents:write)
+      mountPath: /secrets/github
+  steps:
+    - name: bump
+      image: alpine/git:2.45.2
+      env:
+        - name: HOME
+          value: /tmp
+      script: |
+        #!/bin/sh
+        set -eu
+        apk add --no-cache yq >/dev/null 2>&1 || \
+          (wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 && chmod +x /tmp/yq && export PATH=/tmp:$PATH)
+        TOKEN=$(cat /secrets/github/token)
+        REPO_NO_PROTO=$(echo "$(params.GITOPS_REPO)" | sed 's#^https://##')
+        cd /tmp
+        git clone -q --depth 1 -b "$(params.GITOPS_BRANCH)" "https://x-access-token:${TOKEN}@${REPO_NO_PROTO}" gitops
+        cd gitops
+        export IMG="$(params.IMAGE)" TAG="$(params.TAG)"
+        yq -i '.image.repository = strenv(IMG) | .image.tag = strenv(TAG)' "$(params.VALUES_FILE)"
+        if git diff --quiet; then echo "No change"; exit 0; fi
+        git config user.name  "tekton-ci"
+        git config user.email "tekton-ci@noreply.local"
+        git commit -qam "ci($(params.APP_NAME)): deploy $(params.TAG) to $(params.VALUES_FILE)"
+        for i in 1 2 3; do
+          git push -q origin "$(params.GITOPS_BRANCH)" && exit 0
+          git pull -q --rebase origin "$(params.GITOPS_BRANCH)"
+        done
+        echo "push failed"; exit 1

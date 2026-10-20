@@ -1,0 +1,140 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-push-binding
+  namespace: ci
+spec:
+  params:
+    - { name: repo-url, value: $(body.repository.clone_url) }
+    - { name: revision, value: $(body.after) }
+    - { name: app-name, value: $(body.repository.name) }
+    - { name: deploy, value: "true" }
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: github-pr-binding
+  namespace: ci
+spec:
+  params:
+    - { name: repo-url, value: $(body.pull_request.head.repo.clone_url) }
+    - { name: revision, value: $(body.pull_request.head.sha) }
+    - { name: app-name, value: $(body.repository.name) }
+    - { name: deploy, value: "false" }
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: ci-template
+  namespace: ci
+spec:
+  params:
+    - name: repo-url
+    - name: revision
+    - name: app-name
+    - name: deploy
+    # ---- Per-org defaults: edit these ----
+    - name: image-registry
+      default: ghcr.io/satrishabh
+    - name: gitops-repo
+      default: https://github.com/satrishabh/aio-gitops.git
+    - name: test-image
+      default: alpine:3.20
+    - name: test-command
+      default: ""
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1
+      kind: PipelineRun
+      metadata:
+        generateName: $(tt.params.app-name)-ci-
+        labels:
+          app: $(tt.params.app-name)
+      spec:
+        pipelineRef: { name: ci-pipeline }
+        taskRunTemplate:
+          serviceAccountName: pipeline-runner
+          podTemplate:
+            securityContext:
+              fsGroup: 65532
+        timeouts:
+          pipeline: 1h
+        params:
+          - { name: repo-url, value: $(tt.params.repo-url) }
+          - { name: revision, value: $(tt.params.revision) }
+          - { name: app-name, value: $(tt.params.app-name) }
+          - { name: image, value: $(tt.params.image-registry)/$(tt.params.app-name) }
+          - { name: test-image, value: $(tt.params.test-image) }
+          - { name: test-command, value: $(tt.params.test-command) }
+          - { name: gitops-repo, value: $(tt.params.gitops-repo) }
+          - { name: deploy, value: $(tt.params.deploy) }
+        workspaces:
+          - name: source
+            volumeClaimTemplate:
+              spec:
+                accessModes: [ReadWriteOnce]   # uses cluster default StorageClass (any cloud)
+                resources:
+                  requests: { storage: 2Gi }
+          - name: dockerconfig
+            secret: { secretName: registry-credentials }
+          - name: github-token
+            secret: { secretName: github-token }
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: github-listener
+  namespace: ci
+spec:
+  serviceAccountName: tekton-triggers-sa
+  triggers:
+    - name: push-main
+      interceptors:
+        - ref: { name: github }
+          params:
+            - name: secretRef
+              value: { secretName: github-webhook-secret, secretKey: secretToken }
+            - name: eventTypes
+              value: [push]
+        - ref: { name: cel }
+          params:
+            - name: filter
+              value: body.ref == 'refs/heads/main'
+      bindings:
+        - ref: github-push-binding
+      template:
+        ref: ci-template
+    - name: pull-request
+      interceptors:
+        - ref: { name: github }
+          params:
+            - name: secretRef
+              value: { secretName: github-webhook-secret, secretKey: secretToken }
+            - name: eventTypes
+              value: [pull_request]
+        - ref: { name: cel }
+          params:
+            - name: filter
+              value: body.action in ['opened', 'synchronize', 'reopened']
+      bindings:
+        - ref: github-pr-binding
+      template:
+        ref: ci-template
+---
+# Expose the listener. ingressClassName is cluster-specific (nginx, traefik, alb, gce...).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: github-listener
+  namespace: ci
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: tekton-hooks.REPLACE_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: el-github-listener
+                port: { number: 8080 }

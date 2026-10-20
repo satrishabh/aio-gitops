@@ -1,0 +1,42 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: git-clone
+spec:
+  description: Clone a git repository at a specific revision into the source workspace.
+  params:
+    - name: url
+      type: string
+    - name: revision
+      type: string
+      default: main
+  workspaces:
+    - name: source
+  results:
+    - name: commit
+      description: Full commit SHA that was checked out
+    - name: short-sha
+      description: 12-char commit SHA used as image tag
+  steps:
+    - name: clone
+      image: alpine/git:2.45.2
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      env:
+        - name: HOME
+          value: /tmp
+      script: |
+        #!/bin/sh
+        set -eu
+        git config --global --add safe.directory "$(workspaces.source.path)"
+        rm -rf ./* ./.[!.]* 2>/dev/null || true
+        git init -q .
+        git remote add origin "$(params.url)"
+        git fetch -q --depth 1 origin "$(params.revision)"
+        git checkout -q FETCH_HEAD
+        SHA=$(git rev-parse HEAD)
+        printf "%s" "$SHA" > "$(results.commit.path)"
+        printf "%s" "$(echo "$SHA" | cut -c1-12)" > "$(results.short-sha.path)"
+        echo "Checked out $SHA"

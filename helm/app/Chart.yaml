@@ -1,0 +1,6 @@
+apiVersion: v2
+name: app
+description: Generic chart for any containerized service (Java, Node, Python, Go, ...)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

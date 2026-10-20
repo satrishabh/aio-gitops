@@ -1,0 +1,39 @@
+# Helm values for deploying the platform itself with the shared helm/app chart.
+# Domain-dependent settings (APP_PUBLIC_URL, APP_BASE_DOMAIN) and credentials come from the
+# aio-platform-secrets Secret, created by bootstrap/gcp-setup.sh.
+image:
+  repository: ghcr.io/satrishabh/aio-platform
+  tag: "0.1.0"
+imagePullSecrets:
+  - name: ghcr-pull    # created by bootstrap/gcp-setup.sh, so the GHCR package can stay private
+replicaCount: 1        # schedulers poll Tekton/Argo; keep 1 replica (no leader election)
+serviceAccountName: aio-platform
+containerPort: 8080
+probes:
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 60
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 20
+resources:
+  requests: { cpu: 200m, memory: 512Mi }
+  limits:   { cpu: "1", memory: 1Gi }
+pdb:
+  enabled: false
+envFrom:
+  - secretRef: { name: aio-platform-secrets }
+env:
+  - { name: APP_REGISTRY, value: "ghcr.io/satrishabh" }
+  - { name: ARGOCD_URL, value: "https://argocd-server.argocd.svc" }
+  - { name: ARGOCD_INSECURE, value: "true" }
+  - { name: GITOPS_REPO_URL, value: "https://github.com/satrishabh/aio-gitops.git" }
+  - { name: GITOPS_OWNER, value: "satrishabh" }
+  - { name: GITOPS_REPO, value: "aio-gitops" }
+  - { name: ALLOWED_USERS, value: "satrishabh" }
+  - { name: APPROVERS, value: "" }
+ingress:
+  enabled: true
+  className: nginx
+  host: aio.example.local   # overridden at install time with aio.<ingress-ip>.nip.io
+  tls: false

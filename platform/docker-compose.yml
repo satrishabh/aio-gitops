@@ -1,0 +1,27 @@
+# Local run: Postgres + platform. Uses your ~/.kube/config to talk to Tekton.
+# Put secrets in platform/.env (see README) - never commit it.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aio
+      POSTGRES_USER: aio
+      POSTGRES_PASSWORD: aio
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  platform:
+    build: .
+    depends_on: [db]
+    ports: ["8080:8080"]
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/aio
+      DB_USER: aio
+      DB_PASSWORD: aio
+      KUBECONFIG: /kube/config
+    volumes:
+      - ${HOME:-${USERPROFILE}}/.kube:/kube:ro
+
+volumes:
+  pgdata:

@@ -17,8 +17,8 @@ probes:
     path: /actuator/health/readiness
     initialDelaySeconds: 20
 resources:
-  requests: { cpu: 200m, memory: 512Mi }
-  limits:   { cpu: "1", memory: 1Gi }
+  requests: { cpu: 100m, memory: 448Mi }
+  limits:   { cpu: 900m, memory: 768Mi }
 pdb:
   enabled: false
 envFrom:

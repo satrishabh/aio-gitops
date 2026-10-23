@@ -30,8 +30,8 @@ spec:
       image: gcr.io/kaniko-project/executor:v1.23.2
       workingDir: $(workspaces.source.path)
       computeResources:
-        requests: { cpu: 500m, memory: 1Gi }
-        limits: { cpu: "2", memory: 4Gi }
+        requests: { cpu: 250m, memory: 768Mi }
+        limits: { cpu: 900m, memory: 2Gi }   # sized for e2-medium nodes
       args:
         - --dockerfile=$(params.DOCKERFILE)
         - --context=$(workspaces.source.path)/$(params.CONTEXT)

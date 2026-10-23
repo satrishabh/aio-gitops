@@ -11,9 +11,7 @@ CLUSTER="${CLUSTER:-cluster-1}"
 GH_USER="${GH_USER:-satrishabh}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-TEKTON_PIPELINES_VERSION=v0.62.3
-TEKTON_TRIGGERS_VERSION=v0.29.1
-TEKTON_DASHBOARD_VERSION=v0.50.0
+TEKTON_PIPELINES_VERSION=v1.6.0
 ARGOCD_VERSION=v3.5.6   # must match what's running; CRDs need --server-side (applicationsets CRD is too large)
 INGRESS_NGINX_VERSION=controller-v1.11.2
 
@@ -49,16 +47,16 @@ PUBLIC_URL="http://aio.${DOMAIN}"
 echo " $IP -> $DOMAIN"
 
 # ---------------------------------------------------------------- 3. Tekton + Argo CD
-step "Tekton ${TEKTON_PIPELINES_VERSION} / Triggers / Dashboard"
-kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINES_VERSION}/release.yaml"
-kubectl apply -f "https://storage.googleapis.com/tekton-releases/triggers/previous/${TEKTON_TRIGGERS_VERSION}/release.yaml"
-kubectl apply -f "https://storage.googleapis.com/tekton-releases/triggers/previous/${TEKTON_TRIGGERS_VERSION}/interceptors.yaml"
-kubectl apply -f "https://storage.googleapis.com/tekton-releases/dashboard/previous/${TEKTON_DASHBOARD_VERSION}/release.yaml"
-kubectl -n tekton-pipelines wait --for=condition=Available deploy --all --timeout=300s
+step "Tekton Pipelines ${TEKTON_PIPELINES_VERSION}"
+# Triggers/Dashboard are not installed: the platform receives GitHub webhooks itself.
+# v1.x images live on ghcr.io (older gcr.io release images no longer pull).
+kubectl apply --server-side --force-conflicts -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINES_VERSION}/release.yaml"
+kubectl -n tekton-pipelines wait --for=condition=Available deploy/tekton-pipelines-controller deploy/tekton-pipelines-webhook --timeout=300s
 
 step "Argo CD ${ARGOCD_VERSION}"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argocd --server-side --force-conflicts -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
+kubectl -n argocd rollout restart deploy/argocd-applicationset-controller   # picks up CRD if it was missing
 # Only wait for what the platform uses; the ApplicationSet controller is optional here
 kubectl -n argocd wait --for=condition=Available deploy/argocd-server deploy/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=300s

@@ -39,8 +39,8 @@ spec:
             exec: { command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d aio"] }
             periodSeconds: 5
           resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits: { cpu: "1", memory: 1Gi }
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
           volumeMounts:
             - { name: data, mountPath: /var/lib/postgresql/data }
   volumeClaimTemplates:

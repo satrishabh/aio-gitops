@@ -28,8 +28,8 @@ spec:
         - name: TEST_COMMAND
           value: $(params.TEST_COMMAND)
       computeResources:
-        requests: { cpu: 500m, memory: 512Mi }
-        limits: { cpu: "2", memory: 2Gi }
+        requests: { cpu: 100m, memory: 256Mi }
+        limits: { cpu: 900m, memory: 1536Mi }
       script: |
         #!/bin/sh
         set -eu

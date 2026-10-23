@@ -1,5 +1,5 @@
 nameOverride: ""
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: ghcr.io/satrishabh/my-app
@@ -23,7 +23,7 @@ probes:
     initialDelaySeconds: 5
 
 resources:
-  requests: { cpu: 100m, memory: 256Mi }
+  requests: { cpu: 50m, memory: 128Mi }
   limits:   { cpu: 500m, memory: 512Mi }
 
 podSecurityContext:
@@ -46,10 +46,10 @@ ingress:
 
 autoscaling:
   enabled: false
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 75
 
 pdb:
-  enabled: true
+  enabled: false   # enable when replicaCount > 1
   minAvailable: 1

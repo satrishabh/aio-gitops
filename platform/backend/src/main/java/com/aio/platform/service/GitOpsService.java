@@ -73,7 +73,7 @@ public class GitOpsService {
     }
 
     private String initialValues(Project p, String env) {
-        int replicas = switch (env) { case "prod" -> 3; case "staging" -> 2; default -> 1; };
+        int replicas = 1; // small-cluster default; raise per env in the GitOps repo
         String domain = props.baseDomain();
         boolean ingress = domain != null && !domain.isBlank();
         String host = "prod".equals(env) ? p.name + "." + domain : p.name + "-" + env + "." + domain;
@@ -88,6 +88,6 @@ public class GitOpsService {
                 ingress:
                   enabled: %s
                   host: %s
-                """.formatted(p.imageRepo, replicas, !"dev".equals(env), ingress, ingress ? host : "example.local");
+                """.formatted(p.imageRepo, replicas, false, ingress, ingress ? host : "example.local");
     }
 }

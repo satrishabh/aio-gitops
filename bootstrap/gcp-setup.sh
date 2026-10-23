@@ -14,7 +14,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TEKTON_PIPELINES_VERSION=v0.62.3
 TEKTON_TRIGGERS_VERSION=v0.29.1
 TEKTON_DASHBOARD_VERSION=v0.50.0
-ARGOCD_VERSION=v2.12.4
+ARGOCD_VERSION=v3.5.6   # must match what's running; CRDs need --server-side (applicationsets CRD is too large)
 INGRESS_NGINX_VERSION=controller-v1.11.2
 
 step() { echo; echo "==> $*"; }

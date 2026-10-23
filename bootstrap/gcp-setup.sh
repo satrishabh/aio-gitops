@@ -59,7 +59,9 @@ kubectl -n tekton-pipelines wait --for=condition=Available deploy --all --timeou
 step "Argo CD ${ARGOCD_VERSION}"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n argocd --server-side --force-conflicts -f "https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/install.yaml"
-kubectl -n argocd wait --for=condition=Available deploy --all --timeout=300s
+# Only wait for what the platform uses; the ApplicationSet controller is optional here
+kubectl -n argocd wait --for=condition=Available deploy/argocd-server deploy/argocd-repo-server --timeout=300s
+kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=300s
 
 # API account for the platform (apiKey only, scoped to the 'apps' project)
 kubectl -n argocd patch cm argocd-cm --type merge -p '{"data":{"accounts.aio-platform":"apiKey"}}'

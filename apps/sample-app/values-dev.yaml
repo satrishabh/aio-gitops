@@ -1,7 +1,7 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
 image:
   repository: ghcr.io/satrishabh/sample-app
-  tag: "0.0.0"
+  tag: "d73f307e781d"
 replicaCount: 1
 pdb:
   enabled: false

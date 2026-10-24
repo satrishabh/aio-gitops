@@ -2,10 +2,9 @@
 # Domain-dependent settings (APP_PUBLIC_URL, APP_BASE_DOMAIN) and credentials come from the
 # aio-platform-secrets Secret, created by bootstrap/gcp-setup.sh.
 image:
-  repository: ghcr.io/satrishabh/aio-platform
+  # built with Cloud Build into Artifact Registry (same project, so GKE nodes pull it without a secret)
+  repository: asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform
   tag: "0.1.0"
-imagePullSecrets:
-  - name: ghcr-pull    # created by bootstrap/gcp-setup.sh, so the GHCR package can stay private
 replicaCount: 1        # schedulers poll Tekton/Argo; keep 1 replica (no leader election)
 serviceAccountName: aio-platform
 containerPort: 8080

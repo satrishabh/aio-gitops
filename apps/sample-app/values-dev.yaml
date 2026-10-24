@@ -1,0 +1,10 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
+image:
+  repository: ghcr.io/satrishabh/sample-app
+  tag: "0.0.0"
+replicaCount: 1
+pdb:
+  enabled: false
+ingress:
+  enabled: true
+  host: sample-app-dev.34.180.3.18.nip.io

@@ -66,7 +66,29 @@ public class MetricsService {
         out.put("days", d);
         out.put("overall", compute(d, allDeps, allRuns, allPromos));
         out.put("projects", perProject);
+        out.put("daily", daily(d, allRuns, allDeps));
         return out;
+    }
+
+    /** Per-day CI outcomes and deployments for charts (UTC days, oldest first, zero-filled). */
+    static List<Map<String, Object>> daily(int days, List<CiRun> ciRuns, List<Deployment> deps) {
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
+            java.time.LocalDate day = today.minusDays(i);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", day.toString());
+            row.put("succeeded", ciRuns.stream().filter(r -> CiRun.SUCCEEDED.equals(r.status) && day(r.createdAt).equals(day)).count());
+            row.put("failed", ciRuns.stream().filter(r -> CiRun.FAILED.equals(r.status) && day(r.createdAt).equals(day)).count());
+            row.put("deploys", deps.stream().filter(x -> x.deployedAt != null && !GitOpsService.PLACEHOLDER_TAG.equals(x.imageTag)
+                    && day(x.deployedAt).equals(day)).count());
+            out.add(row);
+        }
+        return out;
+    }
+
+    private static java.time.LocalDate day(Instant t) {
+        return t.atZone(java.time.ZoneOffset.UTC).toLocalDate();
     }
 
     static Dora compute(int days, List<Deployment> deps, List<CiRun> ciRuns, List<Promotion> promos) {

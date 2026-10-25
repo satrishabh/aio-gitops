@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
+import Icon from '../components/Icon.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { Avatar, PageHead, ago } from '../components/ui.jsx'
 
 const PRESETS = {
   '': { testImage: '', testCommand: '' },
@@ -27,11 +29,8 @@ export default function NewProject() {
   const [q, setQ] = useState('')
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
 
-  useEffect(() => {
-    api('/api/github/repos').then(setRepos).catch(e => setRepoError(e.message))
-  }, [])
-  const shown = useMemo(() => (repos || [])
-    .filter(r => r.fullName.toLowerCase().includes(q.toLowerCase())).slice(0, 50), [repos, q])
+  useEffect(() => { api('/api/github/repos').then(setRepos).catch(e => setRepoError(e.message)) }, [])
+  const shown = useMemo(() => (repos || []).filter(r => r.fullName.toLowerCase().includes(q.toLowerCase())).slice(0, 50), [repos, q])
 
   async function submit(e) {
     e.preventDefault()
@@ -42,69 +41,82 @@ export default function NewProject() {
       const run = await api(`/api/projects/${p.id}/runs`, { method: 'POST', body: {} })
       nav(`/runs/${run.id}`)
     } catch (err) {
-      setError(err.message)
-      toast('error', err.message)
+      setError(err.message); toast('error', err.message)
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <form className="card form" onSubmit={submit}>
-      <h2>New project</h2>
-      <p className="muted">
-        Pick (or paste) a GitHub repository that contains a Dockerfile. The platform creates the namespaces, GitOps
-        values and Argo CD apps (dev / staging / prod), then starts the first CI run.
-      </p>
-      <label>Your repositories
-        <input placeholder={repos ? `Search ${repos.length} repos…` : 'Loading repos…'} value={q} onChange={e => setQ(e.target.value)} />
-      </label>
-      {repoError && <p className="muted">Could not list repos ({repoError}) — paste the URL below.</p>}
-      {repos && (
-        <div className="picker">
-          {shown.map(r => (
-            <button type="button" key={r.fullName} className={form.repoUrl === r.url ? 'active' : ''}
-                    onClick={() => setForm({ ...form, repoUrl: r.url, name: '' })}>
-              <strong>{r.fullName}</strong> {r.private && <span className="muted">(private)</span>}
-              {r.description && <span className="muted"> — {r.description}</span>}
-            </button>
-          ))}
-          {shown.length === 0 && <p className="muted" style={{ padding: '6px 10px' }}>No matches.</p>}
+    <>
+      <PageHead title="New project" sub="Connect a GitHub repository that has a Dockerfile — any language works." />
+      <div className="steps-indicator">
+        <div><b><Icon name="github" size={14} /> 1 · Repository</b>pick or paste</div>
+        <div><b><Icon name="settings" size={14} /> 2 · Build &amp; test</b>Dockerfile, tests, scan gate</div>
+        <div><b><Icon name="rocket" size={14} /> 3 · Go</b>namespaces, GitOps, Argo CD, first run</div>
+      </div>
+      <form onSubmit={submit} className="grid span">
+        <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>
+          <div className="card-head"><h3>Repository</h3>{repos && <span className="muted">{repos.length} repos available</span>}</div>
+          <div className="search"><Icon name="search" size={15} />
+            <input placeholder={repos ? 'Search your repositories…' : 'Loading your repositories…'} value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          {repoError && <p className="muted">Could not list repos ({repoError}) — paste the URL below.</p>}
+          {repos && (
+            <div className="picker">
+              {shown.map(r => (
+                <button type="button" key={r.fullName} className={form.repoUrl === r.url ? 'active' : ''}
+                        onClick={() => setForm({ ...form, repoUrl: r.url, name: '' })}>
+                  <Avatar name={r.fullName.split('/')[1]} size={30} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <b>{r.fullName}</b> {r.private && <span className="badge gray" style={{ marginLeft: 6 }}>private</span>}
+                    <div className="desc">{r.description || `default branch ${r.defaultBranch}`} · pushed {ago(r.pushedAt)}</div>
+                  </div>
+                  {form.repoUrl === r.url && <Icon name="check" size={16} style={{ color: '#a78bfa' }} />}
+                </button>
+              ))}
+              {shown.length === 0 && <p className="muted" style={{ padding: '8px 12px' }}>No matches.</p>}
+            </div>
+          )}
+          <label>GitHub repository URL
+            <input required placeholder="https://github.com/org/repo" value={form.repoUrl} onChange={set('repoUrl')} />
+          </label>
+          <label>Project name <span className="muted">(defaults to the repo name)</span>
+            <input value={form.name} onChange={set('name')} />
+          </label>
         </div>
-      )}
-      <label>GitHub repository URL
-        <input required placeholder="https://github.com/org/repo" value={form.repoUrl} onChange={set('repoUrl')} />
-      </label>
-      <label>Project name <span className="muted">(defaults to repo name)</span>
-        <input value={form.name} onChange={set('name')} />
-      </label>
-      <div className="row">
-        <label>Dockerfile<input value={form.dockerfile} onChange={set('dockerfile')} /></label>
-        <label>Build context<input value={form.contextDir} onChange={set('contextDir')} /></label>
-      </div>
-      <label>Stack preset (fills test settings)
-        <select onChange={e => setForm({ ...form, ...PRESETS[e.target.value] })}>
-          <option value="">none / tests run inside Dockerfile</option>
-          {Object.keys(PRESETS).filter(Boolean).map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
-      </label>
-      <div className="row">
-        <label>Test image<input placeholder="alpine:3.20" value={form.testImage} onChange={set('testImage')} /></label>
-        <label>Test command<input placeholder="(skip)" value={form.testCommand} onChange={set('testCommand')} /></label>
-      </div>
-      <label>Vulnerability gate
-        <select value={form.scanSeverity} onChange={set('scanSeverity')}>
-          <option value="HIGH,CRITICAL">Block on HIGH or CRITICAL (default)</option>
-          <option value="CRITICAL">Block on CRITICAL only</option>
-          <option value="NONE">Report only (never block)</option>
-        </select>
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={form.registerWebhook} onChange={set('registerWebhook')} />
-        Register GitHub webhook (build on push to default branch and on pull requests)
-      </label>
-      {error && <p className="error">{error}</p>}
-      <button className={`btn primary${busy ? ' busy' : ''}`} disabled={busy}>{busy ? 'Creating…' : 'Create & run CI'}</button>
-    </form>
+
+        <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>
+          <div className="card-head"><h3>Build &amp; test</h3></div>
+          <div className="row">
+            <label>Dockerfile<input value={form.dockerfile} onChange={set('dockerfile')} /></label>
+            <label>Build context<input value={form.contextDir} onChange={set('contextDir')} /></label>
+          </div>
+          <label>Stack preset
+            <select onChange={e => setForm({ ...form, ...PRESETS[e.target.value] })}>
+              <option value="">none — tests run inside the Dockerfile</option>
+              {Object.keys(PRESETS).filter(Boolean).map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </label>
+          <label>Test image<input placeholder="alpine:3.20" value={form.testImage} onChange={set('testImage')} /></label>
+          <label>Test command<input placeholder="(skip)" value={form.testCommand} onChange={set('testCommand')} /></label>
+          <label>Vulnerability gate
+            <select value={form.scanSeverity} onChange={set('scanSeverity')}>
+              <option value="HIGH,CRITICAL">Block on HIGH or CRITICAL (default)</option>
+              <option value="CRITICAL">Block on CRITICAL only</option>
+              <option value="NONE">Report only (never block)</option>
+            </select>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={form.registerWebhook} onChange={set('registerWebhook')} />
+            Build on every push &amp; pull request (GitHub webhook)
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className={`btn primary${busy ? ' busy' : ''}`} disabled={busy} style={{ width: '100%', justifyContent: 'center', padding: 11 }}>
+            <Icon name="rocket" size={15} />{busy ? 'Creating…' : 'Create & run first CI'}
+          </button>
+        </div>
+      </form>
+    </>
   )
 }

@@ -226,6 +226,10 @@ function Settings({ p, run, btn }) {
           () => api(`/api/projects/${p.id}/reconcile`, { method: 'POST' }), 'Namespaces, pull secrets and Argo CD apps re-applied')}>
           <Icon name="refresh" size={14} />Repair environments
         </button>
+        <button {...btn('template')} title="Mark the GitHub repo as a template so new projects can start from it" onClick={() => run('template',
+          () => api(`/api/projects/${p.id}/save-as-template`, { method: 'POST' }), 'Saved — it now appears under Templates › Your templates')}>
+          <Icon name="layers" size={14} />Save as template
+        </button>
       </div>
     </div>
   )

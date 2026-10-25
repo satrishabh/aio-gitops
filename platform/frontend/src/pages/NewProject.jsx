@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
 import Icon from '../components/Icon.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -49,7 +49,9 @@ export default function NewProject() {
 
   return (
     <>
-      <PageHead title="New project" sub="Connect a GitHub repository that has a Dockerfile — any language works." />
+      <PageHead title="New project" sub="Connect a GitHub repository that has a Dockerfile — any language works.">
+        <Link to="/templates" className="btn"><Icon name="layers" size={14} />Start from a template</Link>
+      </PageHead>
       <div className="steps-indicator">
         <div><b><Icon name="github" size={14} /> 1 · Repository</b>pick or paste</div>
         <div><b><Icon name="settings" size={14} /> 2 · Build &amp; test</b>Dockerfile, tests, scan gate</div>

@@ -89,6 +89,56 @@ public class GitHubClient {
                 .body(body).retrieve().toBodilessEntity();
     }
 
+    public boolean repoExists(String owner, String repo) {
+        try {
+            getRepo(owner, repo);
+            return true;
+        } catch (HttpClientErrorException.NotFound e) {
+            return false;
+        }
+    }
+
+    /** Creates {@code owner/name} from a template repository (only works when the source has is_template=true). */
+    public Map<String, Object> generateFromTemplate(String templateOwner, String templateRepo, String owner, String name,
+                                                    boolean privateRepo, String description) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("owner", owner);
+        body.put("name", name);
+        body.put("private", privateRepo);
+        body.put("include_all_branches", false);
+        if (description != null && !description.isBlank()) body.put("description", description);
+        return gh.post().uri("/repos/{o}/{r}/generate", templateOwner, templateRepo).body(body).retrieve().body(MAP);
+    }
+
+    /** GitHub repository search, best match by stars. {@code q} is passed as a URI variable, so it is encoded. */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> searchRepos(String q, int perPage) {
+        Map<String, Object> res = gh.get()
+                .uri("/search/repositories?q={q}&sort=stars&order=desc&per_page={n}", q, perPage)
+                .retrieve().body(MAP);
+        Object items = res == null ? null : res.get("items");
+        return items instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+    }
+
+    /** Names of the files and folders at the repository root ({@code null} if the repo is empty or not ready yet). */
+    public List<String> rootEntries(String owner, String repo) {
+        try {
+            List<Map<String, Object>> entries = gh.get().uri("/repos/{o}/{r}/contents", owner, repo).retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+            return entries == null ? null : entries.stream().map(e -> String.valueOf(e.get("name"))).toList();
+        } catch (HttpClientErrorException.NotFound e) {
+            return null;
+        }
+    }
+
+    public void setTemplate(String owner, String repo, boolean isTemplate) {
+        gh.patch().uri("/repos/{o}/{r}", owner, repo).body(Map.of("is_template", isTemplate)).retrieve().toBodilessEntity();
+    }
+
+    public void replaceTopics(String owner, String repo, List<String> topics) {
+        gh.put().uri("/repos/{o}/{r}/topics", owner, repo).body(Map.of("names", topics)).retrieve().toBodilessEntity();
+    }
+
     /** Repos visible to the logged-in user (uses their OAuth token, not the platform PAT). */
     public List<Map<String, Object>> listUserRepos(String userToken) {
         List<Map<String, Object>> repos = RestClient.create(apiUrl).get()

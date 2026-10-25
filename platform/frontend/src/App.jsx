@@ -12,11 +12,12 @@ import RunDetail from './pages/RunDetail.jsx'
 import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
+import Templates from './pages/Templates.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+/, 'Projects / Project'],
   [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
-  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'],
+  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'],
 ]
 
 export default function App() {
@@ -59,6 +60,7 @@ export default function App() {
             <NavLink to="/" end><Icon name="home" />Overview</NavLink>
             <NavLink to="/projects"><Icon name="grid" />Projects</NavLink>
             <NavLink to="/new"><Icon name="plus" />New project</NavLink>
+            <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
             <div className="nav-section">Delivery</div>
             <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count">{pending}</span>}</NavLink>
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
@@ -90,6 +92,7 @@ export default function App() {
               <Route path="/" element={<Dashboard me={me} />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/new" element={<NewProject />} />
+              <Route path="/templates" element={<Templates />} />
               <Route path="/projects/:id" element={<ProjectDetail me={me} />} />
               <Route path="/runs/:id" element={<RunDetail me={me} />} />
               <Route path="/approvals" element={<Approvals me={me} />} />

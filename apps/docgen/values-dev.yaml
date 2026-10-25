@@ -1,0 +1,13 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
+image:
+  repository: ghcr.io/satrishabh/docgen
+  tag: "0.0.0"
+# 0 until a real image is deployed (avoids pulling the placeholder tag)
+replicaCount: 0
+imagePullSecrets:
+  - name: ghcr-pull
+pdb:
+  enabled: false
+ingress:
+  enabled: true
+  host: docgen-dev.34.180.3.18.nip.io

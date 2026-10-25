@@ -13,4 +13,10 @@ public interface CiRunRepo extends JpaRepository<CiRun, Long> {
     List<CiRun> findByProjectIdOrderByIdDesc(Long projectId, Pageable page);
 
     Optional<CiRun> findFirstByProjectIdOrderByIdDesc(Long projectId);
+
+    Optional<CiRun> findByPipelineRunName(String pipelineRunName);
+
+    List<CiRun> findByProjectIdAndCreatedAtAfterOrderByIdAsc(Long projectId, java.time.Instant after);
+
+    List<CiRun> findByCreatedAtAfterOrderByIdAsc(java.time.Instant after);
 }

@@ -17,9 +17,11 @@ public class GitHubClient {
     private static final ParameterizedTypeReference<Map<String, Object>> MAP = new ParameterizedTypeReference<>() {};
 
     private final RestClient gh;
+    private final String apiUrl;
 
-    public GitHubClient(RestClient githubRestClient) {
+    public GitHubClient(RestClient githubRestClient, com.aio.platform.config.AppProperties props) {
         this.gh = githubRestClient;
+        this.apiUrl = props.github().apiUrl();
     }
 
     public record FileContent(String content, String sha) {}
@@ -71,5 +73,30 @@ public class GitHubClient {
                 })
                 .body(MAP);
         return ((Number) res.get("id")).longValue();
+    }
+
+    public void deleteWebhook(String owner, String repo, long hookId) {
+        try {
+            gh.delete().uri("/repos/{o}/{r}/hooks/{id}", owner, repo, hookId).retrieve().toBodilessEntity();
+        } catch (HttpClientErrorException.NotFound e) {
+            // already gone
+        }
+    }
+
+    public void deleteFile(String owner, String repo, String path, String branch, String sha, String message) {
+        Map<String, Object> body = Map.of("message", message, "sha", sha, "branch", branch);
+        gh.method(org.springframework.http.HttpMethod.DELETE).uri(contentsUri(owner, repo, path))
+                .body(body).retrieve().toBodilessEntity();
+    }
+
+    /** Repos visible to the logged-in user (uses their OAuth token, not the platform PAT). */
+    public List<Map<String, Object>> listUserRepos(String userToken) {
+        List<Map<String, Object>> repos = RestClient.create(apiUrl).get()
+                .uri("/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member")
+                .header(org.springframework.http.HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                .header(org.springframework.http.HttpHeaders.ACCEPT, "application/vnd.github+json")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        return repos == null ? List.of() : repos;
     }
 }

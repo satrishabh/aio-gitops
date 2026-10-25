@@ -7,12 +7,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record AppProperties(
         String publicUrl,
         String registry,
+        String registryUser,
         String baseDomain,
         Tekton tekton,
         GitOps gitops,
         ArgoCd argocd,
         GitHub github,
-        Security security) {
+        Security security,
+        Cleanup cleanup) {
+
+    /** PipelineRun pruning: keep at least {@code keepPerProject} newest runs, delete older than {@code maxAgeHours}. */
+    public record Cleanup(int keepPerProject, int maxAgeHours) {}
 
     public record Tekton(String namespace, String pipeline, String serviceAccount, String storageSize,
                          String registrySecret, String githubTokenSecret) {}

@@ -36,6 +36,7 @@ public class Me {
         m.put("name", user.getAttributes().get("name"));
         m.put("avatarUrl", user.getAttributes().get("avatar_url"));
         m.put("approver", promotions.isApprover(login));
+        m.put("canSelfApprove", promotions.canSelfApprove(login));
         return m;
     }
 

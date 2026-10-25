@@ -16,4 +16,10 @@ public class RunStep {
     public Integer exitCode;
     public Instant startedAt;
     public Instant finishedAt;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public String logText;          // archived when the PipelineRun is pruned
+
+    public String label() {
+        return "-".equals(stepName) ? taskName : taskName + " / " + stepName;
+    }
 }

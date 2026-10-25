@@ -9,4 +9,8 @@ public interface DeploymentRepo extends JpaRepository<Deployment, Long> {
     List<Deployment> findByProjectIdOrderByDeployedAtDesc(Long projectId, Pageable page);
 
     boolean existsByProjectIdAndEnvironmentAndArgoHistoryId(Long projectId, String environment, Long argoHistoryId);
+
+    List<Deployment> findByDeployedAtAfter(java.time.Instant after);
+
+    List<Deployment> findByProjectIdAndDeployedAtAfter(Long projectId, java.time.Instant after);
 }

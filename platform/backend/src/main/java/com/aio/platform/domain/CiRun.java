@@ -27,6 +27,11 @@ public class CiRun {
     public Integer vulnHigh;
     public Integer vulnMedium;
     public Integer vulnLow;
+    public Long rerunOf;
+    public boolean gateOverridden;
+    public String overrideReason;
+    public String scanSeverity;     // gate used for this run (NONE when overridden)
+    public boolean logsArchived;
     public Instant createdAt = Instant.now();
     public Instant startedAt;
     public Instant finishedAt;

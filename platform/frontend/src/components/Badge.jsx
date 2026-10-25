@@ -2,7 +2,7 @@ const COLORS = {
   SUCCEEDED: 'green', Synced: 'green', Healthy: 'green', DONE: 'green',
   RUNNING: 'blue', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber',
   FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
-  CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray',
+  CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray', 'RISK ACCEPTED': 'orange',
 }
 
 export default function Badge({ value }) {

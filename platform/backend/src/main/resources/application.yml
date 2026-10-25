@@ -39,6 +39,11 @@ app:
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>
   registry: ${APP_REGISTRY:ghcr.io/satrishabh}
+  # Username paired with GITHUB_TOKEN for the ghcr-pull secret the platform puts in each app namespace
+  registry-user: ${APP_REGISTRY_USER:satrishabh}
+  cleanup:
+    keep-per-project: 5
+    max-age-hours: 24
   # Optional: if set, each env gets ingress host <project>-<env>.<base-domain>
   base-domain: ${APP_BASE_DOMAIN:}
   tekton:

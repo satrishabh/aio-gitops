@@ -50,6 +50,10 @@ spec:
       script: |
         #!/bin/sh
         set -eu
+        if [ "$(params.SEVERITY)" = "NONE" ] || [ -z "$(params.SEVERITY)" ]; then
+          echo "Gate disabled (SEVERITY=NONE) - findings reported only."
+          exit 0
+        fi
         FLAGS=""
         [ "$(params.IGNORE_UNFIXED)" = "true" ] && FLAGS="--ignore-unfixed"
         trivy image --no-progress --skip-db-update --exit-code 1 $FLAGS \

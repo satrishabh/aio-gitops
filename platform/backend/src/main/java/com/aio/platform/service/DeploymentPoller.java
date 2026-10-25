@@ -23,14 +23,16 @@ public class DeploymentPoller {
     private final EnvStatusRepo envs;
     private final DeploymentRepo deployments;
     private final ArgoCdService argo;
+    private final GitOpsService gitops;
     private final AuditService audit;
 
     public DeploymentPoller(ProjectRepo projects, EnvStatusRepo envs, DeploymentRepo deployments,
-                            ArgoCdService argo, AuditService audit) {
+                            ArgoCdService argo, GitOpsService gitops, AuditService audit) {
         this.projects = projects;
         this.envs = envs;
         this.deployments = deployments;
         this.argo = argo;
+        this.gitops = gitops;
         this.audit = audit;
     }
 
@@ -63,6 +65,14 @@ public class DeploymentPoller {
         es.healthStatus = J.str(status, "health", "status");
         es.revision = J.str(status, "sync", "revision");
         es.imageTag = tag;
+        try {
+            var desired = gitops.readValuesCached(p, env);
+            es.desiredTag = desired.tag();
+            es.replicas = desired.replicas();
+            es.appUrl = desired.appUrl();
+        } catch (Exception e) {
+            log.debug("gitops read {}-{} failed: {}", p.name, env, e.getMessage());
+        }
         es.updatedAt = Instant.now();
         envs.save(es);
 
@@ -77,10 +87,12 @@ public class DeploymentPoller {
             d.argoHistoryId = id;
             d.revision = J.str(h, "revision");
             d.deployedAt = J.time(h, "deployedAt");
-            // Argo history doesn't store the image; we know it reliably only for the latest entry
-            d.imageTag = id == latestId ? tag : null;
+            // Argo history doesn't store the image; we know it only for the latest entry. Argo's image summary
+            // lags behind a rollout, so prefer the GitOps tag once the app is Synced to that revision.
+            String deployedTag = "Synced".equals(es.syncStatus) && es.desiredTag != null ? es.desiredTag : tag;
+            d.imageTag = id == latestId ? deployedTag : null;
             deployments.save(d);
-            if (id == latestId) audit.record("argocd", "deploy." + env, p.name, tag);
+            if (id == latestId) audit.record("argocd", "deploy." + env, p.name, deployedTag);
         }
     }
 

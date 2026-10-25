@@ -63,6 +63,9 @@ public class PromotionService {
     public Promotion approve(Project p, Promotion pr, String actor) {
         requirePending(pr);
         if (!canApprove(actor, pr)) throw new SecurityException("not allowed to approve this request");
+        if (actor.equalsIgnoreCase(pr.requestedBy)) {
+            audit.record(actor, "promotion.self_approve", p.name + "/" + pr.toEnv, pr.imageTag);
+        }
         return apply(p, pr, actor);
     }
 
@@ -82,10 +85,21 @@ public class PromotionService {
         return approvers.isEmpty() || approvers.contains(login.toLowerCase());
     }
 
-    private boolean canApprove(String actor, Promotion pr) {
-        var approvers = props.security().approvers();
-        if (approvers.isEmpty()) return !actor.equalsIgnoreCase(pr.requestedBy); // four-eyes by default
+    public boolean canSelfApprove(String login) {
+        return canApprove(props.security().approvers(), login, login);
+    }
+
+    /**
+     * With APPROVERS configured, listed approvers may approve anything, including their own requests
+     * (audited as a self-approval). With no APPROVERS, the four-eyes rule applies: anyone but the requester.
+     */
+    static boolean canApprove(java.util.List<String> approvers, String actor, String requestedBy) {
+        if (approvers.isEmpty()) return !actor.equalsIgnoreCase(requestedBy);
         return approvers.contains(actor.toLowerCase());
+    }
+
+    private boolean canApprove(String actor, Promotion pr) {
+        return canApprove(props.security().approvers(), actor, pr.requestedBy);
     }
 
     private Promotion apply(Project p, Promotion pr, String actor) {

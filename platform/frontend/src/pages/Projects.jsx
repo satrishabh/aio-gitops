@@ -1,23 +1,14 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtTime } from '../api.js'
 import Badge from '../components/Badge.jsx'
+import { Stale, usePoll } from '../hooks.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 
 export default function Projects() {
-  const [items, setItems] = useState(null)
-  const [error, setError] = useState('')
+  const { data: items, error, stale, refresh } = usePoll(() => api('/api/projects'), 10000)
 
-  useEffect(() => {
-    const load = () => api('/api/projects').then(setItems).catch(e => setError(e.message))
-    load()
-    const t = setInterval(load, 10000)
-    return () => clearInterval(t)
-  }, [])
-
-  if (error) return <p className="error">{error}</p>
-  if (!items) return <p>Loading…</p>
+  if (!items) return error ? <p className="error">{error}</p> : <p>Loading…</p>
   if (items.length === 0) return (
     <div className="card">
       <p>No projects yet.</p>
@@ -27,6 +18,7 @@ export default function Projects() {
 
   return (
     <div className="card">
+      <Stale stale={stale} error={error} onRetry={refresh} />
       <h2>Projects</h2>
       <table>
         <thead>
@@ -46,7 +38,10 @@ export default function Projects() {
                 const s = environments.find(e => e.environment === env)
                 return (
                   <td key={env}>
-                    {s ? <><Badge value={s.healthStatus} /> <code>{s.imageTag || '—'}</code></> : <span className="muted">—</span>}
+                    {s ? <>
+                      <Badge value={s.healthStatus} /> <code>{s.desiredTag || s.imageTag || '—'}</code>
+                      {s.replicas === 0 && <span className="muted"> (not deployed)</span>}
+                    </> : <span className="muted">—</span>}
                   </td>
                 )
               })}

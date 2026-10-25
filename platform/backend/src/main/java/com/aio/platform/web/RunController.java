@@ -48,12 +48,24 @@ public class RunController {
                 "steps", steps.findByRunIdOrderById(id));
     }
 
-    /** Raw logs of one step container. */
+    /** Step logs: live from the pod while it exists, otherwise the copy archived before pruning. */
     @GetMapping(value = "/{id}/steps/{stepId}/logs", produces = MediaType.TEXT_PLAIN_VALUE)
     public String logs(@PathVariable Long id, @PathVariable Long stepId) {
         RunStep s = steps.findById(stepId).orElseThrow();
         if (!s.runId.equals(id)) throw new IllegalArgumentException("step does not belong to run");
+        if (s.logText != null) return s.logText;
         return tekton.logs(s.podName, s.containerName);
+    }
+
+    public record RerunRequest(String acceptRiskReason) {}
+
+    /** Re-run with the same ref; with acceptRiskReason an approver skips the vulnerability gate once. */
+    @PostMapping("/{id}/rerun")
+    public CiRun rerun(@PathVariable Long id, @RequestBody(required = false) RerunRequest req,
+                       @AuthenticationPrincipal OAuth2User user) {
+        CiRun prev = runs.findById(id).orElseThrow();
+        return runService.rerun(projects.findById(prev.projectId).orElseThrow(), prev, Me.login(user),
+                req == null ? null : req.acceptRiskReason());
     }
 
     @PostMapping("/{id}/cancel")

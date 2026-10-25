@@ -18,6 +18,7 @@ public class Project {
     public String testImage;
     public String testCommand;
     public String imageRepo;
+    public String scanSeverity = "HIGH,CRITICAL";   // HIGH,CRITICAL | CRITICAL | NONE
     @JsonIgnore public String webhookSecret;
     public Long webhookId;
     public String createdBy;

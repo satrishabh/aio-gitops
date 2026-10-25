@@ -57,6 +57,7 @@ public class TektonService {
         params.put("gitops-branch", g.branch());
         params.put("gitops-values-file", GitOpsService.valuesPath(g, p.name, "dev"));
         params.put("deploy", String.valueOf(run.deploy));
+        params.put("scan-severity", run.scanSeverity == null ? "HIGH,CRITICAL" : run.scanSeverity);
 
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("pipelineRef", Map.of("name", t.pipeline()));

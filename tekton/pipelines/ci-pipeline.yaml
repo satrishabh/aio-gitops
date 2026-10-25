@@ -29,6 +29,9 @@ spec:
     - name: deploy
       description: '"true" on push to main; "false" for PRs (build/scan only)'
       default: "true"
+    - name: scan-severity
+      description: 'Trivy gate, e.g. "HIGH,CRITICAL", "CRITICAL", or "NONE" (report only)'
+      default: HIGH,CRITICAL
   workspaces:
     - name: source
     - name: dockerconfig
@@ -69,6 +72,7 @@ spec:
       taskRef: { name: trivy-scan }
       params:
         - { name: IMAGE_URL, value: $(tasks.build-push.results.IMAGE_URL) }
+        - { name: SEVERITY, value: $(params.scan-severity) }
       workspaces:
         - { name: dockerconfig, workspace: dockerconfig }
 

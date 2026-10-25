@@ -4,23 +4,29 @@ function csrfToken() {
 }
 
 export async function api(path, { method = 'GET', body, text = false } = {}) {
-  const res = await fetch(path, {
-    method,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-XSRF-TOKEN': csrfToken(),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  let res
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': csrfToken(),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    throw new Error('Network error — platform unreachable')
+  }
   if (res.status === 401) {
     if (window.location.pathname !== '/login') window.location.assign('/login')
     throw new Error('Not logged in')
   }
   const raw = await res.text()
   if (!res.ok) {
-    let msg = res.statusText
+    let msg = `${res.status} ${res.statusText}`
     try { msg = JSON.parse(raw).message || msg } catch { /* not json */ }
+    if (res.status === 403 && !raw) msg = 'Forbidden — reload the page (session/CSRF token expired)'
     throw new Error(msg)
   }
   if (text) return raw

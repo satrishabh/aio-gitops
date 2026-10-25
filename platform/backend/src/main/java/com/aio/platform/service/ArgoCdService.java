@@ -77,4 +77,13 @@ public class ArgoCdService {
                 .body(Map.of("prune", true))
                 .retrieve().toBodilessEntity();
     }
+
+    /** Deletes the Application and (cascade) everything it deployed. Missing apps are ignored. */
+    public void deleteApp(String name) {
+        try {
+            argo.delete().uri("/api/v1/applications/{n}?cascade=true", name).retrieve().toBodilessEntity();
+        } catch (HttpClientErrorException.NotFound e) {
+            // already gone
+        }
+    }
 }

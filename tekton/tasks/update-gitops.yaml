@@ -38,6 +38,8 @@ spec:
         cd gitops
         export IMG="$(params.IMAGE)" TAG="$(params.TAG)"
         yq -i '.image.repository = strenv(IMG) | .image.tag = strenv(TAG)' "$(params.VALUES_FILE)"
+        # envs start at 0 replicas until a real image exists; first real deploy scales to 1
+        yq -i 'with(select((.replicaCount // 0) == 0); .replicaCount = 1)' "$(params.VALUES_FILE)"
         if git diff --quiet; then echo "No change"; exit 0; fi
         git config user.name  "tekton-ci"
         git config user.email "tekton-ci@noreply.local"

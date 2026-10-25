@@ -2,9 +2,11 @@
 image:
   repository: ghcr.io/satrishabh/sarvaikam
   tag: "0.0.0"
-replicaCount: 1
+replicaCount: 0
 pdb:
   enabled: false
 ingress:
   enabled: true
   host: sarvaikam-staging.34.180.3.18.nip.io
+imagePullSecrets:
+  - name: ghcr-pull

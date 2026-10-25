@@ -29,6 +29,15 @@ public class ArgoCdService {
 
     /** Upserts the Argo CD Application. dev/staging auto-sync; prod is manual (approval gate). */
     public void upsertApp(Project p, String env) {
+        upsertApp(p, env, false);
+    }
+
+    /**
+     * @param syncIfMoved trigger a sync when the app's destination namespace changed (layout migration);
+     *                    needed for prod, which has no auto-sync
+     */
+    public void upsertApp(Project p, String env, boolean syncIfMoved) {
+        String before = destinationNamespace(appName(p, env));
         var g = props.gitops();
         var a = props.argocd();
         String chartToRoot = "../".repeat(g.chartPath().split("/").length);
@@ -42,10 +51,11 @@ public class ArgoCdService {
                 "helm", Map.of(
                         "releaseName", p.name,
                         "valueFiles", List.of("values.yaml", chartToRoot + GitOpsService.valuesPath(g, p.name, env)))));
-        spec.put("destination", Map.of("server", a.destinationServer(), "namespace", appName(p, env)));
+        spec.put("destination", Map.of("server", a.destinationServer(), "namespace", ClusterService.namespace(p, env)));
 
+        // Namespaces are created by the platform (labels, pull secret, LimitRange), not by the sync
         Map<String, Object> syncPolicy = new LinkedHashMap<>();
-        syncPolicy.put("syncOptions", List.of("CreateNamespace=true"));
+        syncPolicy.put("syncOptions", List.of("CreateNamespace=false"));
         syncPolicy.put("retry", Map.of("limit", 3,
                 "backoff", Map.of("duration", "10s", "factor", 2, "maxDuration", "3m")));
         if (!"prod".equals(env)) syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
@@ -59,6 +69,12 @@ public class ArgoCdService {
                 "spec", spec);
 
         argo.post().uri("/api/v1/applications?upsert=true").body(app).retrieve().toBodilessEntity();
+        if (syncIfMoved && before != null && !before.equals(ClusterService.namespace(p, env))) sync(appName(p, env));
+    }
+
+    private String destinationNamespace(String name) {
+        Map<String, Object> app = getApp(name, false);
+        return app == null ? null : J.str(app.get("spec"), "destination", "namespace");
     }
 
     /** Returns the Application JSON or null if it does not exist. */

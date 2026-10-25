@@ -8,7 +8,9 @@ import com.aio.platform.repo.CiRunRepo;
 import com.aio.platform.repo.ProjectRepo;
 import com.aio.platform.repo.RunStepRepo;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
+import io.fabric8.kubernetes.api.model.LimitRangeBuilder;
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
@@ -67,20 +69,39 @@ public class ClusterService {
         this.audit = audit;
     }
 
+    /**
+     * Shared environment namespaces: every project deploys into {@code dev}, {@code staging} or {@code prod}
+     * as its own Helm release (Deployment/Service/Ingress named after the project).
+     */
     public static String namespace(Project p, String env) {
+        return env;
+    }
+
+    /** Namespace used by the earlier one-namespace-per-project-per-env layout (migrated away on reconcile). */
+    static String legacyNamespace(Project p, String env) {
         return p.name + "-" + env;
     }
 
     // ------------------------------------------------------------------ namespaces + pull secrets
 
-    /** Creates the env namespace (if missing) and upserts its ghcr-pull secret. */
+    /**
+     * Ensures the shared env namespace exists with Pod Security labels and a default LimitRange
+     * (containers without resources still get sane requests/limits), and upserts its ghcr-pull secret.
+     */
     public void ensureEnvironment(Project p, String env) {
         String ns = namespace(p, env);
-        if (k8s.namespaces().withName(ns).get() == null) {
-            k8s.namespaces().resource(new NamespaceBuilder().withNewMetadata().withName(ns)
-                    .addToLabels("aio.platform/project", p.name).addToLabels("aio.platform/env", env)
-                    .endMetadata().build()).create();
-        }
+        k8s.namespaces().resource(new NamespaceBuilder().withNewMetadata().withName(ns)
+                .addToLabels("aio.platform/managed", "true")
+                .addToLabels("aio.platform/env", env)
+                .addToLabels("pod-security.kubernetes.io/enforce", "baseline")
+                .addToLabels("pod-security.kubernetes.io/warn", "restricted")
+                .endMetadata().build()).forceConflicts().serverSideApply();
+        k8s.limitRanges().inNamespace(ns).resource(new LimitRangeBuilder()
+                .withNewMetadata().withName("defaults").withNamespace(ns).endMetadata()
+                .withNewSpec().addNewLimit().withType("Container")
+                .addToDefaultRequest("cpu", new Quantity("50m")).addToDefaultRequest("memory", new Quantity("64Mi"))
+                .addToDefault("cpu", new Quantity("500m")).addToDefault("memory", new Quantity("512Mi"))
+                .endLimit().endSpec().build()).forceConflicts().serverSideApply();
         String token = props.github().token();
         if (token == null || token.isBlank()) {
             log.warn("GITHUB_TOKEN not set; skipping {} in {}", GitOpsService.PULL_SECRET, ns);
@@ -94,8 +115,13 @@ public class ClusterService {
                 .build()).forceConflicts().serverSideApply();
     }
 
-    public void deleteEnvironment(Project p, String env) {
-        k8s.namespaces().withName(namespace(p, env)).delete();
+    /** Deletes the old per-project namespace, but only if the platform created it for this project. */
+    public void deleteLegacyNamespace(Project p, String env) {
+        var ns = k8s.namespaces().withName(legacyNamespace(p, env)).get();
+        if (ns == null || ns.getMetadata().getLabels() == null) return;
+        if (!p.name.equals(ns.getMetadata().getLabels().get("aio.platform/project"))) return;
+        k8s.namespaces().withName(legacyNamespace(p, env)).delete();
+        log.info("deleted legacy namespace {}", legacyNamespace(p, env));
     }
 
     static String dockerConfig(String host, String user, String token) {
@@ -129,8 +155,18 @@ public class ClusterService {
     public void reconcile(Project p) {
         for (String env : GitOpsService.ENVS) ensureEnvironment(p, env);
         gitops.reconcile(p);
-        for (String env : GitOpsService.ENVS) argo.upsertApp(p, env);
-        log.info("reconciled {} (namespaces, {}, values, Argo CD apps)", p.name, GitOpsService.PULL_SECRET);
+        for (String env : GitOpsService.ENVS) {
+            // Remove the legacy per-project namespace first: its Ingress claims the same host, and the
+            // ingress-nginx admission webhook would reject the release in the shared namespace.
+            deleteLegacyNamespace(p, env);
+            try {
+                argo.upsertApp(p, env, true); // moves the app into the shared namespace (syncs prod once)
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                if (!e.getResponseBodyAsString().contains("already in progress")) throw e;
+                log.info("{}-{}: sync already in progress, leaving it to Argo CD", p.name, env);
+            }
+        }
+        log.info("reconciled {} (namespaces dev/staging/prod, {}, values, Argo CD apps)", p.name, GitOpsService.PULL_SECRET);
     }
 
     // ------------------------------------------------------------------ PipelineRun pruning

@@ -20,7 +20,7 @@ export default function ProjectDetail({ me }) {
   const { busy, run } = useAction(refresh)
 
   if (!data) return error ? <p className="error">{error}</p> : <p>Loading…</p>
-  const { project: p, environments, runs, deployments, promotions, failedSteps = {} } = data
+  const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {} } = data
   const btn = (key, cls = 'btn') => ({ className: `${cls}${busy === key ? ' busy' : ''}`, disabled: !!busy })
 
   return (
@@ -55,6 +55,7 @@ export default function ProjectDetail({ me }) {
           return (
             <div className="card env" key={env}>
               <h3>{env}</h3>
+              <p className="muted">Namespace <code>{namespaces[env] || env}</code> · release <code>{p.name}</code></p>
               <p>Sync <Badge value={s.syncStatus} /> Health <Badge value={s.healthStatus} /></p>
               <p>
                 Desired <code>{s.desiredTag || '—'}</code>{' '}
@@ -201,8 +202,9 @@ function DangerZone({ p, btn, run, onDeleted }) {
     <div className="card form danger-zone">
       <h3>Delete project</h3>
       <p className="muted">
-        Removes the Argo CD apps and everything they deployed, the <code>{p.name}-dev/staging/prod</code> namespaces,
-        the GitOps values files, the GitHub webhook and all run history. Container images in the registry are kept.
+        Removes the Argo CD apps and this project's release from the shared <code>dev</code>, <code>staging</code>{' '}
+        and <code>prod</code> namespaces (other projects are untouched), the GitOps values files, the GitHub webhook
+        and all run history. Container images in the registry are kept.
       </p>
       <label>Type <code>{p.name}</code> to confirm
         <input value={confirmName} onChange={e => setConfirmName(e.target.value)} />

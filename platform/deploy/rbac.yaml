@@ -40,9 +40,9 @@ roleRef:
   kind: Role
   name: aio-platform-ci
 ---
-# App environments: the platform creates/deletes <project>-<env> namespaces and keeps a
-# ghcr-pull image-pull secret in each. Namespaces can't be pre-scoped by name, so this is cluster-wide;
-# no access to workloads (Argo CD deploys those).
+# Environments: the platform owns the shared dev/staging/prod namespaces (labels, default LimitRange,
+# ghcr-pull secret) and removes legacy <project>-<env> namespaces. Namespaces are cluster-scoped, so this
+# is a ClusterRole; it grants no access to workloads (Argo CD deploys those).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -50,9 +50,9 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]
-    verbs: ["get", "list", "create", "delete"]
+    verbs: ["get", "list", "create", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["secrets"]
+    resources: ["secrets", "limitranges"]
     verbs: ["get", "create", "update", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

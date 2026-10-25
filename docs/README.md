@@ -77,16 +77,17 @@ Register each cluster with `argocd cluster add <context>`, then add an element t
 
 ## 7. Platform portal (platform/)
 - **Projects:** pick a repo from your GitHub account, or paste its URL. The platform then:
-  - creates the `<app>-dev/staging/prod` namespaces;
-  - adds a `ghcr-pull` image-pull secret to each, built from `GITHUB_TOKEN` and `APP_REGISTRY_USER`, so private GHCR images deploy without making packages public;
-  - writes the GitOps values files and the Argo CD apps.
+  - deploys the project as its own Helm release into the **shared environment namespaces `dev`, `staging` and `prod`**, with one Deployment, Service and Ingress per project in each;
+  - owns those namespaces. They carry Pod Security labels (enforce `baseline`, warn `restricted`), a default `LimitRange`, and a `ghcr-pull` image-pull secret built from `GITHUB_TOKEN` and `APP_REGISTRY_USER`, so private GHCR images deploy. Argo CD syncs never create namespaces (`CreateNamespace=false`, and the AppProject blocks Namespace, ResourceQuota and LimitRange);
+  - writes the GitOps values files and the Argo CD apps `<project>-dev/-staging/-prod`.
+  - Projects created under the earlier per-project layout (`<project>-<env>` namespaces) are moved into the shared namespaces on the next platform start, and their old namespaces are deleted.
 - **Starting state:** new environments start with `replicaCount: 0` on the placeholder tag, so they show Healthy and pull nothing. The first real deploy (CI or a promotion) scales them to 1.
 - **Startup reconcile:** each time the platform starts, it re-applies namespaces, pull secrets, values conventions and Argo CD apps for every project. This also picks up a rotated PAT. You can trigger the same thing per project with "Repair environments".
 - **Scan gate:** set per project to `HIGH,CRITICAL` (default), `CRITICAL` or `NONE` (report only). When a run fails the gate, an approver can "Accept risk & re-run". That skips the gate for that one run; a reason is required and the action is audited.
 - **Approvals:** with `APPROVERS` set, listed approvers can approve prod requests, including their own; self-approvals are audited. With `APPROVERS` empty, the four-eyes rule applies.
 - **Metrics:** shows deploy frequency, lead time (CI start to prod), change-failure rate (prod rollbacks), time to restore (red build to green build), and CI success rate and duration.
 - **Cleanup:** PipelineRuns older than 24h are pruned, keeping the newest 5 per project (`app.cleanup.*`). Step logs are saved to the database first, so old runs stay readable.
-- **Delete project:** removes the Argo CD apps (cascading to their resources), the namespaces, GitOps files, webhook and history. Registry images are kept.
+- **Delete project:** removes the project's Argo CD apps, cascading to its release in each shared namespace (other projects are untouched), plus its GitOps files, webhook and history. Registry images are kept.
 - **RBAC:** the platform needs a ClusterRole for namespaces and secrets (see `platform/deploy/rbac.yaml`) to manage app environments.
 
 ## Security notes

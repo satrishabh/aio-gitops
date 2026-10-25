@@ -66,6 +66,9 @@ public class ProjectController {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("project", p);
         out.put("environments", envs.findByProjectId(id));
+        Map<String, String> namespaces = new LinkedHashMap<>();
+        for (String env : com.aio.platform.service.GitOpsService.ENVS) namespaces.put(env, ClusterService.namespace(p, env));
+        out.put("namespaces", namespaces);
         out.put("runs", recent);
         out.put("failedSteps", failedSteps(recent));
         out.put("deployments", deployments.findByProjectIdOrderByDeployedAtDesc(id, PageRequest.of(0, 60)));

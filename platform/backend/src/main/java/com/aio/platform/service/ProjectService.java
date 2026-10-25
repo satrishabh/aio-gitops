@@ -72,9 +72,10 @@ public class ProjectService {
             try { argo.deleteApp(ArgoCdService.appName(p, env)); }
             catch (Exception e) { warnings.add("argo app " + env + ": " + e.getMessage()); }
         }
+        // dev/staging/prod are shared: the Argo cascade above removes only this project's release.
         for (String env : GitOpsService.ENVS) {
-            try { cluster.deleteEnvironment(p, env); }
-            catch (Exception e) { warnings.add("namespace " + env + ": " + e.getMessage()); }
+            try { cluster.deleteLegacyNamespace(p, env); }
+            catch (Exception e) { warnings.add("legacy namespace " + env + ": " + e.getMessage()); }
         }
         try { gitops.deleteProjectFiles(p); }
         catch (Exception e) { warnings.add("gitops files: " + e.getMessage()); }

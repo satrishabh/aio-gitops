@@ -8,14 +8,18 @@ spec:
   sourceRepos:
     - https://github.com/satrishabh/aio-gitops.git
   destinations:
+    # shared environment namespaces (created by the AIO platform); every project is its own Helm release inside
+    - { server: https://kubernetes.default.svc, namespace: dev }
+    - { server: https://kubernetes.default.svc, namespace: staging }
+    - { server: https://kubernetes.default.svc, namespace: prod }
+    # legacy layouts (kept so older apps can still be synced/cleaned up)
     - { server: https://kubernetes.default.svc, namespace: app-dev }
     - { server: https://kubernetes.default.svc, namespace: app-staging }
     - { server: https://kubernetes.default.svc, namespace: app-prod }
-    # per-project namespaces created by the AIO platform: <project>-<env>
-    - { server: https://kubernetes.default.svc, namespace: "*-dev" }
-    - { server: https://kubernetes.default.svc, namespace: "*-staging" }
-    - { server: https://kubernetes.default.svc, namespace: "*-prod" }
-  clusterResourceWhitelist:
-    - { group: "", kind: Namespace }
+  # namespaces are owned by the platform, not by app syncs
+  clusterResourceWhitelist: []
   namespaceResourceWhitelist:
     - { group: "*", kind: "*" }
+  namespaceResourceBlacklist:
+    - { group: "", kind: ResourceQuota }
+    - { group: "", kind: LimitRange }

@@ -22,7 +22,7 @@ export default function Projects() {
       <h2>Projects</h2>
       <table>
         <thead>
-          <tr><th>Project</th><th>Repository</th><th>Last CI run</th>{ENVS.map(e => <th key={e}>{e}</th>)}</tr>
+          <tr><th>Project</th><th>Repository</th><th>Last CI run</th>{ENVS.map(e => <th key={e}>{e} <span className="muted">(ns: {e})</span></th>)}</tr>
         </thead>
         <tbody>
           {items.map(({ project, lastRun, environments }) => (

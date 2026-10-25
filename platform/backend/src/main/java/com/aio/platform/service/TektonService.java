@@ -39,6 +39,12 @@ public class TektonService {
         return props.tekton().namespace();
     }
 
+    /** Max duration of a whole run (Tekton duration string, e.g. "15m"). */
+    public String timeout() {
+        String v = props.tekton().timeout();
+        return v == null || v.isBlank() ? "15m" : v;
+    }
+
     /** Creates a PipelineRun of the shared ci-pipeline for this project; returns its generated name. */
     public String createPipelineRun(Project p, CiRun run) {
         var t = props.tekton();
@@ -63,7 +69,8 @@ public class TektonService {
         spec.put("pipelineRef", Map.of("name", t.pipeline()));
         spec.put("params", params.entrySet().stream()
                 .map(e -> Map.<String, Object>of("name", e.getKey(), "value", e.getValue())).toList());
-        spec.put("timeouts", Map.of("pipeline", "1h"));
+        // hard cap on the whole run (scheduling, build, scan, GitOps update); Tekton stops every task when it expires
+        spec.put("timeouts", Map.of("pipeline", timeout()));
         spec.put("taskRunTemplate", Map.of(
                 "serviceAccountName", t.serviceAccount(),
                 "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));

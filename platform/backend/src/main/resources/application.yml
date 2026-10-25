@@ -53,6 +53,8 @@ app:
     storage-size: 2Gi
     registry-secret: registry-credentials
     github-token-secret: github-token
+    # Max duration of a whole CI/CD run; longer runs are stopped and marked failed
+    timeout: ${PIPELINE_TIMEOUT:15m}
   gitops:
     repo-url: ${GITOPS_REPO_URL:https://github.com/satrishabh/aio-gitops.git}
     owner: ${GITOPS_OWNER:satrishabh}

@@ -20,7 +20,7 @@ public record AppProperties(
     public record Cleanup(int keepPerProject, int maxAgeHours) {}
 
     public record Tekton(String namespace, String pipeline, String serviceAccount, String storageSize,
-                         String registrySecret, String githubTokenSecret) {}
+                         String registrySecret, String githubTokenSecret, String timeout) {}
 
     public record GitOps(String repoUrl, String owner, String repo, String branch, String appsPath, String chartPath) {}
 

@@ -57,7 +57,7 @@ spec:
             securityContext:
               fsGroup: 65532
         timeouts:
-          pipeline: 1h
+          pipeline: 15m   # whole run is stopped after 15 minutes
         params:
           - { name: repo-url, value: $(tt.params.repo-url) }
           - { name: revision, value: $(tt.params.revision) }

@@ -75,7 +75,10 @@ public class PipelineWatcher {
         } else if ("False".equals(condStatus)) {
             run.finishedAt = J.time(status, "completionTime");
             boolean cancelled = reason != null && reason.startsWith("Cancelled");
-            finish(run, cancelled ? CiRun.CANCELLED : CiRun.FAILED, J.str(cond, "message"));
+            String msg = "PipelineRunTimeout".equals(reason)
+                    ? "Stopped: the run exceeded the time limit (" + tekton.timeout() + "). " + J.str(cond, "message")
+                    : J.str(cond, "message");
+            finish(run, cancelled ? CiRun.CANCELLED : CiRun.FAILED, msg);
         } else {
             run.status = CiRun.RUNNING;
             run.message = J.str(cond, "message");

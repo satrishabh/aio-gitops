@@ -8,3 +8,5 @@ pdb:
 ingress:
   enabled: true
   host: sample-app-dev.34.180.3.18.nip.io
+imagePullSecrets:
+  - name: ghcr-pull

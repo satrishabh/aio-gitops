@@ -19,7 +19,8 @@
 
   <properties>
     <java.version>21</java.version>
-    <fabric8.version>6.13.1</fabric8.version>
+    <!-- 7.x: 6.13.x crashes serialising resources with Jackson 2.19+ ("keySerializer is null"), which Spring Boot 3.5 ships -->
+    <fabric8.version>7.9.0</fabric8.version>
   </properties>
 
   <dependencies>

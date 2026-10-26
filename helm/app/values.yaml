@@ -53,3 +53,10 @@ autoscaling:
 pdb:
   enabled: false   # enable when replicaCount > 1
   minAvailable: 1
+
+# Blue-green via Argo Rollouts (the platform turns this on for every project's prod)
+blueGreen:
+  enabled: false
+  autoPromotionEnabled: false   # wait for "Promote" in the portal
+  scaleDownDelaySeconds: 600    # keep the previous version running 10 min for instant abort
+  previewHost: ""               # optional ingress host for the preview Service

@@ -10,3 +10,19 @@ spec:
     - name: http
       port: {{ .Values.service.port }}
       targetPort: http
+{{- if .Values.blueGreen.enabled }}
+---
+# Points at the new (not yet promoted) version; Argo Rollouts manages the pod-hash selector on both Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app.name" . }}-preview
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector: {{- include "app.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+{{- end }}

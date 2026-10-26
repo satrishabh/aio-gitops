@@ -18,8 +18,29 @@ spec:
           - path: /
             pathType: Prefix
             backend:
+                service:
+                  name: {{ include "app.name" . }}
+                  port: { name: http }
+---
+{{- end }}
+{{- if and .Values.ingress.enabled .Values.blueGreen.enabled .Values.blueGreen.previewHost }}
+# Preview URL: test the new version before promoting it
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "app.name" . }}-preview
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.blueGreen.previewHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
               service:
-                name: {{ include "app.name" . }}
+                name: {{ include "app.name" . }}-preview
                 port: { name: http }
 ---
 {{- end }}
@@ -31,8 +52,13 @@ metadata:
   labels: {{- include "app.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
+    {{- if .Values.blueGreen.enabled }}
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    {{- else }}
     apiVersion: apps/v1
     kind: Deployment
+    {{- end }}
     name: {{ include "app.name" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}

@@ -32,11 +32,13 @@ public class GitOpsService {
 
     private final GitHubClient github;
     private final AppProperties props;
+    private final RolloutService rollouts;
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
 
-    public GitOpsService(GitHubClient github, AppProperties props) {
+    public GitOpsService(GitHubClient github, AppProperties props, RolloutService rollouts) {
         this.github = github;
         this.props = props;
+        this.rollouts = rollouts;
     }
 
     /** Parsed view of a values file. */
@@ -71,6 +73,7 @@ public class GitOpsService {
             var file = github.getFile(g.owner(), g.repo(), path, g.branch());
             if (file == null) continue;
             String updated = normalize(file.content());
+            if (RolloutService.ENV.equals(env) && rollouts.installed()) updated = withBlueGreen(updated, previewHost(p));
             if (!updated.equals(file.content())) {
                 github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(),
                         "platform: reconcile " + p.name + " " + env + " values");
@@ -230,11 +233,23 @@ public class GitOpsService {
         return out;
     }
 
+    /** Turns on blue-green (Argo Rollouts) in a values file; keeps an existing block (e.g. hand-tuned) untouched. */
+    static String withBlueGreen(String yaml, String previewHost) {
+        if (Pattern.compile("(?m)^blueGreen:").matcher(yaml).find()) return yaml;
+        return RuntimeConfig.setBlock(yaml, "blueGreen", "blueGreen:\n  enabled: true\n"
+                + (previewHost == null ? "" : "  previewHost: " + previewHost + "\n"));
+    }
+
+    private String previewHost(Project p) {
+        String domain = props.baseDomain();
+        return domain == null || domain.isBlank() ? null : p.name + "-preview." + domain;
+    }
+
     private String initialValues(Project p, String env) {
         String domain = props.baseDomain();
         boolean ingress = domain != null && !domain.isBlank();
         String host = "prod".equals(env) ? p.name + "." + domain : p.name + "-" + env + "." + domain;
-        return RuntimeConfig.apply("""
+        String base = RuntimeConfig.apply("""
                 # Managed by AIO platform - image.tag is updated by CI / promotions
                 image:
                   repository: %s
@@ -249,5 +264,6 @@ public class GitOpsService {
                   enabled: %s
                   host: %s
                 """.formatted(p.imageRepo, PLACEHOLDER_TAG, PULL_SECRET, ingress, ingress ? host : "example.local"), p);
+        return RolloutService.ENV.equals(env) && rollouts.installed() ? withBlueGreen(base, previewHost(p)) : base;
     }
 }

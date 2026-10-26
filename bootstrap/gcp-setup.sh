@@ -20,6 +20,7 @@ SQL_GSA="aio-platform-sql@${PROJECT_ID}.iam.gserviceaccount.com"
 
 TEKTON_PIPELINES_VERSION=v1.6.0
 ARGOCD_VERSION=v3.5.6   # must match what's running; CRDs need --server-side (applicationsets CRD is too large)
+ARGO_ROLLOUTS_VERSION=v1.10.1   # blue-green for prod
 INGRESS_NGINX_VERSION=controller-v1.11.2
 
 step() { echo; echo "==> $*"; }
@@ -84,6 +85,12 @@ kubectl -n argocd patch cm argocd-cm --type merge -p '{"data":{"accounts.aio-pla
 kubectl -n argocd patch cm argocd-rbac-cm --type merge -p '{"data":{"policy.csv":"p, aio-platform, applications, *, apps/*, allow\np, aio-platform, projects, get, apps, allow\n"}}'
 kubectl -n argocd rollout restart deploy/argocd-server
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
+
+step "Argo Rollouts ${ARGO_ROLLOUTS_VERSION} (blue-green for prod)"
+kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -n argo-rollouts --server-side --force-conflicts \
+  -f "https://github.com/argoproj/argo-rollouts/releases/download/${ARGO_ROLLOUTS_VERSION}/install.yaml"
+kubectl -n argo-rollouts rollout status deploy/argo-rollouts --timeout=300s
 
 step "CI resources (namespace ci) + Argo CD project"
 kubectl apply -f "$ROOT/tekton/rbac/"

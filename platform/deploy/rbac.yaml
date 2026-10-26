@@ -67,3 +67,58 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: aio-platform-envs
+---
+# Blue-green on prod (Argo Rollouts): read rollout state and promote/abort it. Only in the prod namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-rollouts
+  namespace: prod
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["rollouts/status"]
+    verbs: ["patch"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-rollouts
+  namespace: prod
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-rollouts
+---
+# Detect whether Argo Rollouts is installed (blue-green is only switched on once it is)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aio-platform-rollouts-crd
+rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    resourceNames: ["rollouts.argoproj.io"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aio-platform-rollouts-crd
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aio-platform-rollouts-crd

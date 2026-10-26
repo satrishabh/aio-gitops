@@ -342,6 +342,16 @@ select option { background: var(--panel-solid); color: var(--text); }
 .env-card .meta span:nth-child(odd) { color: var(--muted); }
 .env-card .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .connector { display: grid; place-items: center; position: relative; }
+/* prod blue-green panel */
+.bluegreen { margin: 12px 0 2px; padding: 10px 12px; border-radius: 12px; background: var(--fill-2); }
+.bg-title { display: flex; align-items: center; gap: 6px; font-size: var(--t-footnote); font-weight: 600; color: var(--text-2); }
+.bg-title svg { color: var(--accent); }
+.bg-title .badge { margin-left: auto; }
+.bg-versions { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 8px 0 0; font-size: var(--t-footnote); }
+.bg-versions dt { color: var(--muted); }
+.bg-versions dd { margin: 0; display: flex; gap: 8px; align-items: center; min-width: 0; }
+.bg-link { display: inline-flex; align-items: center; gap: 3px; font-size: var(--t-caption); }
+.bluegreen .actions { margin-top: 10px; }
 .connector::before { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 1px; background: var(--line-2); }
 .connector .arrow { position: relative; z-index: 1; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); border: 1px solid var(--line-2); color: var(--accent); cursor: pointer; transition: transform .25s var(--spring), background .2s; }
 .connector .arrow:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); border-color: transparent; transform: scale(1.06); }

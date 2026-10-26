@@ -31,12 +31,18 @@ public class ProjectController {
     private final PromotionService promotionService;
     private final ClusterService cluster;
     private final com.aio.platform.service.ScaleService scaleService;
+    private final com.aio.platform.service.RolloutService rollouts;
+    private final com.aio.platform.service.AuditService audit;
 
     public ProjectController(ProjectRepo projects, CiRunRepo runs, RunStepRepo steps, EnvStatusRepo envs,
                              DeploymentRepo deployments, PromotionRepo promotions, ProjectService projectService,
                              RunService runService, PromotionService promotionService, ClusterService cluster,
-                             com.aio.platform.service.ScaleService scaleService) {
+                             com.aio.platform.service.ScaleService scaleService,
+                             com.aio.platform.service.RolloutService rollouts,
+                             com.aio.platform.service.AuditService audit) {
         this.scaleService = scaleService;
+        this.rollouts = rollouts;
+        this.audit = audit;
         this.projects = projects;
         this.runs = runs;
         this.steps = steps;
@@ -76,7 +82,30 @@ public class ProjectController {
         out.put("failedSteps", failedSteps(recent));
         out.put("deployments", deployments.findByProjectIdOrderByDeployedAtDesc(id, PageRequest.of(0, 60)));
         out.put("promotions", promotions.findByProjectIdOrderByIdDesc(id, PageRequest.of(0, 30)));
+        out.put("rollout", rollouts.status(p));   // prod blue-green state (enabled=false when not in use)
         return out;
+    }
+
+    public record RolloutAction(String action) {}
+
+    /** Blue-green on prod: promote the preview version, abort back to the live one, or retry after an abort. */
+    @PostMapping("/{id}/rollout")
+    public Object rollout(@PathVariable Long id, @RequestBody RolloutAction req, @AuthenticationPrincipal OAuth2User user) {
+        Project p = projects.findById(id).orElseThrow();
+        String actor = Me.login(user);
+        if (!promotionService.isApprover(actor)) throw new SecurityException("only approvers can switch prod traffic");
+        String action = req == null || req.action() == null ? "" : req.action();
+        var before = rollouts.status(p);
+        if (!before.enabled()) throw new IllegalArgumentException("blue-green is not active for " + p.name + " prod");
+        switch (action) {
+            case "promote" -> rollouts.promote(p);
+            case "abort" -> rollouts.abort(p);
+            case "retry" -> rollouts.retry(p);
+            default -> throw new IllegalArgumentException("action must be promote, abort or retry");
+        }
+        audit.record(actor, "rollout." + action, p.name + "/prod",
+                "live=" + before.activeImage() + " preview=" + before.previewImage());
+        return rollouts.status(p);
     }
 
     /** runId -> "task / step" of the first failed step, so the project page can say *where* a run broke. */

@@ -1,8 +1,15 @@
 {{- if eq .Values.image.tag "latest" }}
 {{- fail "image.tag must not be 'latest'" }}
 {{- end }}
+{{- if .Values.blueGreen.enabled }}
+# Blue-green (Argo Rollouts): a new version starts next to the live one behind the -preview Service;
+# traffic switches only when promoted (portal "Promote"), and the old version stays up for instant abort.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+{{- else }}
 apiVersion: apps/v1
 kind: Deployment
+{{- end }}
 metadata:
   name: {{ include "app.name" . }}
   labels: {{- include "app.labels" . | nindent 4 }}
@@ -12,8 +19,16 @@ spec:
   {{- end }}
   revisionHistoryLimit: 5
   strategy:
+    {{- if .Values.blueGreen.enabled }}
+    blueGreen:
+      activeService: {{ include "app.name" . }}
+      previewService: {{ include "app.name" . }}-preview
+      autoPromotionEnabled: {{ .Values.blueGreen.autoPromotionEnabled }}
+      scaleDownDelaySeconds: {{ .Values.blueGreen.scaleDownDelaySeconds }}
+    {{- else }}
     type: RollingUpdate
     rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+    {{- end }}
   selector:
     matchLabels: {{- include "app.selectorLabels" . | nindent 6 }}
   template:

@@ -22,7 +22,7 @@ export default function ProjectDetail() {
   const { busy, run } = useAction(refresh)
 
   if (!data) return error ? <p className="error">{error}</p> : <><Skeleton h={130} /><Skeleton h={220} /><Skeleton h={300} /></>
-  const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {} } = data
+  const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {}, rollout = {} } = data
   const btn = (key, cls = 'btn') => ({ className: `${cls}${busy === key ? ' busy' : ''}`, disabled: !!busy })
   const envOf = env => environments.find(e => e.environment === env) || {}
 
@@ -93,6 +93,7 @@ export default function ProjectDetail() {
               <div className="muted" style={{ fontSize: '0.75rem' }}>{parked ? 'NOT DEPLOYED' : stopped ? 'STOPPED · IMAGE' : 'RUNNING IMAGE'}</div>
               <div className="big-tag">{parked ? <span className="muted">—</span> : (s.desiredTag || s.imageTag || '—')}</div>
               {rolling && <div style={{ fontSize: '0.8rem' }}><Badge value="Progressing" label="Rolling out" /> <span className="muted">live {s.imageTag}</span></div>}
+              {env === 'prod' && rollout.enabled && <BlueGreen ro={rollout} appUrl={s.appUrl} p={p} btn={btn} run={run} id={id} />}
               <div className="meta">
                 <span>Sync</span><span><Badge value={s.syncStatus} /></span>
                 <span>Health</span><span><Badge value={s.healthStatus} /></span>
@@ -226,6 +227,40 @@ export default function ProjectDetail() {
         <DangerZone p={p} btn={btn} run={run} onDeleted={() => nav('/projects')} />
       </>}
     </>
+  )
+}
+
+/** Prod blue-green (Argo Rollouts): live vs preview version, preview URL, promote / abort. */
+function BlueGreen({ ro, appUrl, p, btn, run, id }) {
+  const previewUrl = appUrl ? appUrl.replace(`//${p.name}.`, `//${p.name}-preview.`) : null
+  const act = (action, msg) => run(`ro-${action}`, () => api(`/api/projects/${id}/rollout`, { method: 'POST', body: { action } }), msg)
+  return (
+    <div className="bluegreen" role="group" aria-label="Blue-green deployment">
+      <div className="bg-title"><Icon name="layers" size={13} />Blue-green
+        {ro.awaitingPromotion && <span className="badge blue">Preview ready</span>}
+        {ro.aborted && <span className="badge red">Aborted</span>}
+        {!ro.awaitingPromotion && !ro.aborted && ro.phase && <Badge value={ro.phase === 'Healthy' ? 'Healthy' : 'Progressing'} label={ro.phase} />}
+      </div>
+      <dl className="bg-versions">
+        <dt>Live</dt><dd><code>{ro.activeImage || '—'}</code></dd>
+        {ro.previewImage && <><dt>Preview</dt><dd><code>{ro.previewImage}</code>
+          {previewUrl && <a href={previewUrl} target="_blank" rel="noreferrer" className="bg-link">open <Icon name="external" size={11} /></a>}</dd></>}
+      </dl>
+      {ro.awaitingPromotion && (
+        <div className="actions">
+          <button {...btn('ro-promote', 'btn small primary')} onClick={() => {
+            if (window.confirm(`Switch prod traffic from ${ro.activeImage} to ${ro.previewImage}? The old version keeps running for 10 minutes so you can abort.`))
+              act('promote', `Traffic switched to ${ro.previewImage}`)
+          }}><Icon name="check" size={12} />Promote</button>
+          <button {...btn('ro-abort', 'btn small danger')} onClick={() => {
+            if (window.confirm(`Discard preview ${ro.previewImage}? Prod stays on ${ro.activeImage}.`))
+              act('abort', 'Preview discarded — prod stays on the live version')
+          }}><Icon name="undo" size={12} />Abort</button>
+        </div>
+      )}
+      {ro.aborted && <div className="actions"><button {...btn('ro-retry', 'btn small')} onClick={() => act('retry', 'Retrying the preview')}>
+        <Icon name="refresh" size={12} />Retry preview</button></div>}
+    </div>
   )
 }
 

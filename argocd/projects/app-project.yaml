@@ -8,7 +8,12 @@ spec:
   sourceRepos:
     - https://github.com/satrishabh/aio-gitops.git
   destinations:
-    # shared environment namespaces (created by the AIO platform); every project is its own Helm release inside
+    # Workload clusters (registered by bootstrap/add-cluster.sh; the platform targets them by name).
+    # Only the shared env namespaces are allowed, on any cluster registered in Argo CD.
+    - { name: "*", namespace: dev }
+    - { name: "*", namespace: staging }
+    - { name: "*", namespace: prod }
+    # hub (in-cluster): the single-cluster layout, and apps not yet moved to a workload cluster
     - { server: https://kubernetes.default.svc, namespace: dev }
     - { server: https://kubernetes.default.svc, namespace: staging }
     - { server: https://kubernetes.default.svc, namespace: prod }
@@ -16,7 +21,7 @@ spec:
     - { server: https://kubernetes.default.svc, namespace: app-dev }
     - { server: https://kubernetes.default.svc, namespace: app-staging }
     - { server: https://kubernetes.default.svc, namespace: app-prod }
-  # namespaces are owned by the platform, not by app syncs
+  # namespaces are prepared per cluster (platform on the hub, add-cluster.sh on workload clusters), not by app syncs
   clusterResourceWhitelist: []
   namespaceResourceWhitelist:
     - { group: "*", kind: "*" }

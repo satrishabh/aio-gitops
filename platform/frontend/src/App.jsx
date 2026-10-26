@@ -11,15 +11,17 @@ import Projects from './pages/Projects.jsx'
 import NewProject from './pages/NewProject.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
 import RunDetail from './pages/RunDetail.jsx'
+import CdDetail from './pages/CdDetail.jsx'
+import Clusters from './pages/Clusters.jsx'
 import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
 import Templates from './pages/Templates.jsx'
 
 const CRUMBS = [
-  [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+/, 'Projects / Project'],
+  [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
   [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
-  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'],
+  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'],
 ]
 
 export default function App() {
@@ -75,6 +77,7 @@ export default function App() {
             <div className="nav-section">Delivery</div>
             <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
+            <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>
             <NavLink to="/audit"><Icon name="list" />Audit log</NavLink>
           </nav>
           <div className="sidebar-foot">
@@ -106,9 +109,11 @@ export default function App() {
               <Route path="/new" element={<NewProject />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/projects/:id" element={<ProjectDetail me={me} />} />
+              <Route path="/projects/:id/cd/:env" element={<CdDetail me={me} />} />
               <Route path="/runs/:id" element={<RunDetail me={me} />} />
               <Route path="/approvals" element={<Approvals me={me} />} />
               <Route path="/metrics" element={<Metrics />} />
+              <Route path="/clusters" element={<Clusters />} />
               <Route path="/audit" element={<Audit />} />
             </Routes>
           </main>

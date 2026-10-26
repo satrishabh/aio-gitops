@@ -22,7 +22,7 @@ export default function ProjectDetail() {
   const { busy, run } = useAction(refresh)
 
   if (!data) return error ? <p className="error">{error}</p> : <><Skeleton h={130} /><Skeleton h={220} /><Skeleton h={300} /></>
-  const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {}, rollout = {} } = data
+  const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {}, clusters = {}, rollout = {} } = data
   const btn = (key, cls = 'btn') => ({ className: `${cls}${busy === key ? ' busy' : ''}`, disabled: !!busy })
   const envOf = env => environments.find(e => e.environment === env) || {}
 
@@ -97,6 +97,7 @@ export default function ProjectDetail() {
               <div className="meta">
                 <span>Sync</span><span><Badge value={s.syncStatus} /></span>
                 <span>Health</span><span><Badge value={s.healthStatus} /></span>
+                <span>Cluster</span><span><Link to="/clusters"><code>{clusters[env] || 'in-cluster'}</code></Link></span>
                 <span>Namespace</span><span><code>{namespaces[env] || env}</code></span>
                 <span>Replicas</span>
                 <span>{deployed
@@ -109,6 +110,8 @@ export default function ProjectDetail() {
                 <span>Updated</span><span>{ago(s.updatedAt)}</span>
               </div>
               <div className="actions">
+                <Link className="btn small" to={`/projects/${id}/cd/${env}`} title={`Argo CD sync, resources, pod logs and config for ${env}`}>
+                  <Icon name="rocket" size={13} />CD</Link>
                 {s.appUrl && deployed && !stopped && <a className="btn small" href={s.appUrl} target="_blank" rel="noreferrer"><Icon name="external" size={13} />Open app</a>}
                 {deployed && (stopped
                   ? <button {...btn(`scale-${env}`, 'btn small primary')} onClick={() => scale(env, 1)}><Icon name="play" size={12} />Start</button>
@@ -177,7 +180,7 @@ export default function ProjectDetail() {
             <tbody>
               {deployments.map(d => (
                 <tr key={d.id}>
-                  <td><span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><span className="dot green" />{d.environment}</span>
+                  <td><Link to={`/projects/${id}/cd/${d.environment}`} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><span className="dot green" />{d.environment}</Link>
                     <span className="muted"> · #{d.argoHistoryId}</span></td>
                   <td><code>{d.imageTag || '?'}</code></td>
                   <td><code>{(d.revision || '').slice(0, 10)}</code></td>
@@ -332,8 +335,13 @@ function Settings({ p, run, btn }) {
           <Icon name="check" size={14} />Save settings
         </button>
         <button type="button" className="btn ghost" disabled={!dirty} onClick={() => setForm(initial)}>Discard</button>
-        <button type="button" {...btn('reconcile')} onClick={() => run('reconcile',
-          () => api(`/api/projects/${p.id}/reconcile`, { method: 'POST' }), 'Namespaces, pull secrets and Argo CD apps re-applied')}>
+        <button type="button" {...btn('reconcile')} title="Re-apply Argo CD apps and move them to the cluster each environment maps to (prod moves only for approvers; can take a few minutes)"
+          onClick={() => run('reconcile', () => api(`/api/projects/${p.id}/reconcile`, { method: 'POST' }), r => {
+            const e = r?.environments || {}
+            const moved = Object.keys(e).filter(k => e[k] === 'MOVED'), pending = Object.keys(e).filter(k => e[k] === 'MOVE_PENDING')
+            return ['Argo CD apps re-applied', moved.length && `moved ${moved.join(', ')} to their new cluster`,
+              pending.length && `${pending.join(', ')} still on the old cluster — an approver must repair to move prod`].filter(Boolean).join(' · ')
+          })}>
           <Icon name="refresh" size={14} />Repair environments
         </button>
         <button type="button" {...btn('template')} title="Mark the GitHub repo as a template so new projects can start from it" onClick={() => run('template',

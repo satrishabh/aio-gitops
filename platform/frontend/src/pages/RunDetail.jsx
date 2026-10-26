@@ -170,7 +170,7 @@ export default function RunDetail({ me }) {
           <div><span>Vulnerabilities</span><Vulns run={r} /></div>
           <div><span>Image</span><code>{r.imageUrl ? r.imageUrl.split('/').pop() : '—'}</code></div>
           <div><span>Scan gate</span><code>{r.scanSeverity || 'HIGH,CRITICAL'}</code></div>
-          <div><span>Deploys to dev</span>{r.deploy ? 'yes' : 'no (pull request)'}</div>
+          <div><span>Deploys to dev</span>{r.deploy ? <Link to={`/projects/${project.id}/cd/dev`}>yes — view CD</Link> : 'no (pull request)'}</div>
           <div><span>Started</span>{fmtTime(r.startedAt)}</div>
         </div>
         {r.overrideReason && <p className="muted">Risk accepted: “{r.overrideReason}”</p>}

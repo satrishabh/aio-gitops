@@ -40,9 +40,10 @@ roleRef:
   kind: Role
   name: aio-platform-ci
 ---
-# Environments: the platform owns the shared dev/staging/prod namespaces (labels, default LimitRange,
-# ghcr-pull secret) and removes legacy <project>-<env> namespaces. Namespaces are cluster-scoped, so this
-# is a ClusterRole; it grants no access to workloads (Argo CD deploys those).
+# Hub only. With workload clusters (app.clusters) the platform never touches app workloads directly:
+# Argo CD holds the cluster credentials, and pod logs / Rollout promote+abort go through the Argo CD API.
+# This role is still needed to (a) prepare dev/staging/prod when an env is hosted on the hub itself
+# (single-cluster fallback) and (b) delete legacy <project>-<env> namespaces left on the hub.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -68,38 +69,8 @@ roleRef:
   kind: ClusterRole
   name: aio-platform-envs
 ---
-# Blue-green on prod (Argo Rollouts): read rollout state and promote/abort it. Only in the prod namespace.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: aio-platform-rollouts
-  namespace: prod
-rules:
-  - apiGroups: ["argoproj.io"]
-    resources: ["rollouts"]
-    verbs: ["get", "list", "watch", "patch"]
-  - apiGroups: ["argoproj.io"]
-    resources: ["rollouts/status"]
-    verbs: ["patch"]
-  - apiGroups: ["apps"]
-    resources: ["replicasets"]
-    verbs: ["get", "list"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: aio-platform-rollouts
-  namespace: prod
-subjects:
-  - kind: ServiceAccount
-    name: aio-platform
-    namespace: aio-platform
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: aio-platform-rollouts
----
-# Detect whether Argo Rollouts is installed (blue-green is only switched on once it is)
+# Single-cluster fallback only: detect whether Argo Rollouts is installed on the hub (workload clusters
+# declare it with rollouts: true in app.clusters instead)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

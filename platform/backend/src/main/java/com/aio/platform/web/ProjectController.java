@@ -33,13 +33,16 @@ public class ProjectController {
     private final com.aio.platform.service.ScaleService scaleService;
     private final com.aio.platform.service.RolloutService rollouts;
     private final com.aio.platform.service.AuditService audit;
+    private final com.aio.platform.service.ClusterRegistry clusters;
 
     public ProjectController(ProjectRepo projects, CiRunRepo runs, RunStepRepo steps, EnvStatusRepo envs,
                              DeploymentRepo deployments, PromotionRepo promotions, ProjectService projectService,
                              RunService runService, PromotionService promotionService, ClusterService cluster,
                              com.aio.platform.service.ScaleService scaleService,
                              com.aio.platform.service.RolloutService rollouts,
-                             com.aio.platform.service.AuditService audit) {
+                             com.aio.platform.service.AuditService audit,
+                             com.aio.platform.service.ClusterRegistry clusters) {
+        this.clusters = clusters;
         this.scaleService = scaleService;
         this.rollouts = rollouts;
         this.audit = audit;
@@ -76,8 +79,13 @@ public class ProjectController {
         out.put("project", p);
         out.put("environments", envs.findByProjectId(id));
         Map<String, String> namespaces = new LinkedHashMap<>();
-        for (String env : com.aio.platform.service.GitOpsService.ENVS) namespaces.put(env, ClusterService.namespace(p, env));
+        Map<String, String> clusterOf = new LinkedHashMap<>();
+        for (String env : com.aio.platform.service.GitOpsService.ENVS) {
+            namespaces.put(env, ClusterService.namespace(p, env));
+            clusterOf.put(env, clusters.clusterFor(env).name());
+        }
         out.put("namespaces", namespaces);
+        out.put("clusters", clusterOf);
         out.put("runs", recent);
         out.put("failedSteps", failedSteps(recent));
         out.put("deployments", deployments.findByProjectIdOrderByDeployedAtDesc(id, PageRequest.of(0, 60)));
@@ -144,12 +152,17 @@ public class ProjectController {
         return Map.of("deleted", p.name, "warnings", projectService.delete(p, Me.login(user)));
     }
 
-    /** Re-applies namespaces, pull secrets, values conventions and Argo CD apps for this project. */
+    /**
+     * Re-applies values conventions and Argo CD apps for this project, moving apps to the cluster their env is
+     * mapped to. Moving prod (delete on the old cluster, then create) only happens when an approver repairs.
+     */
     @PostMapping("/{id}/reconcile")
-    public Map<String, String> reconcile(@PathVariable Long id) {
+    public Map<String, Object> reconcile(@PathVariable Long id, @AuthenticationPrincipal OAuth2User user) {
         Project p = projects.findById(id).orElseThrow();
-        cluster.reconcile(p);
-        return Map.of("status", "reconciled");
+        String actor = Me.login(user);
+        var outcomes = cluster.reconcile(p, promotionService.isApprover(actor));
+        audit.record(actor, "project.reconcile", p.name, outcomes.toString());
+        return Map.of("status", "reconciled", "environments", outcomes);
     }
 
     public record RunRequest(String ref) {}

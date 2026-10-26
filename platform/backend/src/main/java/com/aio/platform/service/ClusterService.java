@@ -30,10 +30,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Cluster-side housekeeping the platform owns:
+ * Hub-side housekeeping the platform owns (the hub runs the platform, Tekton CI and Argo CD):
  * <ul>
- *   <li>app namespaces {@code <project>-<env>} with a {@code ghcr-pull} secret, so private GHCR images deploy;</li>
- *   <li>startup reconcile of namespaces, secrets, GitOps values and Argo CD apps for every project;</li>
+ *   <li>env namespaces with a {@code ghcr-pull} secret - only when an env is hosted on the hub itself;
+ *       workload clusters are prepared by {@code bootstrap/add-cluster.sh};</li>
+ *   <li>startup reconcile of values and Argo CD apps for every project, including moving apps to the cluster
+ *       their env is mapped to ({@link ClusterRegistry});</li>
  *   <li>pruning old PipelineRuns (step logs are archived to the DB first, so history stays viewable).</li>
  * </ul>
  */
@@ -54,10 +56,12 @@ public class ClusterService {
     private final GitOpsService gitops;
     private final ArgoCdService argo;
     private final AuditService audit;
+    private final ClusterRegistry clusters;
 
     public ClusterService(KubernetesClient k8s, AppProperties props, ProjectRepo projects, CiRunRepo runs,
                           RunStepRepo steps, TektonService tekton, GitOpsService gitops, ArgoCdService argo,
-                          AuditService audit) {
+                          AuditService audit, ClusterRegistry clusters) {
+        this.clusters = clusters;
         this.k8s = k8s;
         this.props = props;
         this.projects = projects;
@@ -87,8 +91,12 @@ public class ClusterService {
     /**
      * Ensures the shared env namespace exists with Pod Security labels and a default LimitRange
      * (containers without resources still get sane requests/limits), and upserts its ghcr-pull secret.
+     *
+     * <p>Only for envs hosted on the hub itself (single-cluster layout). Workload clusters are prepared once by
+     * {@code bootstrap/add-cluster.sh}: the platform holds no credentials for them, only Argo CD does.
      */
     public void ensureEnvironment(Project p, String env) {
+        if (!clusters.inCluster(clusters.clusterFor(env))) return;
         String ns = namespace(p, env);
         k8s.namespaces().resource(new NamespaceBuilder().withNewMetadata().withName(ns)
                 .addToLabels("aio.platform/managed", "true")
@@ -115,7 +123,7 @@ public class ClusterService {
                 .build()).forceConflicts().serverSideApply();
     }
 
-    /** Deletes the old per-project namespace, but only if the platform created it for this project. */
+    /** Deletes the old per-project namespace on the hub, but only if the platform created it for this project. */
     public void deleteLegacyNamespace(Project p, String env) {
         var ns = k8s.namespaces().withName(legacyNamespace(p, env)).get();
         if (ns == null || ns.getMetadata().getLabels() == null) return;
@@ -141,32 +149,54 @@ public class ClusterService {
 
     // ------------------------------------------------------------------ startup reconcile
 
+    /** Runs in the background: moving apps between clusters waits on Argo CD and must not delay startup. */
     @EventListener(ApplicationReadyEvent.class)
     public void reconcileAll() {
-        for (Project p : projects.findAll()) {
-            try {
-                reconcile(p);
-            } catch (Exception e) {
-                log.warn("reconcile of {} failed: {}", p.name, e.getMessage());
+        Thread t = new Thread(() -> {
+            for (Project p : projects.findAll()) {
+                try {
+                    reconcile(p, false);   // on startup prod never changes cluster; an approver does that via Repair
+                } catch (Exception e) {
+                    log.warn("reconcile of {} failed: {}", p.name, e.getMessage());
+                }
             }
-        }
+        }, "reconcile-all");
+        t.setDaemon(true);
+        t.start();
     }
 
-    public void reconcile(Project p) {
+    /**
+     * Re-applies namespaces (hub only), values conventions and Argo CD apps. Apps whose env now maps to another
+     * cluster are moved (delete on the old cluster, create on the new); prod only when {@code allowProdMove}.
+     *
+     * @return env -> what happened to its Argo CD app
+     */
+    public Map<String, ArgoCdService.Outcome> reconcile(Project p, boolean allowProdMove) {
+        java.util.Set<String> onTarget = new java.util.HashSet<>();
+        for (String env : GitOpsService.ENVS) {
+            var app = argo.getApp(ArgoCdService.appName(p, env), false);
+            boolean mayMove = !RolloutService.ENV.equals(env) || allowProdMove;
+            if (app == null || ArgoCdService.onCluster(app, clusters.clusterFor(env)) || mayMove) onTarget.add(env);
+        }
         for (String env : GitOpsService.ENVS) ensureEnvironment(p, env);
-        gitops.reconcile(p);
+        gitops.reconcile(p, onTarget);
+        Map<String, ArgoCdService.Outcome> outcomes = new java.util.LinkedHashMap<>();
         for (String env : GitOpsService.ENVS) {
             // Remove the legacy per-project namespace first: its Ingress claims the same host, and the
             // ingress-nginx admission webhook would reject the release in the shared namespace.
             deleteLegacyNamespace(p, env);
             try {
-                argo.upsertApp(p, env, true); // moves the app into the shared namespace (syncs prod once)
+                var o = argo.upsertApp(p, env, true, onTarget.contains(env));
+                outcomes.put(env, o);
+                if (o == ArgoCdService.Outcome.MOVED)
+                    audit.record("system", "cluster.move", p.name + "/" + env, "now on " + clusters.clusterFor(env).name());
             } catch (org.springframework.web.client.HttpClientErrorException e) {
                 if (!e.getResponseBodyAsString().contains("already in progress")) throw e;
                 log.info("{}-{}: sync already in progress, leaving it to Argo CD", p.name, env);
             }
         }
-        log.info("reconciled {} (namespaces dev/staging/prod, {}, values, Argo CD apps)", p.name, GitOpsService.PULL_SECRET);
+        log.info("reconciled {}: {}", p.name, outcomes);
+        return outcomes;
     }
 
     // ------------------------------------------------------------------ PipelineRun pruning

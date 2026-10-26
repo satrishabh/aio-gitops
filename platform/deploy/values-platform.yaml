@@ -4,7 +4,7 @@
 image:
   # built with Cloud Build into Artifact Registry (same project, so GKE nodes pull it without a secret)
   repository: asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform
-  tag: "0.5.2"          # bump to 0.7.0 only after that image is built (Argo CD auto-syncs this file)
+  tag: "0.7.0"
 replicaCount: 1        # schedulers poll Tekton/Argo; keep 1 replica (no leader election)
 serviceAccountName: aio-platform
 containerPort: 8080

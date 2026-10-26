@@ -6,9 +6,14 @@ spring:
   application:
     name: aio-platform
   datasource:
+    # Local: jdbc:postgresql://localhost:5432/aio
+    # Cloud SQL: jdbc:postgresql:///aio?cloudSqlInstance=<project>:<region>:<instance>&socketFactory=com.google.cloud.sql.postgres.SocketFactory
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aio}
     username: ${DB_USER:aio}
     password: ${DB_PASSWORD:aio}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}   # small Cloud SQL tiers allow few connections
+      connection-timeout: 20000
   jpa:
     open-in-view: false
     hibernate:

@@ -23,48 +23,66 @@ export function Kpi({ label, value, sub, icon, tone }) {
   )
 }
 
-/** Deterministic gradient avatar from a project name. */
+/** Deterministic flat-colour avatar from a project name (one muted hue per project, no gradient). */
 export function Avatar({ name, size = 38 }) {
   let h = 0
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360
   return (
-    <div className="avatar" style={{ width: size, height: size,
-      background: `linear-gradient(135deg, hsl(${h} 75% 58%), hsl(${(h + 50) % 360} 80% 48%))` }}>
+    <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.34,
+      background: `hsl(${h} 45% 52%)` }}>
       {name.slice(0, 2).toUpperCase()}
     </div>
   )
 }
 
 export function Skeleton({ h = 120, count = 1 }) {
-  return Array.from({ length: count }, (_, i) => <div key={i} className="skeleton" style={{ height: h, marginBottom: 18 }} />)
-}
-
-export function Tabs({ tabs, value, onChange }) {
   return (
-    <div className="tabs">
-      {tabs.map(t => (
-        <button key={t.id} className={value === t.id ? 'active' : ''} onClick={() => onChange(t.id)}>
-          {t.icon && <Icon name={t.icon} size={14} />}{t.label}
-          {t.count != null && <span className="n">{t.count}</span>}
-        </button>
-      ))}
+    <div role="status" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: count }, (_, i) => <div key={i} className="skeleton" style={{ height: h, marginBottom: 18 }} />)}
     </div>
   )
 }
 
-export function Empty({ icon = 'box', title, children }) {
+/** Segmented control with roving focus: Left/Right/Home/End move between tabs. */
+export function Tabs({ tabs, value, onChange, label }) {
+  const onKey = e => {
+    const i = tabs.findIndex(t => t.id === value)
+    const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key]
+    if (next == null) return
+    e.preventDefault()
+    const t = tabs[(next + tabs.length) % tabs.length]
+    onChange(t.id)
+    e.currentTarget.querySelector(`[data-id="${t.id}"]`)?.focus()
+  }
   return (
-    <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-2)' }}>
-      <div style={{ display: 'inline-grid', placeItems: 'center', width: 52, height: 52, borderRadius: 14,
-        background: 'rgba(124,92,255,0.14)', color: '#a78bfa', marginBottom: 12 }}><Icon name={icon} size={24} /></div>
-      <h3 style={{ marginBottom: 6 }}>{title}</h3>
-      <div className="muted">{children}</div>
+    <div className="tabs" role="tablist" aria-label={label} onKeyDown={onKey}>
+      {tabs.map(t => {
+        const on = value === t.id
+        return (
+          <button key={t.id} data-id={t.id} role="tab" aria-selected={on} tabIndex={on ? 0 : -1}
+                  className={on ? 'active' : ''} onClick={() => onChange(t.id)}>
+            {t.icon && <Icon name={t.icon} size={14} />}{t.label}
+            {t.count != null && <span className="n">{t.count}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function Empty({ icon = 'box', title, children, action }) {
+  return (
+    <div className="empty-state">
+      <div className="glyph"><Icon name={icon} size={24} /></div>
+      <h3>{title}</h3>
+      {children && <div className="muted">{children}</div>}
+      {action && <div className="actions">{action}</div>}
     </div>
   )
 }
 
 /** Stacked bar chart (SVG). series: [{key, color, label}], data: [{date, ...}] */
-export function BarChart({ data, series, height = 220 }) {
+export function BarChart({ data, series, height = 220, label = 'Bar chart' }) {
   const W = 760, H = height, pad = { l: 28, r: 8, t: 10, b: 24 }
   const totals = data.map(d => series.reduce((s, x) => s + (d[x.key] || 0), 0))
   const max = Math.max(1, ...totals)
@@ -73,8 +91,10 @@ export function BarChart({ data, series, height = 220 }) {
   const y = v => H - pad.b - (v / max) * (H - pad.t - pad.b)
   const ticks = [0, Math.ceil(max / 2), max]
   const every = Math.ceil(data.length / 8)
+  const sum = series.map(s => `${s.label} ${data.reduce((a, d) => a + (d[s.key] || 0), 0)}`).join(', ')
   return (
-    <svg className="chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img">
+    <svg className="chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
+         aria-label={`${label}, ${data.length} days: ${sum}`}>
       {ticks.map(t => (
         <g key={t}>
           <line className="axis" x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} strokeDasharray={t ? '3 4' : ''} />
@@ -102,22 +122,19 @@ export function BarChart({ data, series, height = 220 }) {
   )
 }
 
-/** Circular progress ring for a 0..1 ratio. */
-export function Ring({ value, size = 64, color = 'url(#ringGrad)', label }) {
+/** Circular progress ring for a 0..1 ratio (single accent). */
+export function Ring({ value, size = 64, color = 'var(--accent)', label }) {
   const r = (size - 8) / 2, c = 2 * Math.PI * r
   const v = value == null ? 0 : Math.max(0, Math.min(1, value))
+  const text = label ?? (value == null ? '—' : `${Math.round(v * 100)}%`)
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <defs>
-        <linearGradient id="ringGrad" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0" stopColor="#7c5cff" /><stop offset="1" stopColor="#22d3ee" />
-        </linearGradient>
-      </defs>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth="6" />
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={String(text)}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fill)" strokeWidth="6" />
+      <circle className="ring-arc" cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
               strokeDasharray={`${c * v} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      <text x="50%" y="54%" textAnchor="middle" fill="#e6eaf2" fontSize={size / 4.6} fontWeight="700">
-        {label ?? (value == null ? '—' : `${Math.round(v * 100)}%`)}
+      <text x="50%" y="54%" textAnchor="middle" fill="var(--text)" fontSize={size / 4.6} fontWeight="600"
+            style={{ fontVariantNumeric: 'tabular-nums' }} aria-hidden="true">
+        {text}
       </text>
     </svg>
   )
@@ -131,6 +148,9 @@ export const ago = t => {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`
   return `${Math.floor(s / 86400)}d ago`
 }
+
+/** Deployed (real image) but scaled to 0 on purpose. */
+export const isStopped = s => !!s && s.replicas === 0 && !!s.desiredTag && s.desiredTag !== '0.0.0'
 
 /** Overall colour of an environment for strips/cards. */
 export function envTone(s) {

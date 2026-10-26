@@ -37,7 +37,7 @@ export default function Templates() {
   return (
     <>
       <PageHead title="Templates" sub="Start a new app instantly: pick a template, the platform creates the GitHub repo, wires CI/CD and deploys to dev." />
-      <Tabs value={source} onChange={setSource} tabs={[
+      <Tabs label="Template source" value={source} onChange={setSource} tabs={[
         { id: 'starters', label: 'AIO Starters', icon: 'zap' },
         { id: 'mine', label: 'Your templates', icon: 'github' },
         { id: 'community', label: 'Community (GitHub)', icon: 'search' },
@@ -47,14 +47,14 @@ export default function Templates() {
         <div className="card" style={{ marginBottom: 18 }}>
           <div className="chips">
             {CATEGORIES.map(([id, label]) => (
-              <button key={id} className={`chip${category === id ? ' active' : ''}`} onClick={() => setCategory(category === id ? '' : id)}>{label}</button>
+              <button key={id} type="button" aria-pressed={category === id} className={`chip${category === id ? ' active' : ''}`} onClick={() => setCategory(category === id ? '' : id)}>{label}</button>
             ))}
           </div>
           <form className="row" style={{ marginTop: 12, gap: 10 }} onSubmit={e => { e.preventDefault(); setQuery(q) }}>
             <div className="search" style={{ flex: 1, margin: 0 }}><Icon name="search" size={15} />
-              <input placeholder="Search open-source templates, e.g. tailwind, shadcn, material…" value={q} onChange={e => setQ(e.target.value)} />
+              <input type="search" aria-label="Search open-source templates" placeholder="Search open-source templates, e.g. tailwind, shadcn, material…" value={q} onChange={e => setQ(e.target.value)} />
             </div>
-            <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: 160 }}>
+            <select aria-label="Language" value={language} onChange={e => setLanguage(e.target.value)} style={{ width: 160 }}>
               {LANGS.map(l => <option key={l} value={l}>{l || 'Any language'}</option>)}
             </select>
             <button className="btn">Search</button>

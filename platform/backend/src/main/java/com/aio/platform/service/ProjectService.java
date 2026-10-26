@@ -5,6 +5,7 @@ import com.aio.platform.domain.Project;
 import com.aio.platform.repo.ProjectRepo;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -41,21 +42,81 @@ public class ProjectService {
     }
 
     public record CreateRequest(String repoUrl, String name, String dockerfile, String contextDir,
-                                String testImage, String testCommand, Boolean registerWebhook, String scanSeverity) {}
+                                String testImage, String testCommand, Boolean registerWebhook, String scanSeverity,
+                                List<RuntimeConfig.Env> envVars, String cpuRequest, String cpuLimit,
+                                String memoryRequest, String memoryLimit) {}
 
-    public Project updateSettings(Project p, String scanSeverity, String testImage, String testCommand, String actor) {
+    /** Editable after creation. Name and repo are fixed: they key namespaces, Argo CD apps and the image repo. */
+    public record Settings(String scanSeverity, String testImage, String testCommand, String dockerfile,
+                           String contextDir, String defaultBranch, Boolean webhook,
+                           List<RuntimeConfig.Env> envVars, String cpuRequest, String cpuLimit,
+                           String memoryRequest, String memoryLimit) {}
+
+    private static String orKeep(String v, String current) { return v == null || v.isBlank() ? current : v.trim(); }
+
+    /** Validates and applies env vars + resources onto p; returns true when anything changed. */
+    private static boolean applyRuntime(Project p, List<RuntimeConfig.Env> env, String cpuReq, String cpuLim,
+                                        String memReq, String memLim) {
+        String cr = orKeep(cpuReq, p.cpuRequest), cl = orKeep(cpuLim, p.cpuLimit);
+        String mr = orKeep(memReq, p.memoryRequest), ml = orKeep(memLim, p.memoryLimit);
+        RuntimeConfig.validateResources(cr, cl, mr, ml);
+        String envJson = env == null ? p.envVars : RuntimeConfig.writeEnv(RuntimeConfig.validEnv(env));
+        boolean changed = !cr.equals(p.cpuRequest) || !cl.equals(p.cpuLimit) || !mr.equals(p.memoryRequest)
+                || !ml.equals(p.memoryLimit) || !envJson.equals(p.envVars);
+        p.cpuRequest = cr; p.cpuLimit = cl; p.memoryRequest = mr; p.memoryLimit = ml; p.envVars = envJson;
+        return changed;
+    }
+
+    private static final Pattern SAFE_BRANCH = Pattern.compile("^[A-Za-z0-9_./-]{1,200}$");
+
+    public Project updateSettings(Project p, Settings s, String actor) {
         StringBuilder changes = new StringBuilder();
-        if (scanSeverity != null && !scanSeverity.equals(p.scanSeverity)) {
-            p.scanSeverity = validSeverity(scanSeverity);
+        if (s.scanSeverity() != null && !s.scanSeverity().equals(p.scanSeverity)) {
+            p.scanSeverity = validSeverity(s.scanSeverity());
             changes.append("scanSeverity=").append(p.scanSeverity).append(' ');
         }
-        if (testImage != null && !testImage.isBlank() && !testImage.trim().equals(p.testImage)) {
-            p.testImage = testImage.trim();
+        if (s.testImage() != null && !s.testImage().isBlank() && !s.testImage().trim().equals(p.testImage)) {
+            p.testImage = s.testImage().trim();
             changes.append("testImage=").append(p.testImage).append(' ');
         }
-        if (testCommand != null && !testCommand.trim().equals(p.testCommand)) {
-            p.testCommand = testCommand.trim();
+        if (s.testCommand() != null && !s.testCommand().trim().equals(p.testCommand)) {
+            p.testCommand = s.testCommand().trim();
             changes.append("testCommand changed ");
+        }
+        if (s.dockerfile() != null && !s.dockerfile().isBlank() && !s.dockerfile().trim().equals(p.dockerfile)) {
+            p.dockerfile = safePath(s.dockerfile(), p.dockerfile);
+            changes.append("dockerfile=").append(p.dockerfile).append(' ');
+        }
+        if (s.contextDir() != null && !s.contextDir().isBlank() && !s.contextDir().trim().equals(p.contextDir)) {
+            p.contextDir = safePath(s.contextDir(), p.contextDir);
+            changes.append("contextDir=").append(p.contextDir).append(' ');
+        }
+        if (s.defaultBranch() != null && !s.defaultBranch().isBlank() && !s.defaultBranch().trim().equals(p.defaultBranch)) {
+            String b = s.defaultBranch().trim();
+            if (!SAFE_BRANCH.matcher(b).matches() || b.contains("..")) throw new IllegalArgumentException("invalid branch: " + b);
+            p.defaultBranch = b;
+            changes.append("defaultBranch=").append(b).append(' ');
+        }
+        if (s.webhook() != null && s.webhook() != (p.webhookId != null)) {
+            if (s.webhook()) {
+                if (props.publicUrl() == null || props.publicUrl().isBlank())
+                    throw new IllegalArgumentException("webhooks need app.public-url to be configured");
+                p.webhookId = github.createWebhook(p.repoOwner, p.repoName,
+                        props.publicUrl().replaceAll("/$", "") + "/api/webhooks/github/" + p.id, p.webhookSecret);
+                changes.append("webhook=on ");
+            } else {
+                github.deleteWebhook(p.repoOwner, p.repoName, p.webhookId);
+                p.webhookId = null;
+                changes.append("webhook=off ");
+            }
+        }
+        if (applyRuntime(p, s.envVars(), s.cpuRequest(), s.cpuLimit(), s.memoryRequest(), s.memoryLimit())) {
+            // names only: values may be sensitive and the audit log is visible to every user
+            changes.append("runtime: env=").append(RuntimeConfig.readEnv(p.envVars).stream().map(RuntimeConfig.Env::name).toList())
+                    .append(" cpu=").append(p.cpuRequest).append('/').append(p.cpuLimit)
+                    .append(" memory=").append(p.memoryRequest).append('/').append(p.memoryLimit).append(' ');
+            p = projects.save(p);
+            gitops.applyRuntime(p, "platform: update " + p.name + " env vars / resources");
         }
         if (changes.isEmpty()) return p;
         audit.record(actor, "project.settings", p.name, changes.toString().trim());
@@ -120,6 +181,7 @@ public class ProjectService {
         p.webhookSecret = HexFormat.of().formatHex(secret);
         p.createdBy = actor;
         p.scanSeverity = req.scanSeverity() == null || req.scanSeverity().isBlank() ? "HIGH,CRITICAL" : validSeverity(req.scanSeverity());
+        applyRuntime(p, req.envVars(), req.cpuRequest(), req.cpuLimit(), req.memoryRequest(), req.memoryLimit());
         p = projects.save(p);
 
         for (String env : GitOpsService.ENVS) cluster.ensureEnvironment(p, env);

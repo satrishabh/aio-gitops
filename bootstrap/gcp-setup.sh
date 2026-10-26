@@ -11,6 +11,13 @@ CLUSTER="${CLUSTER:-cluster-1}"
 GH_USER="${GH_USER:-satrishabh}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Platform database: "cloudsql" (default, managed Cloud SQL for PostgreSQL) or "incluster" (the old StatefulSet)
+DB_MODE="${DB_MODE:-cloudsql}"
+REGION="${LOCATION%-[a-z]}"                 # Cloud SQL is regional: asia-south1-a -> asia-south1
+SQL_INSTANCE="${SQL_INSTANCE:-aio-db}"
+SQL_TIER="${SQL_TIER:-db-f1-micro}"          # shared core, cheapest; use db-custom-1-3840 for real workloads
+SQL_GSA="aio-platform-sql@${PROJECT_ID}.iam.gserviceaccount.com"
+
 TEKTON_PIPELINES_VERSION=v1.6.0
 ARGOCD_VERSION=v3.5.6   # must match what's running; CRDs need --server-side (applicationsets CRD is too large)
 INGRESS_NGINX_VERSION=controller-v1.11.2
@@ -24,11 +31,22 @@ gcloud services enable container.googleapis.com
 if ! gcloud container clusters describe "$CLUSTER" --location "$LOCATION" >/dev/null 2>&1; then
   gcloud container clusters create "$CLUSTER" --location "$LOCATION" --node-locations "${LOCATION%-?}-a" \
     --num-nodes 2 --machine-type e2-standard-4 --disk-size 50 \
-    --release-channel regular --enable-ip-alias
+    --release-channel regular --enable-ip-alias --workload-pool "${PROJECT_ID}.svc.id.goog"
 fi
 gcloud container clusters get-credentials "$CLUSTER" --location "$LOCATION"
-if [ "$(gcloud container clusters describe "$CLUSTER" --location "$LOCATION" --format='value(autopilot.enabled)')" = "True" ]; then
+AUTOPILOT=$(gcloud container clusters describe "$CLUSTER" --location "$LOCATION" --format='value(autopilot.enabled)')
+if [ "$AUTOPILOT" = "True" ]; then
   echo "NOTE: Autopilot cluster - pods get default resources; Kaniko runs as root (allowed, non-privileged)."
+fi
+# Workload Identity lets the platform pod reach Cloud SQL as a Google service account, with no key files.
+# Autopilot always has it; older Standard clusters may not (enabling it updates the node pools).
+if [ "$DB_MODE" = "cloudsql" ] && [ "$AUTOPILOT" != "True" ] && \
+   [ -z "$(gcloud container clusters describe "$CLUSTER" --location "$LOCATION" --format='value(workloadIdentityConfig.workloadPool)')" ]; then
+  echo "Enabling Workload Identity on $CLUSTER (node pools are updated; takes a few minutes)"
+  gcloud container clusters update "$CLUSTER" --location "$LOCATION" --workload-pool "${PROJECT_ID}.svc.id.goog"
+  for POOL in $(gcloud container node-pools list --cluster "$CLUSTER" --location "$LOCATION" --format='value(name)'); do
+    gcloud container node-pools update "$POOL" --cluster "$CLUSTER" --location "$LOCATION" --workload-metadata GKE_METADATA
+  done
 fi
 kubectl get nodes -o wide
 
@@ -103,8 +121,42 @@ ARGOCD_TOKEN=$(curl -sk -X POST https://localhost:8443/api/v1/account/aio-platfo
 
 DB_PASSWORD=$(kubectl -n aio-platform get secret aio-platform-secrets -o jsonpath='{.data.DB_PASSWORD}' 2>/dev/null | base64 -d || true)
 [ -n "$DB_PASSWORD" ] || DB_PASSWORD=$(openssl rand -hex 16)
+
+if [ "$DB_MODE" = "cloudsql" ]; then
+  # ---------------------------------------------------------------- 4b. Cloud SQL for PostgreSQL
+  step "Cloud SQL instance $SQL_INSTANCE ($REGION, $SQL_TIER)"
+  gcloud services enable sqladmin.googleapis.com iam.googleapis.com
+  if ! gcloud sql instances describe "$SQL_INSTANCE" >/dev/null 2>&1; then
+    # Public IP but no authorised networks: only IAM-authorised connectors/proxies can reach it (TLS)
+    gcloud sql instances create "$SQL_INSTANCE" --database-version POSTGRES_16 --edition ENTERPRISE \
+      --tier "$SQL_TIER" --region "$REGION" --availability-type zonal \
+      --storage-size 10 --storage-auto-increase --backup-start-time 03:00
+  fi
+  gcloud sql databases describe aio --instance "$SQL_INSTANCE" >/dev/null 2>&1 || \
+    gcloud sql databases create aio --instance "$SQL_INSTANCE"
+  if gcloud sql users list --instance "$SQL_INSTANCE" --format='value(name)' | grep -qx aio; then
+    gcloud sql users set-password aio --instance "$SQL_INSTANCE" --password "$DB_PASSWORD"
+  else
+    gcloud sql users create aio --instance "$SQL_INSTANCE" --password "$DB_PASSWORD"
+  fi
+  SQL_CONN=$(gcloud sql instances describe "$SQL_INSTANCE" --format='value(connectionName)')
+
+  step "Workload Identity: aio-platform pod -> $SQL_GSA (roles/cloudsql.client)"
+  gcloud iam service-accounts describe "$SQL_GSA" >/dev/null 2>&1 || \
+    gcloud iam service-accounts create aio-platform-sql --display-name "AIO platform - Cloud SQL client"
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${SQL_GSA}" \
+    --role roles/cloudsql.client --condition None >/dev/null
+  gcloud iam service-accounts add-iam-policy-binding "$SQL_GSA" --role roles/iam.workloadIdentityUser \
+    --member "serviceAccount:${PROJECT_ID}.svc.id.goog[aio-platform/aio-platform]" >/dev/null
+  kubectl -n aio-platform annotate serviceaccount aio-platform --overwrite "iam.gke.io/gcp-service-account=${SQL_GSA}"
+
+  DB_URL="jdbc:postgresql:///aio?cloudSqlInstance=${SQL_CONN}&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+else
+  DB_URL=jdbc:postgresql://aio-postgres:5432/aio
+fi
+
 kubectl -n aio-platform create secret generic aio-platform-secrets \
-  --from-literal=DB_URL=jdbc:postgresql://aio-postgres:5432/aio \
+  --from-literal=DB_URL="$DB_URL" \
   --from-literal=DB_USER=aio \
   --from-literal=DB_PASSWORD="$DB_PASSWORD" \
   --from-literal=GITHUB_CLIENT_ID="$GH_CLIENT_ID" \
@@ -116,16 +168,25 @@ kubectl -n aio-platform create secret generic aio-platform-secrets \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # ---------------------------------------------------------------- 5. build platform image + deploy
-step "Build & push ghcr.io/${GH_USER}/aio-platform:0.1.0"
-echo "$GH_PAT" | docker login ghcr.io -u "$GH_USER" --password-stdin
-docker build -t "ghcr.io/${GH_USER}/aio-platform:0.1.0" "$ROOT/platform"
-docker push "ghcr.io/${GH_USER}/aio-platform:0.1.0"
-docker image prune -af >/dev/null   # Cloud Shell has a small disk
+# Same image as platform/deploy/values-platform.yaml (Artifact Registry, built by Cloud Build)
+PLATFORM_IMAGE=$(sed -n 's/^  repository: *//p' "$ROOT/platform/deploy/values-platform.yaml" | head -1)
+PLATFORM_TAG=$(sed -n 's/^  tag: *"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' "$ROOT/platform/deploy/values-platform.yaml" | head -1)
+step "Build ${PLATFORM_IMAGE}:${PLATFORM_TAG} with Cloud Build"
+gcloud services enable cloudbuild.googleapis.com artifactregistry.googleapis.com
+AR_REPO=$(echo "$PLATFORM_IMAGE" | cut -d/ -f3)
+gcloud artifacts repositories describe "$AR_REPO" --location "$REGION" >/dev/null 2>&1 || \
+  gcloud artifacts repositories create "$AR_REPO" --repository-format docker --location "$REGION"
+gcloud builds submit "$ROOT/platform" --tag "${PLATFORM_IMAGE}:${PLATFORM_TAG}"
 unset GH_PAT GH_CLIENT_SECRET ARGOCD_TOKEN SESSION ADMIN_PW
 
-step "Postgres + platform"
-kubectl apply -f "$ROOT/platform/deploy/postgres.yaml"
-kubectl -n aio-platform rollout status statefulset/aio-postgres --timeout=300s
+step "Database + platform"
+if [ "$DB_MODE" = "cloudsql" ]; then
+  # copies existing data from the old in-cluster Postgres the first time (no-op afterwards)
+  SQL_INSTANCE_CONN="$SQL_CONN" bash "$ROOT/bootstrap/migrate-to-cloudsql.sh"
+else
+  kubectl apply -f "$ROOT/platform/deploy/postgres.yaml"
+  kubectl -n aio-platform rollout status statefulset/aio-postgres --timeout=300s
+fi
 helm upgrade --install aio-platform "$ROOT/helm/app" -n aio-platform \
   -f "$ROOT/helm/app/values.yaml" -f "$ROOT/platform/deploy/values-platform.yaml" \
   --set ingress.host="aio.${DOMAIN}"
@@ -148,5 +209,6 @@ cat <<EOF
  3. Open ${PUBLIC_URL}, sign in, New project -> https://github.com/${GH_USER}/sample-app
 
  Stop all costs: gcloud container clusters delete ${CLUSTER} --location ${LOCATION}
+                 gcloud sql instances delete ${SQL_INSTANCE}   (Cloud SQL bills while it exists)
 ==================================================================
 EOF

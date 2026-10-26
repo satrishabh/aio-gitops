@@ -60,7 +60,7 @@ export default function Approvals({ me }) {
                 </div>
                 <Badge value={pr.status} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', padding: '12px 14px', borderRadius: 12, background: 'rgba(10,13,20,0.45)', border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', padding: '12px 14px', borderRadius: 12, background: 'var(--fill-2)' }}>
                 <span className="badge gray">{pr.fromEnv || 'history'}</span>
                 <Icon name="arrow" size={16} />
                 <span className="badge amber"><Icon name="lock" size={11} />{pr.toEnv}</span>

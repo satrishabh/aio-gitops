@@ -30,10 +30,13 @@ public class ProjectController {
     private final RunService runService;
     private final PromotionService promotionService;
     private final ClusterService cluster;
+    private final com.aio.platform.service.ScaleService scaleService;
 
     public ProjectController(ProjectRepo projects, CiRunRepo runs, RunStepRepo steps, EnvStatusRepo envs,
                              DeploymentRepo deployments, PromotionRepo promotions, ProjectService projectService,
-                             RunService runService, PromotionService promotionService, ClusterService cluster) {
+                             RunService runService, PromotionService promotionService, ClusterService cluster,
+                             com.aio.platform.service.ScaleService scaleService) {
+        this.scaleService = scaleService;
         this.projects = projects;
         this.runs = runs;
         this.steps = steps;
@@ -88,12 +91,17 @@ public class ProjectController {
         return m;
     }
 
-    public record SettingsRequest(String scanSeverity, String testImage, String testCommand) {}
+    public record SettingsRequest(String scanSeverity, String testImage, String testCommand, String dockerfile,
+                                  String contextDir, String defaultBranch, Boolean webhook,
+                                  List<com.aio.platform.service.RuntimeConfig.Env> envVars, String cpuRequest,
+                                  String cpuLimit, String memoryRequest, String memoryLimit) {}
 
     @PatchMapping("/{id}")
     public Project update(@PathVariable Long id, @RequestBody SettingsRequest req, @AuthenticationPrincipal OAuth2User user) {
-        return projectService.updateSettings(projects.findById(id).orElseThrow(), req.scanSeverity(), req.testImage(),
-                req.testCommand(), Me.login(user));
+        return projectService.updateSettings(projects.findById(id).orElseThrow(), new ProjectService.Settings(
+                req.scanSeverity(), req.testImage(), req.testCommand(), req.dockerfile(), req.contextDir(),
+                req.defaultBranch(), req.webhook(), req.envVars(), req.cpuRequest(), req.cpuLimit(),
+                req.memoryRequest(), req.memoryLimit()), Me.login(user));
     }
 
     public record DeleteRequest(String confirmName) {}
@@ -122,6 +130,23 @@ public class ProjectController {
                       @AuthenticationPrincipal OAuth2User user) {
         Project p = projects.findById(id).orElseThrow();
         return runService.trigger(p, req == null ? null : req.ref(), "MANUAL", Me.login(user), true);
+    }
+
+    public record ScaleRequest(Integer replicas) {}
+
+    /** Stop (replicas 0) or start/scale one environment via a GitOps commit. */
+    @PostMapping("/{id}/environments/{env}/scale")
+    public Object scale(@PathVariable Long id, @PathVariable String env, @RequestBody ScaleRequest req,
+                        @AuthenticationPrincipal OAuth2User user) {
+        if (req == null || req.replicas() == null) throw new IllegalArgumentException("replicas is required");
+        return scaleService.scale(projects.findById(id).orElseThrow(), env, req.replicas(), Me.login(user));
+    }
+
+    /** Stop or start the whole application (every environment that has something deployed). */
+    @PostMapping("/{id}/scale")
+    public Object scaleAll(@PathVariable Long id, @RequestBody ScaleRequest req, @AuthenticationPrincipal OAuth2User user) {
+        if (req == null || req.replicas() == null) throw new IllegalArgumentException("replicas is required");
+        return scaleService.scaleAll(projects.findById(id).orElseThrow(), req.replicas(), Me.login(user));
     }
 
     public record PromoteRequest(String from, String to) {}

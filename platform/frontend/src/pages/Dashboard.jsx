@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
-import { Avatar, BarChart, Empty, Kpi, PageHead, Ring, Skeleton, ago, envTone } from '../components/ui.jsx'
+import { Avatar, BarChart, Empty, Kpi, PageHead, Ring, Skeleton, ago, envTone, isStopped } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const SERIES = [
-  { key: 'succeeded', color: '#22c55e', label: 'CI succeeded' },
-  { key: 'failed', color: '#f87171', label: 'CI failed' },
-  { key: 'deploys', color: '#7c5cff', label: 'Deployments' },
+  { key: 'succeeded', color: 'var(--green)', label: 'CI succeeded' },
+  { key: 'failed', color: 'var(--red)', label: 'CI failed' },
+  { key: 'deploys', color: 'var(--accent)', label: 'Deployments' },
 ]
 
 const FEED = {
@@ -66,7 +66,7 @@ export default function Dashboard({ me }) {
             <h3>Delivery activity</h3>
             <div className="legend">{SERIES.map(s => <span key={s.key}><i style={{ background: s.color }} />{s.label}</span>)}</div>
           </div>
-          <BarChart data={metrics.daily} series={SERIES} />
+          <BarChart data={metrics.daily} series={SERIES} label="CI runs per day" />
         </div>
         <div className="card">
           <div className="card-head"><h3>Health at a glance</h3></div>
@@ -106,7 +106,7 @@ export default function Dashboard({ me }) {
                         <td key={env}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span className={`dot ${tone}`} />
-                            <code>{s?.replicas === 0 ? 'not deployed' : (s?.desiredTag || s?.imageTag || '—').slice(0, 12)}</code>
+                            <code>{s?.replicas === 0 ? (isStopped(s) ? 'scaled down' : 'not deployed') : (s?.desiredTag || s?.imageTag || '—').slice(0, 12)}</code>
                           </span>
                         </td>
                       )

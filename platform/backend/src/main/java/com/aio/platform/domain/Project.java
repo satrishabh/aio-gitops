@@ -19,6 +19,12 @@ public class Project {
     public String testCommand;
     public String imageRepo;
     public String scanSeverity = "HIGH,CRITICAL";   // HIGH,CRITICAL | CRITICAL | NONE
+    /** JSON array of {name, value}; rendered as the chart's env: list in every environment. */
+    @Column(columnDefinition = "text") public String envVars = "[]";
+    public String cpuRequest = "50m";
+    public String cpuLimit = "500m";
+    public String memoryRequest = "128Mi";
+    public String memoryLimit = "512Mi";
     @JsonIgnore public String webhookSecret;
     public Long webhookId;
     public String createdBy;

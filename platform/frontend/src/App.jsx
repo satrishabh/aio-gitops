@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { api, logout } from './api.js'
 import { ToastProvider } from './components/Toast.jsx'
 import Icon from './components/Icon.jsx'
+import ThemeToggle from './components/ThemeToggle.jsx'
+import { LogoMark, Wordmark } from './components/Logo.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
@@ -41,28 +43,37 @@ export default function App() {
     return () => clearInterval(t)
   }, [me, location.pathname])
 
-  if (isLogin) return <Login />
-  if (loading) return <div className="center"><div className="logo-mark" style={{ width: 44, height: 44 }}><Icon name="zap" size={22} /></div></div>
-  if (!me) return null
-
+  // On client-side navigation: name the page and move focus to the content, as a full page load would.
+  const mainRef = useRef(null)
+  const firstRender = useRef(true)
   const crumb = (CRUMBS.find(([re]) => re.test(location.pathname)) || [null, ''])[1]
+  useEffect(() => {
+    document.title = crumb ? `${crumb.split(' / ').pop()} · AIO Platform` : 'AIO Platform'
+    if (firstRender.current) { firstRender.current = false; return }
+    mainRef.current?.focus({ preventScroll: true })
+    window.scrollTo(0, 0)
+  }, [location.pathname, crumb])
+
+  if (isLogin) return <Login />
+  if (loading) return <div className="center" role="status" aria-label="Loading AIO Platform"><LogoMark size={44} className="logo-mark pulse" /></div>
+  if (!me) return null
 
   return (
     <ToastProvider>
+      <a href="#main" className="skip-link">Skip to content</a>
       <div className="shell">
         <aside className="sidebar">
-          <Link to="/" className="logo">
-            <span className="logo-mark"><Icon name="zap" size={17} /></span>
-            <span>AIO Platform<small>CI · CD · GitOps</small></span>
+          <Link to="/" className="logo" aria-label="AIO Platform — overview">
+            <span><Wordmark height={18} className="logo-mark" /><small>CI · CD · GitOps</small></span>
           </Link>
-          <nav className="nav">
+          <nav className="nav" aria-label="Main">
             <div className="nav-section">Workspace</div>
             <NavLink to="/" end><Icon name="home" />Overview</NavLink>
             <NavLink to="/projects"><Icon name="grid" />Projects</NavLink>
             <NavLink to="/new"><Icon name="plus" />New project</NavLink>
             <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
             <div className="nav-section">Delivery</div>
-            <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count">{pending}</span>}</NavLink>
+            <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
             <NavLink to="/audit"><Icon name="list" />Audit log</NavLink>
           </nav>
@@ -70,24 +81,25 @@ export default function App() {
             <div className="me">
               {me.avatarUrl && <img src={me.avatarUrl} alt="" />}
               <div className="who"><b>{me.name || me.login}</b><span>@{me.login}{me.approver ? ' · approver' : ''}</span></div>
-              <button className="icon-btn" title="Log out" onClick={logout}><Icon name="logout" /></button>
+              <button className="icon-btn" title="Log out" aria-label="Log out" onClick={logout}><Icon name="logout" /></button>
             </div>
           </div>
         </aside>
         <div className="content">
           <header className="topbar">
-            <div className="crumbs">
+            <nav className="crumbs" aria-label="Breadcrumb">
               {crumb.split(' / ').map((c, i, a) => (
                 <span key={c} style={{ display: 'contents' }}>
-                  {i < a.length - 1 ? <Link to={c === 'Projects' ? '/projects' : '/'}>{c}</Link> : <b>{c}</b>}
-                  {i < a.length - 1 && <span>/</span>}
+                  {i < a.length - 1 ? <Link to={c === 'Projects' ? '/projects' : '/'}>{c}</Link> : <b aria-current="page">{c}</b>}
+                  {i < a.length - 1 && <span aria-hidden="true">/</span>}
                 </span>
               ))}
-            </div>
-            <span className="live-dot">Live</span>
+            </nav>
+            <span className="live-dot" title="Data refreshes automatically">Live</span>
+            <ThemeToggle />
             <Link to="/new" className="btn primary small"><Icon name="plus" size={14} />New project</Link>
           </header>
-          <main>
+          <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>
               <Route path="/" element={<Dashboard me={me} />} />
               <Route path="/projects" element={<Projects />} />

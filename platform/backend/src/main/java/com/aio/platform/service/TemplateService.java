@@ -294,7 +294,7 @@ public class TemplateService {
         }
 
         Project p = projectService.create(new ProjectService.CreateRequest("https://github.com/" + owner + "/" + name,
-                name, null, null, null, null, true, req.scanSeverity()), actor);
+                name, null, null, null, null, true, req.scanSeverity(), null, null, null, null, null), actor);
         CiRun run = runService.trigger(p, null, "TEMPLATE", actor, true);
         audit.record(actor, "template.create", name, "from " + req.template() + (added.isEmpty() ? "" : " +" + added));
         cache.remove("mine");

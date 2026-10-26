@@ -109,6 +109,23 @@ public class GitOpsService {
         github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message);
     }
 
+    /** Rewrites env: and resources: in every environment's values file; returns the envs that changed. */
+    public List<String> applyRuntime(Project p, String message) {
+        var g = props.gitops();
+        List<String> changed = new java.util.ArrayList<>();
+        for (String env : ENVS) {
+            String path = valuesPath(g, p.name, env);
+            var file = github.getFile(g.owner(), g.repo(), path, g.branch());
+            if (file == null) continue;
+            String updated = RuntimeConfig.apply(file.content(), p);
+            if (updated.equals(file.content())) continue;
+            github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message + " (" + env + ")");
+            cache.remove(p.name + "/" + env);
+            changed.add(env);
+        }
+        return changed;
+    }
+
     public void deleteProjectFiles(Project p) {
         var g = props.gitops();
         for (String env : ENVS) {
@@ -164,10 +181,42 @@ public class GitOpsService {
         return yaml.endsWith("\n") ? yaml + "replicaCount: " + n + "\n" : yaml + "\nreplicaCount: " + n + "\n";
     }
 
-    /** A real image is being deployed: scale from 0 to 1 (higher counts are left alone). */
+    /** A real image is being deployed: scale from 0 to 1 unless someone scaled the env down on purpose. */
     static String ensureRunning(String yaml) {
+        if (isScaledDown(yaml)) return yaml;
         Integer r = extractReplicas(yaml);
         return r == null || r == 0 ? setReplicas(yaml, 1) : yaml;
+    }
+
+    private static final Pattern SCALED_DOWN_LINE = Pattern.compile("(?m)^scaledDown:\\s*\\S*\\s*\\R?");
+
+    static boolean isScaledDown(String yaml) {
+        return Pattern.compile("(?m)^scaledDown:\\s*true\\s*$").matcher(yaml).find();
+    }
+
+    /**
+     * Sets replicaCount; n=0 also writes {@code scaledDown: true} (ignored by the chart) so later deploys
+     * update the image without waking the app up. Any n>0 clears the marker.
+     */
+    static String scale(String yaml, int n) {
+        String out = SCALED_DOWN_LINE.matcher(setReplicas(yaml, n)).replaceAll("");
+        if (n == 0) out = (out.endsWith("\n") ? out : out + "\n") + "scaledDown: true\n";
+        return out;
+    }
+
+    /** Commits a replica change for one environment; returns false when nothing changed. */
+    public boolean setReplicas(Project p, String env, int n, String message) {
+        var g = props.gitops();
+        String path = valuesPath(g, p.name, env);
+        var file = github.getFile(g.owner(), g.repo(), path, g.branch());
+        if (file == null) throw new IllegalStateException("values file missing: " + path);
+        if (n > 0 && PLACEHOLDER_TAG.equals(extractTag(file.content())))
+            throw new IllegalArgumentException(env + " has no deployed image yet - deploy before starting it");
+        String updated = scale(file.content(), n);
+        cache.remove(p.name + "/" + env);
+        if (updated.equals(file.content())) return false;
+        github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message);
+        return true;
     }
 
     /** Adds the pull secret if missing; parks placeholder envs at 0 replicas. */
@@ -185,7 +234,7 @@ public class GitOpsService {
         String domain = props.baseDomain();
         boolean ingress = domain != null && !domain.isBlank();
         String host = "prod".equals(env) ? p.name + "." + domain : p.name + "-" + env + "." + domain;
-        return """
+        return RuntimeConfig.apply("""
                 # Managed by AIO platform - image.tag is updated by CI / promotions
                 image:
                   repository: %s
@@ -199,6 +248,6 @@ public class GitOpsService {
                 ingress:
                   enabled: %s
                   host: %s
-                """.formatted(p.imageRepo, PLACEHOLDER_TAG, PULL_SECRET, ingress, ingress ? host : "example.local");
+                """.formatted(p.imageRepo, PLACEHOLDER_TAG, PULL_SECRET, ingress, ingress ? host : "example.local"), p);
     }
 }

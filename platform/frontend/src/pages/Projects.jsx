@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
-import { Avatar, Empty, PageHead, Skeleton, ago, envTone } from '../components/ui.jsx'
+import { Avatar, Empty, PageHead, Skeleton, ago, envTone, isStopped } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
@@ -20,15 +20,15 @@ export default function Projects() {
       <Stale stale={stale} error={error} onRetry={refresh} />
       <PageHead title="Projects" sub={`${items.length} project${items.length === 1 ? '' : 's'} · each deploys as its own release into the shared dev, staging and prod namespaces`}>
         <div className="search" style={{ width: 260 }}>
-          <Icon name="search" size={15} /><input placeholder="Search projects…" value={q} onChange={e => setQ(e.target.value)} />
+          <Icon name="search" size={15} /><input type="search" aria-label="Search projects" placeholder="Search projects…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
         <Link to="/new" className="btn primary"><Icon name="plus" size={15} />New project</Link>
       </PageHead>
 
       {items.length === 0 ? (
-        <div className="card"><Empty icon="rocket" title="No projects yet">
+        <div className="card"><Empty icon="rocket" title="No projects yet"
+          action={<Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link>}>
           Pick a GitHub repository with a Dockerfile — we will build, scan and deploy it for you.
-          <div style={{ marginTop: 14 }}><Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link></div>
         </Empty></div>
       ) : (
         <div className="project-grid">
@@ -49,7 +49,7 @@ export default function Projects() {
                   return (
                     <div key={env} className="env-chip">
                       <div className="name"><span className={`dot ${tone}`} />{env}</div>
-                      <div className="tag">{s?.replicas === 0 ? <span className="muted">not deployed</span> : (s?.desiredTag || s?.imageTag || '—')}</div>
+                      <div className="tag">{s?.replicas === 0 ? <span className="muted">{isStopped(s) ? 'scaled down' : 'not deployed'}</span> : (s?.desiredTag || s?.imageTag || '—')}</div>
                     </div>
                   )
                 })}

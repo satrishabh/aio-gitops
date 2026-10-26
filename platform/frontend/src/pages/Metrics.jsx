@@ -6,9 +6,9 @@ import { Stale, usePoll } from '../hooks.jsx'
 const pct = v => (v == null ? '—' : `${Math.round(v * 100)}%`)
 const hrs = v => (v == null ? '—' : v < 1 ? `${Math.round(v * 60)} min` : `${v.toFixed(1)} h`)
 const SERIES = [
-  { key: 'succeeded', color: '#22c55e', label: 'CI succeeded' },
-  { key: 'failed', color: '#f87171', label: 'CI failed' },
-  { key: 'deploys', color: '#7c5cff', label: 'Deployments' },
+  { key: 'succeeded', color: 'var(--green)', label: 'CI succeeded' },
+  { key: 'failed', color: 'var(--red)', label: 'CI failed' },
+  { key: 'deploys', color: 'var(--accent)', label: 'Deployments' },
 ]
 
 /** DORA performance band (per the State of DevOps thresholds) for a quick qualitative read. */
@@ -53,7 +53,7 @@ export default function Metrics() {
             <h3>Daily activity</h3>
             <div className="legend">{SERIES.map(s => <span key={s.key}><i style={{ background: s.color }} />{s.label}</span>)}</div>
           </div>
-          <BarChart data={data.daily} series={SERIES} height={240} />
+          <BarChart data={data.daily} series={SERIES} height={240} label="CI runs per day" />
         </div>
         <div className="card">
           <div className="card-head"><h3>Performance</h3><span className={`badge ${bandTone}`}>{bandLabel}</span></div>

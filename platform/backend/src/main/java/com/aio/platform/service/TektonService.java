@@ -39,6 +39,29 @@ public class TektonService {
         return props.tekton().namespace();
     }
 
+    /**
+     * fabric8 often reports only "An error has occurred."; the useful part (HTTP code, API server or
+     * admission-webhook message, connection failure) is in the status or the cause chain.
+     */
+    public static String describe(Throwable e) {
+        StringBuilder b = new StringBuilder();
+        if (e instanceof io.fabric8.kubernetes.client.KubernetesClientException k) {
+            if (k.getCode() > 0) b.append("HTTP ").append(k.getCode()).append(": ");
+            var st = k.getStatus();
+            if (st != null && st.getMessage() != null && !st.getMessage().isBlank()) b.append(st.getMessage());
+            else if (st != null && st.getReason() != null) b.append(st.getReason());
+        }
+        // walk the cause chain for the root reason (e.g. UnknownHost, connect timeout, 403 from RBAC)
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        String top = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        if (b.isEmpty()) b.append(top);
+        if (root != e) b.append(" (cause: ").append(root.getClass().getSimpleName())
+                .append(root.getMessage() == null ? "" : ": " + root.getMessage()).append(')');
+        String s = b.toString();
+        return s.length() > 900 ? s.substring(0, 900) + "…" : s;
+    }
+
     /** Max duration of a whole run (Tekton duration string, e.g. "15m"). */
     public String timeout() {
         String v = props.tekton().timeout();
@@ -92,8 +115,62 @@ public class TektonService {
                 .build());
         pr.setAdditionalProperty("spec", spec);
 
-        return k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).resource(pr).create()
-                .getMetadata().getName();
+        return createWithRetry(pr, run.id);
+    }
+
+    static final long[] BACKOFF_MS = {1_000, 3_000};
+
+    /**
+     * Transient failures (API server/webhook briefly unavailable, dropped connection, stale token) are retried.
+     * The last attempt uses a freshly built client, so a long-lived client in a bad state cannot block CI;
+     * before each retry we look the run up by label so a request that did reach the API server is not duplicated.
+     */
+    private String createWithRetry(GenericKubernetesResource pr, Long runId) {
+        RuntimeException last = null;
+        for (int attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+            boolean fresh = attempt == BACKOFF_MS.length && attempt > 0;
+            try {
+                if (attempt > 0) {
+                    String existing = findByRunId(runId);
+                    if (existing != null) return existing;
+                }
+                if (!fresh) return create(k8s, pr);
+                try (KubernetesClient c = new io.fabric8.kubernetes.client.KubernetesClientBuilder().build()) {
+                    return create(c, pr);
+                }
+            } catch (RuntimeException e) {
+                last = e;
+                if (!isRetryable(e) || attempt == BACKOFF_MS.length) break;
+                log.warn("PipelineRun create for run {} failed (attempt {}): {} - retrying", runId, attempt + 1, describe(e));
+                sleep(BACKOFF_MS[attempt]);
+            }
+        }
+        throw last;
+    }
+
+    private String create(KubernetesClient c, GenericKubernetesResource pr) {
+        return c.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).resource(pr).create().getMetadata().getName();
+    }
+
+    private String findByRunId(Long runId) {
+        try {
+            var items = k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns())
+                    .withLabel("aio.platform/run-id", String.valueOf(runId)).list().getItems();
+            return items.isEmpty() ? null : items.get(0).getMetadata().getName();
+        } catch (RuntimeException e) {
+            return null; // lookup is best effort; the create attempt below reports the real problem
+        }
+    }
+
+    /** Client errors that retrying cannot fix (bad spec, forbidden, missing pipeline) fail fast. */
+    static boolean isRetryable(Throwable e) {
+        if (!(e instanceof io.fabric8.kubernetes.client.KubernetesClientException k)) return true;
+        int code = k.getCode();
+        return code <= 0 || code == 401 || code == 408 || code == 429 || code >= 500;   // <= 0: no HTTP response (I/O)
+    }
+
+    private static void sleep(long ms) {
+        try { Thread.sleep(ms); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
     }
 
     public GenericKubernetesResource getPipelineRun(String name) {

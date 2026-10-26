@@ -154,7 +154,7 @@ export default function RunDetail({ me }) {
         </div>
 
         {showRisk && (
-          <div className="form" style={{ maxWidth: 'none', marginTop: 16, padding: 14, borderRadius: 12, border: '1px solid rgba(248,113,113,0.35)', background: 'var(--red-bg)' }}>
+          <div className="form" style={{ maxWidth: 'none', marginTop: 16, padding: 14, borderRadius: 12, background: 'var(--red-bg)' }}>
             <label>Why is it acceptable to ship with these vulnerabilities? <span className="muted">(recorded in the audit log)</span>
               <textarea rows="2" value={reason} onChange={e => setReason(e.target.value)} />
             </label>
@@ -174,7 +174,7 @@ export default function RunDetail({ me }) {
           <div><span>Started</span>{fmtTime(r.startedAt)}</div>
         </div>
         {r.overrideReason && <p className="muted">Risk accepted: “{r.overrideReason}”</p>}
-        {r.message && r.status === 'FAILED' && <div className="banner" style={{ background: 'var(--red-bg)', color: '#fecaca', borderColor: 'rgba(248,113,113,0.35)', marginTop: 14, marginBottom: 0 }}>
+        {r.message && r.status === 'FAILED' && <div className="banner" style={{ background: 'var(--red-bg)', color: 'var(--red)', marginTop: 14, marginBottom: 0 }}>
           <Icon name="x" size={15} />{r.message}</div>}
       </div>
 
@@ -215,7 +215,7 @@ export default function RunDetail({ me }) {
             <i style={{ background: '#ff5f57' }} /><i style={{ background: '#febc2e' }} /><i style={{ background: '#28c840' }} />
             <span className="title">{selStep ? `${selStep.taskName} › ${selStep.stepName}` : 'logs'}</span>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} style={{ width: 14, height: 14, margin: 0, accentColor: '#7c5cff' }} />follow
+              <input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} style={{ width: 14, height: 14, margin: 0, accentColor: 'var(--accent)' }} />follow
             </label>
             <button className="icon-btn" title="Copy" disabled={!logs} onClick={() => navigator.clipboard.writeText(logs).then(() => toast('ok', 'Logs copied'))}><Icon name="list" size={14} /></button>
             <button className="icon-btn" title="Download" disabled={!logs} onClick={download}><Icon name="arrow" size={14} style={{ transform: 'rotate(90deg)' }} /></button>

@@ -4,16 +4,8 @@ import { api } from '../api.js'
 import Icon from '../components/Icon.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { Avatar, PageHead, ago } from '../components/ui.jsx'
-
-const PRESETS = {
-  '': { testImage: '', testCommand: '' },
-  java: { testImage: 'maven:3.9-eclipse-temurin-21', testCommand: 'mvn -B verify' },
-  gradle: { testImage: 'gradle:8-jdk21', testCommand: 'gradle test --no-daemon' },
-  node: { testImage: 'node:20', testCommand: 'npm ci && npm test' },
-  python: { testImage: 'python:3.12', testCommand: 'pip install -r requirements.txt && pytest' },
-  go: { testImage: 'golang:1.22', testCommand: 'go test ./...' },
-  dotnet: { testImage: 'mcr.microsoft.com/dotnet/sdk:8.0', testCommand: 'dotnet test' },
-}
+import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/RuntimeFields.jsx'
+import { PRESETS } from '../projectOptions.js'
 
 export default function NewProject() {
   const nav = useNavigate()
@@ -21,6 +13,7 @@ export default function NewProject() {
   const [form, setForm] = useState({
     repoUrl: '', name: '', dockerfile: './Dockerfile', contextDir: '.',
     testImage: '', testCommand: '', registerWebhook: true, scanSeverity: 'HIGH,CRITICAL',
+    envVars: [], ...RUNTIME_DEFAULTS,
   })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -36,7 +29,7 @@ export default function NewProject() {
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      const p = await api('/api/projects', { method: 'POST', body: form })
+      const p = await api('/api/projects', { method: 'POST', body: { ...form, envVars: cleanEnv(form.envVars) } })
       toast('ok', `Project ${p.name} created — starting first CI run`)
       const run = await api(`/api/projects/${p.id}/runs`, { method: 'POST', body: {} })
       nav(`/runs/${run.id}`)
@@ -54,27 +47,28 @@ export default function NewProject() {
       </PageHead>
       <div className="steps-indicator">
         <div><b><Icon name="github" size={14} /> 1 · Repository</b>pick or paste</div>
-        <div><b><Icon name="settings" size={14} /> 2 · Build &amp; test</b>Dockerfile, tests, scan gate</div>
+        <div><b><Icon name="settings" size={14} /> 2 · Build &amp; run</b>Dockerfile, tests, env vars, CPU &amp; memory</div>
         <div><b><Icon name="rocket" size={14} /> 3 · Go</b>namespaces, GitOps, Argo CD, first run</div>
       </div>
       <form onSubmit={submit} className="grid span">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
         <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>
           <div className="card-head"><h3>Repository</h3>{repos && <span className="muted">{repos.length} repos available</span>}</div>
           <div className="search"><Icon name="search" size={15} />
-            <input placeholder={repos ? 'Search your repositories…' : 'Loading your repositories…'} value={q} onChange={e => setQ(e.target.value)} />
+            <input type="search" aria-label="Search your repositories" placeholder={repos ? 'Search your repositories…' : 'Loading your repositories…'} value={q} onChange={e => setQ(e.target.value)} />
           </div>
           {repoError && <p className="muted">Could not list repos ({repoError}) — paste the URL below.</p>}
           {repos && (
             <div className="picker">
               {shown.map(r => (
-                <button type="button" key={r.fullName} className={form.repoUrl === r.url ? 'active' : ''}
+                <button type="button" key={r.fullName} className={form.repoUrl === r.url ? 'active' : ''} aria-pressed={form.repoUrl === r.url}
                         onClick={() => setForm({ ...form, repoUrl: r.url, name: '' })}>
                   <Avatar name={r.fullName.split('/')[1]} size={30} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <b>{r.fullName}</b> {r.private && <span className="badge gray" style={{ marginLeft: 6 }}>private</span>}
                     <div className="desc">{r.description || `default branch ${r.defaultBranch}`} · pushed {ago(r.pushedAt)}</div>
                   </div>
-                  {form.repoUrl === r.url && <Icon name="check" size={16} style={{ color: '#a78bfa' }} />}
+                  {form.repoUrl === r.url && <Icon name="check" size={16} style={{ color: 'var(--accent)' }} />}
                 </button>
               ))}
               {shown.length === 0 && <p className="muted" style={{ padding: '8px 12px' }}>No matches.</p>}
@@ -86,6 +80,12 @@ export default function NewProject() {
           <label>Project name <span className="muted">(defaults to the repo name)</span>
             <input value={form.name} onChange={set('name')} />
           </label>
+        </div>
+
+        <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>
+          <div className="card-head"><h3>Runtime</h3><span className="muted">initial values — editable later in Settings</span></div>
+          <RuntimeFields value={form} onChange={v => setForm({ ...form, ...v })} />
+        </div>
         </div>
 
         <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>

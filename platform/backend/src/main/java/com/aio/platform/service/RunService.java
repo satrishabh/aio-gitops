@@ -5,10 +5,13 @@ import com.aio.platform.domain.Project;
 import com.aio.platform.repo.CiRunRepo;
 import java.time.Instant;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RunService {
+    private static final Logger log = LoggerFactory.getLogger(RunService.class);
     public static final Set<String> SEVERITIES = Set.of("HIGH,CRITICAL", "CRITICAL", "NONE");
 
     private final CiRunRepo runs;
@@ -68,8 +71,9 @@ public class RunService {
         try {
             run.pipelineRunName = tekton.createPipelineRun(p, run);
         } catch (Exception e) {
+            log.warn("PipelineRun creation failed for {} run {}", p.name, run.id, e);
             run.status = CiRun.FAILED;
-            run.message = "Could not create PipelineRun: " + e.getMessage();
+            run.message = "Could not create PipelineRun: " + TektonService.describe(e);
             run.finishedAt = Instant.now();
         }
         run = runs.save(run);

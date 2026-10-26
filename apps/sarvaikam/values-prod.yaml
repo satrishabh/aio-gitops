@@ -10,3 +10,7 @@ ingress:
   host: sarvaikam.34.180.3.18.nip.io
 imagePullSecrets:
   - name: ghcr-pull
+env: []
+resources:
+  requests: { cpu: "50m", memory: "128Mi" }
+  limits: { cpu: "1000m", memory: "2048Mi" }

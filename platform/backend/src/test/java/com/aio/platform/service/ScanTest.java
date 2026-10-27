@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
@@ -140,6 +141,8 @@ class ScanTest {
     @SuppressWarnings("unchecked")
     void securityPipelineIsWellFormed() throws Exception {
         Path tekton = Path.of("../../tekton");
+        // The image build only sees platform/, so this check runs from a full repo checkout only
+        Assumptions.assumeTrue(Files.isDirectory(tekton.resolve("pipelines")), "tekton/ not in the build context");
         for (String f : List.of("tasks/trivy-db.yaml", "tasks/trivy-run.yaml", "tasks/git-clone.yaml"))
             assertNotNull(new Yaml().load(Files.readString(tekton.resolve(f))), f);
         Map<String, Object> p = new Yaml().load(Files.readString(tekton.resolve("pipelines/security-scan.yaml")));

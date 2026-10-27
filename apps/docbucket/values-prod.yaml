@@ -11,3 +11,6 @@ pdb:
 ingress:
   enabled: true
   host: docbucket.34.180.3.18.nip.io
+blueGreen:
+  enabled: true
+  previewHost: docbucket-preview.34.180.3.18.nip.io

@@ -8,6 +8,7 @@ import com.aio.platform.repo.RunStepRepo;
 import com.aio.platform.service.RunService;
 import com.aio.platform.service.TektonService;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -37,6 +38,16 @@ public class RunController {
         this.projects = projects;
         this.tekton = tekton;
         this.runService = runService;
+    }
+
+    /** Recent CI runs across all projects (Pipelines › CI). */
+    @GetMapping
+    public List<Map<String, Object>> list(@RequestParam(defaultValue = "50") int limit) {
+        var names = new java.util.HashMap<Long, String>();
+        projects.findAll().forEach(p -> names.put(p.id, p.name));
+        return runs.findAllByOrderByIdDesc(org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 200))))
+                .stream().map(r -> Map.<String, Object>of("run", r, "project",
+                        Map.of("id", r.projectId, "name", names.getOrDefault(r.projectId, "(deleted)")))).toList();
     }
 
     @GetMapping("/{id}")

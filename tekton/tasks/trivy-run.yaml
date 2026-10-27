@@ -1,0 +1,106 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trivy-run
+spec:
+  description: >
+    One Trivy scanner (vuln | secret | misconfig | license) over the cloned repo, or a container image.
+    Steps: scan (JSON report + SUMMARY result), report (the report as one JSON line, read by the platform
+    into its findings table), gate (fails only when FAIL_ON is set - standalone scans report by default).
+  params:
+    - name: SCANNER
+      description: vuln | secret | misconfig | license
+    - name: TARGET
+      description: fs (the cloned repo) | image
+      default: fs
+    - name: IMAGE
+      default: ""
+    - name: FAIL_ON
+      description: 'Severities that fail the task, e.g. "HIGH,CRITICAL"; "NONE" = report only'
+      default: NONE
+    - name: IGNORE_UNFIXED
+      default: "false"
+  results:
+    - name: SUMMARY
+      description: critical=N,high=N,medium=N,low=N,unknown=N
+  workspaces:
+    - name: source
+      optional: true
+      readOnly: true
+    - name: cache
+      optional: true
+      readOnly: true
+    - name: dockerconfig
+      optional: true
+      mountPath: /root/.docker
+  volumes:
+    - name: scratch
+      emptyDir: {}
+    - name: own-cache
+      emptyDir: {}
+  stepTemplate:
+    image: aquasec/trivy:0.54.1
+    env:
+      - name: DOCKER_CONFIG
+        value: /root/.docker
+      - name: TRIVY_CACHE_DIR
+        value: /own-cache
+    volumeMounts:
+      - name: scratch
+        mountPath: /scratch
+      - name: own-cache
+        mountPath: /own-cache
+    computeResources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 900m, memory: 1536Mi }
+  steps:
+    - name: scan
+      script: |
+        #!/bin/sh
+        set -eu
+        SCANNER="$(params.SCANNER)"
+        case "$SCANNER" in vuln|secret|misconfig|license) ;; *) echo "unknown scanner $SCANNER"; exit 2 ;; esac
+        # Private copy of the run's DB snapshot (vuln / license need it; secret / misconfig do not)
+        DBFLAGS=""
+        if [ "$(workspaces.cache.bound)" = "true" ] && [ -d "$(workspaces.cache.path)/db" ]; then
+          cp -a "$(workspaces.cache.path)/db" "$(workspaces.cache.path)/java-db" /own-cache/ 2>/dev/null || true
+          DBFLAGS="--skip-db-update --skip-java-db-update"
+        fi
+        echo "$DBFLAGS" > /scratch/dbflags
+        FLAGS="--no-progress --exit-code 0 $DBFLAGS --scanners $SCANNER --format json --output /scratch/report.json"
+        [ "$(params.IGNORE_UNFIXED)" = "true" ] && FLAGS="$FLAGS --ignore-unfixed"
+        [ "$SCANNER" = "license" ] && FLAGS="$FLAGS --license-full"
+        if [ "$(params.TARGET)" = "image" ]; then
+          echo "trivy image ($SCANNER) $(params.IMAGE)"
+          trivy image $FLAGS "$(params.IMAGE)"
+        else
+          echo "trivy fs ($SCANNER) on the repository"
+          # .git holds no source worth scanning and is large
+          trivy fs $FLAGS --skip-dirs .git "$(workspaces.source.path)"
+        fi
+        count() { grep -o "\"Severity\": *\"$1\"" /scratch/report.json | wc -l | tr -d ' '; }
+        printf "critical=%s,high=%s,medium=%s,low=%s,unknown=%s" \
+          "$(count CRITICAL)" "$(count HIGH)" "$(count MEDIUM)" "$(count LOW)" "$(count UNKNOWN)" > "$(results.SUMMARY.path)"
+        cat "$(results.SUMMARY.path)"; echo
+    - name: report
+      # Pretty JSON has only escaped newlines inside strings, so dropping line breaks keeps it valid JSON
+      script: |
+        #!/bin/sh
+        set -eu
+        tr -d '\n\r' < /scratch/report.json
+        echo
+    - name: gate
+      script: |
+        #!/bin/sh
+        set -eu
+        if [ "$(params.FAIL_ON)" = "NONE" ] || [ -z "$(params.FAIL_ON)" ]; then
+          echo "Report only (FAIL_ON=NONE)."
+          exit 0
+        fi
+        FLAGS="--no-progress --exit-code 1 $(cat /scratch/dbflags) --scanners $(params.SCANNER) --severity $(params.FAIL_ON)"
+        [ "$(params.IGNORE_UNFIXED)" = "true" ] && FLAGS="$FLAGS --ignore-unfixed"
+        if [ "$(params.TARGET)" = "image" ]; then
+          trivy image $FLAGS "$(params.IMAGE)"
+        else
+          trivy fs $FLAGS --skip-dirs .git "$(workspaces.source.path)"
+        fi

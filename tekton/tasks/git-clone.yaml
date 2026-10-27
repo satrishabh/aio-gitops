@@ -3,7 +3,9 @@ kind: Task
 metadata:
   name: git-clone
 spec:
-  description: Clone a git repository at a specific revision into the source workspace.
+  description: >
+    Clone a git repository at a specific revision into the source workspace. With the optional github-token
+    workspace bound, private repositories the token can read are cloned too (security scans of any repo).
   params:
     - name: url
       type: string
@@ -12,6 +14,10 @@ spec:
       default: main
   workspaces:
     - name: source
+    - name: github-token
+      description: Optional secret with key "token" for private repositories
+      optional: true
+      readOnly: true
   results:
     - name: commit
       description: Full commit SHA that was checked out
@@ -34,7 +40,18 @@ spec:
         rm -rf ./* ./.[!.]* 2>/dev/null || true
         git init -q .
         git remote add origin "$(params.url)"
-        git fetch -q --depth 1 origin "$(params.revision)"
+        # The token is sent as a header for this fetch only - never written to .git/config, so it is not left
+        # in the workspace (where a secret scan would find it) and never appears in the remote URL or logs.
+        AUTH=""
+        if [ "$(workspaces.github-token.bound)" = "true" ] && [ -s "$(workspaces.github-token.path)/token" ]; then
+          AUTH="Authorization: Basic $(printf 'x-access-token:%s' "$(cat "$(workspaces.github-token.path)/token")" | base64 | tr -d '\n')"
+        fi
+        if [ -n "$AUTH" ]; then
+          git -c http.extraHeader="$AUTH" fetch -q --depth 1 origin "$(params.revision)"
+        else
+          git fetch -q --depth 1 origin "$(params.revision)"
+        fi
+        unset AUTH
         git checkout -q FETCH_HEAD
         SHA=$(git rev-parse HEAD)
         printf "%s" "$SHA" > "$(results.commit.path)"

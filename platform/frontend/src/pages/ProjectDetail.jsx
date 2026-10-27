@@ -65,6 +65,7 @@ export default function ProjectDetail() {
             <input aria-label="Branch or commit to build" placeholder={`branch or SHA (default ${p.defaultBranch})`} value={ref} onChange={e => setRef(e.target.value)}
                    onKeyDown={e => e.key === 'Enter' && startRun()} style={{ width: 240 }} />
             <button {...btn('run', 'btn primary')} onClick={startRun}><Icon name="play" size={14} />Run CI</button>
+            <Link className="btn" to={`/pipelines/security?project=${p.id}`}><Icon name="shield" size={14} />Security scan</Link>
             <button className="btn" onClick={() => setTab('settings')} aria-label={`Edit ${p.name} settings`}><Icon name="settings" size={14} />Edit</button>
             {deployedEnvs.length > 0 && (anyRunning
               ? <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(0)} title="Stop every environment (0 pods)"><Icon name="stop" size={13} />Stop app</button>

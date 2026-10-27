@@ -1,0 +1,104 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: security-scan
+spec:
+  description: >
+    Standalone Trivy security scan of any GitHub repository (and optionally a container image), independent
+    of CI/CD. The clone and the DB download run side by side, then every enabled scanner runs in parallel:
+    dependency CVEs, leaked secrets, IaC misconfigurations, licenses and the image.
+  params:
+    - name: repo-url
+    - name: revision
+      default: main
+    - name: image
+      default: ""
+    - { name: scan-vuln, default: "true" }
+    - { name: scan-secret, default: "true" }
+    - { name: scan-misconfig, default: "true" }
+    - { name: scan-license, default: "false" }
+    - { name: scan-image, default: "false" }
+    - name: fail-on
+      description: 'Severities that fail a scanner, e.g. "HIGH,CRITICAL"; "NONE" = report only'
+      default: NONE
+    - name: ignore-unfixed
+      default: "false"
+  workspaces:
+    - name: source        # PVC; the repo and the DB snapshot live in separate subPaths
+    - name: dockerconfig
+    - name: github-token
+  tasks:
+    - name: clone
+      taskRef: { name: git-clone }
+      params:
+        - { name: url, value: $(params.repo-url) }
+        - { name: revision, value: $(params.revision) }
+      workspaces:
+        - { name: source, workspace: source, subPath: repo }
+        - { name: github-token, workspace: github-token }
+
+    - name: trivy-db
+      when:
+        - input: "$(params.scan-vuln)$(params.scan-license)$(params.scan-image)"
+          operator: notin
+          values: ["falsefalsefalse"]
+      taskRef: { name: trivy-db }
+      workspaces:
+        - { name: cache, workspace: source, subPath: trivy-db }
+
+    - name: vuln
+      runAfter: [clone, trivy-db]
+      when: [{ input: $(params.scan-vuln), operator: in, values: ["true"] }]
+      taskRef: { name: trivy-run }
+      params:
+        - { name: SCANNER, value: vuln }
+        - { name: FAIL_ON, value: $(params.fail-on) }
+        - { name: IGNORE_UNFIXED, value: $(params.ignore-unfixed) }
+      workspaces:
+        - { name: source, workspace: source, subPath: repo }
+        - { name: cache, workspace: source, subPath: trivy-db }
+
+    - name: secret
+      runAfter: [clone]
+      when: [{ input: $(params.scan-secret), operator: in, values: ["true"] }]
+      taskRef: { name: trivy-run }
+      params:
+        - { name: SCANNER, value: secret }
+        - { name: FAIL_ON, value: $(params.fail-on) }
+      workspaces:
+        - { name: source, workspace: source, subPath: repo }
+
+    - name: misconfig
+      runAfter: [clone]
+      when: [{ input: $(params.scan-misconfig), operator: in, values: ["true"] }]
+      taskRef: { name: trivy-run }
+      params:
+        - { name: SCANNER, value: misconfig }
+        - { name: FAIL_ON, value: $(params.fail-on) }
+      workspaces:
+        - { name: source, workspace: source, subPath: repo }
+
+    - name: license
+      runAfter: [clone, trivy-db]
+      when: [{ input: $(params.scan-license), operator: in, values: ["true"] }]
+      taskRef: { name: trivy-run }
+      params:
+        - { name: SCANNER, value: license }
+        - { name: FAIL_ON, value: $(params.fail-on) }
+      workspaces:
+        - { name: source, workspace: source, subPath: repo }
+        - { name: cache, workspace: source, subPath: trivy-db }
+
+    - name: image
+      runAfter: [trivy-db]
+      when: [{ input: $(params.scan-image), operator: in, values: ["true"] }]
+      taskRef: { name: trivy-run }
+      params:
+        - { name: SCANNER, value: vuln }
+        - { name: TARGET, value: image }
+        - { name: IMAGE, value: $(params.image) }
+        - { name: FAIL_ON, value: $(params.fail-on) }
+        - { name: IGNORE_UNFIXED, value: $(params.ignore-unfixed) }
+      workspaces:
+        - { name: cache, workspace: source, subPath: trivy-db }
+        - { name: dockerconfig, workspace: dockerconfig }

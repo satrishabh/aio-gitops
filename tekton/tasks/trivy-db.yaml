@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: trivy-db
+spec:
+  description: >
+    Refreshes the Trivy vulnerability + Java DBs once per security scan and copies them into the run's
+    workspace. The parallel scanner tasks each copy that snapshot into their own cache, so several Trivy
+    processes never open the same DB file (the node cache is only touched here, by one process).
+  workspaces:
+    - name: cache
+      description: Per-run DB snapshot shared with the scanner tasks (same PVC, separate subPath)
+  volumes:
+    - name: trivy-cache
+      hostPath:
+        path: /var/lib/aio-trivy-cache
+        type: DirectoryOrCreate
+  steps:
+    - name: download
+      image: aquasec/trivy:0.54.1
+      env:
+        - name: TRIVY_CACHE_DIR
+          value: /cache
+      volumeMounts:
+        - name: trivy-cache
+          mountPath: /cache
+      computeResources:
+        requests: { cpu: 100m, memory: 256Mi }
+        limits: { cpu: 900m, memory: 1Gi }
+      script: |
+        #!/bin/sh
+        set -eu
+        # No-ops when the node cache is fresh (vuln DB ~6h, Java DB ~3 days)
+        trivy image --no-progress --download-db-only
+        trivy image --no-progress --download-java-db-only
+        rm -rf "$(workspaces.cache.path)/db" "$(workspaces.cache.path)/java-db"
+        cp -a /cache/db /cache/java-db "$(workspaces.cache.path)/"
+        du -sh "$(workspaces.cache.path)"/* || true

@@ -115,7 +115,57 @@ public class TektonService {
                 .build());
         pr.setAdditionalProperty("spec", spec);
 
-        return createWithRetry(pr, run.id);
+        return createWithRetry(pr, "aio.platform/run-id", run.id);
+    }
+
+    /** Pipeline name of the standalone security scan (tekton/pipelines/security-scan.yaml). */
+    public static final String SCAN_PIPELINE = "security-scan";
+
+    /** Creates a PipelineRun of the security-scan pipeline for a scan; returns its generated name. */
+    public String createScanRun(com.aio.platform.domain.ScanRun scan, java.util.Set<String> scanners, String projectName) {
+        var t = props.tekton();
+        Map<String, String> params = scanParams(scan, scanners);
+
+        Map<String, Object> spec = new LinkedHashMap<>();
+        spec.put("pipelineRef", Map.of("name", SCAN_PIPELINE));
+        spec.put("params", params.entrySet().stream()
+                .map(e -> Map.<String, Object>of("name", e.getKey(), "value", e.getValue())).toList());
+        spec.put("timeouts", Map.of("pipeline", timeout()));
+        spec.put("taskRunTemplate", Map.of(
+                "serviceAccountName", t.serviceAccount(),
+                "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
+        spec.put("workspaces", List.of(
+                Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", Map.of(
+                        "accessModes", List.of("ReadWriteOnce"),
+                        "resources", Map.of("requests", Map.of("storage", t.storageSize()))))),
+                Map.of("name", "dockerconfig", "secret", Map.of("secretName", t.registrySecret())),
+                Map.of("name", "github-token", "secret", Map.of("secretName", t.githubTokenSecret()))));
+
+        var meta = new ObjectMetaBuilder()
+                .withGenerateName("scan-" + (projectName == null ? "repo" : projectName) + "-")
+                .withNamespace(ns())
+                .addToLabels("aio.platform/scan-id", String.valueOf(scan.id));
+        if (projectName != null) meta.addToLabels("aio.platform/scan-project", projectName);
+        GenericKubernetesResource pr = new GenericKubernetesResource();
+        pr.setApiVersion("tekton.dev/v1");
+        pr.setKind("PipelineRun");
+        pr.setMetadata(meta.build());
+        pr.setAdditionalProperty("spec", spec);
+        return createWithRetry(pr, "aio.platform/scan-id", scan.id);
+    }
+
+    /** security-scan params: one on/off switch per scanner; image scanning only when an image is given. */
+    static Map<String, String> scanParams(com.aio.platform.domain.ScanRun scan, java.util.Set<String> scanners) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("repo-url", scan.repoUrl);
+        params.put("revision", scan.gitRef);
+        params.put("image", scan.image == null ? "" : scan.image);
+        for (String s : List.of("vuln", "secret", "misconfig", "license"))
+            params.put("scan-" + s, String.valueOf(scanners.contains(s)));
+        params.put("scan-image", String.valueOf(scanners.contains("image") && scan.image != null && !scan.image.isBlank()));
+        params.put("fail-on", scan.failOn == null || scan.failOn.isBlank() ? "NONE" : scan.failOn);
+        params.put("ignore-unfixed", String.valueOf(scan.ignoreUnfixed));
+        return params;
     }
 
     static final long[] BACKOFF_MS = {1_000, 3_000};
@@ -125,13 +175,13 @@ public class TektonService {
      * The last attempt uses a freshly built client, so a long-lived client in a bad state cannot block CI;
      * before each retry we look the run up by label so a request that did reach the API server is not duplicated.
      */
-    private String createWithRetry(GenericKubernetesResource pr, Long runId) {
+    private String createWithRetry(GenericKubernetesResource pr, String idLabel, Long runId) {
         RuntimeException last = null;
         for (int attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
             boolean fresh = attempt == BACKOFF_MS.length && attempt > 0;
             try {
                 if (attempt > 0) {
-                    String existing = findByRunId(runId);
+                    String existing = findByLabel(idLabel, runId);
                     if (existing != null) return existing;
                 }
                 if (!fresh) return create(k8s, pr);
@@ -152,10 +202,10 @@ public class TektonService {
         return c.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).resource(pr).create().getMetadata().getName();
     }
 
-    private String findByRunId(Long runId) {
+    private String findByLabel(String idLabel, Long runId) {
         try {
             var items = k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns())
-                    .withLabel("aio.platform/run-id", String.valueOf(runId)).list().getItems();
+                    .withLabel(idLabel, String.valueOf(runId)).list().getItems();
             return items.isEmpty() ? null : items.get(0).getMetadata().getName();
         } catch (RuntimeException e) {
             return null; // lookup is best effort; the create attempt below reports the real problem
@@ -179,6 +229,15 @@ public class TektonService {
 
     public GenericKubernetesResource getTaskRun(String name) {
         return k8s.genericKubernetesResources(TASK_RUN).inNamespace(ns()).withName(name).get();
+    }
+
+    /** Security-scan PipelineRuns (label aio.platform/scan-id), for pruning. */
+    public List<GenericKubernetesResource> listScanRuns() {
+        return k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).withLabel("aio.platform/scan-id").list().getItems();
+    }
+
+    public void deletePipelineRun(String name) {
+        k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).withName(name).delete();
     }
 
     @SuppressWarnings("unchecked")

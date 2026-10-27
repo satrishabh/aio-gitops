@@ -17,11 +17,17 @@ import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
 import Templates from './pages/Templates.jsx'
+import PipelinesCi from './pages/PipelinesCi.jsx'
+import PipelinesCd from './pages/PipelinesCd.jsx'
+import Security from './pages/Security.jsx'
+import ScanDetail from './pages/ScanDetail.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
   [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
   [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'],
+  [/^\/pipelines\/ci/, 'Pipelines / CI'], [/^\/pipelines\/cd/, 'Pipelines / CD'], [/^\/pipelines\/security/, 'Pipelines / Security'],
+  [/^\/scans\//, 'Pipelines / Security scan'],
 ]
 
 export default function App() {
@@ -74,6 +80,11 @@ export default function App() {
             <NavLink to="/projects"><Icon name="grid" />Projects</NavLink>
             <NavLink to="/new"><Icon name="plus" />New project</NavLink>
             <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
+            <div className="nav-section">Pipelines</div>
+            <NavLink to="/pipelines/ci"><Icon name="zap" />CI</NavLink>
+            <NavLink to="/pipelines/cd"><Icon name="rocket" />CD</NavLink>
+            <NavLink to="/pipelines/security" className={({ isActive }) => isActive || location.pathname.startsWith('/scans/') ? 'active' : ''}>
+              <Icon name="shield" />Security</NavLink>
             <div className="nav-section">Delivery</div>
             <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
@@ -93,7 +104,7 @@ export default function App() {
             <nav className="crumbs" aria-label="Breadcrumb">
               {crumb.split(' / ').map((c, i, a) => (
                 <span key={c} style={{ display: 'contents' }}>
-                  {i < a.length - 1 ? <Link to={c === 'Projects' ? '/projects' : '/'}>{c}</Link> : <b aria-current="page">{c}</b>}
+                  {i < a.length - 1 ? <Link to={c === 'Projects' ? '/projects' : c === 'Pipelines' ? (location.pathname.startsWith('/scans/') ? '/pipelines/security' : '/pipelines/ci') : '/'}>{c}</Link> : <b aria-current="page">{c}</b>}
                   {i < a.length - 1 && <span aria-hidden="true">/</span>}
                 </span>
               ))}
@@ -115,6 +126,10 @@ export default function App() {
               <Route path="/metrics" element={<Metrics />} />
               <Route path="/clusters" element={<Clusters />} />
               <Route path="/audit" element={<Audit />} />
+              <Route path="/pipelines/ci" element={<PipelinesCi />} />
+              <Route path="/pipelines/cd" element={<PipelinesCd me={me} />} />
+              <Route path="/pipelines/security" element={<Security />} />
+              <Route path="/scans/:id" element={<ScanDetail />} />
             </Routes>
           </main>
         </div>

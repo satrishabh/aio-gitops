@@ -10,3 +10,6 @@ ingress:
   host: sample-app.34.180.3.18.nip.io
 imagePullSecrets:
   - name: ghcr-pull
+blueGreen:
+  enabled: true
+  previewHost: sample-app-preview.34.180.3.18.nip.io

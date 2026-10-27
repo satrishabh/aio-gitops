@@ -11,8 +11,9 @@ CLUSTER="${CLUSTER:-cluster-1}"
 GH_USER="${GH_USER:-satrishabh}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Platform database: "cloudsql" (default, managed Cloud SQL for PostgreSQL) or "incluster" (the old StatefulSet)
-DB_MODE="${DB_MODE:-cloudsql}"
+# Platform database: "incluster" (default, the aio-postgres StatefulSet) or "cloudsql" (managed Cloud SQL for PostgreSQL).
+# cloudsql needs Workload Identity (GKE_METADATA) on every node pool, which updates the nodes and needs spare quota.
+DB_MODE="${DB_MODE:-incluster}"
 REGION="${LOCATION%-[a-z]}"                 # Cloud SQL is regional: asia-south1-a -> asia-south1
 SQL_INSTANCE="${SQL_INSTANCE:-aio-db}"
 SQL_TIER="${SQL_TIER:-db-f1-micro}"          # shared core, cheapest; use db-custom-1-3840 for real workloads
@@ -152,8 +153,9 @@ if [ "$DB_MODE" = "cloudsql" ]; then
   step "Workload Identity: aio-platform pod -> $SQL_GSA (roles/cloudsql.client)"
   gcloud iam service-accounts describe "$SQL_GSA" >/dev/null 2>&1 || \
     gcloud iam service-accounts create aio-platform-sql --display-name "AIO platform - Cloud SQL client"
-  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${SQL_GSA}" \
-    --role roles/cloudsql.client --condition None >/dev/null
+  # A new service account takes a short while to become usable in IAM policies
+  until gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${SQL_GSA}" \
+          --role roles/cloudsql.client --condition None >/dev/null; do echo "waiting for IAM to see ${SQL_GSA}..."; sleep 10; done
   gcloud iam service-accounts add-iam-policy-binding "$SQL_GSA" --role roles/iam.workloadIdentityUser \
     --member "serviceAccount:${PROJECT_ID}.svc.id.goog[aio-platform/aio-platform]" >/dev/null
   kubectl -n aio-platform annotate serviceaccount aio-platform --overwrite "iam.gke.io/gcp-service-account=${SQL_GSA}"
@@ -161,6 +163,8 @@ if [ "$DB_MODE" = "cloudsql" ]; then
   DB_URL="jdbc:postgresql:///aio?cloudSqlInstance=${SQL_CONN}&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
 else
   DB_URL=jdbc:postgresql://aio-postgres:5432/aio
+  # left over from an earlier cloudsql run: without Workload Identity on the nodes it only causes 403s
+  kubectl -n aio-platform annotate serviceaccount aio-platform iam.gke.io/gcp-service-account- >/dev/null 2>&1 || true
 fi
 
 kubectl -n aio-platform create secret generic aio-platform-secrets \

@@ -9,6 +9,9 @@ TEKTON_DASHBOARD_VERSION="${TEKTON_DASHBOARD_VERSION:-v0.50.0}"
 ARGOCD_VERSION="${ARGOCD_VERSION:-v2.12.4}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+echo ">> cert-manager"
+bash "$ROOT/bootstrap/install-cert-manager.sh"
+
 echo ">> Tekton Pipelines ${TEKTON_PIPELINES_VERSION}"
 kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/previous/${TEKTON_PIPELINES_VERSION}/release.yaml"
 echo ">> Tekton Triggers ${TEKTON_TRIGGERS_VERSION}"

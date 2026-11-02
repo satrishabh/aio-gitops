@@ -25,6 +25,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 ARGO_ROLLOUTS_VERSION=v1.10.1
 INGRESS_NGINX_VERSION=controller-v1.11.2
+CERT_MANAGER_VERSION=v1.21.3
 ARGO_GSA="argocd-fleet@${PROJECT_ID}.iam.gserviceaccount.com"
 
 step() { echo; echo "==> $*"; }
@@ -63,6 +64,9 @@ until [ -n "$IP" ]; do
 done
 DOMAIN="${IP}.nip.io"
 echo " $IP -> $DOMAIN"
+
+step "cert-manager ${CERT_MANAGER_VERSION} on $NAME"
+KUBECONFIG="$WL_KUBE" CERT_MANAGER_VERSION="$CERT_MANAGER_VERSION" bash "$ROOT/bootstrap/install-cert-manager.sh"
 
 if [ "$ROLLOUTS" = "true" ]; then
   step "Argo Rollouts ${ARGO_ROLLOUTS_VERSION} on $NAME (blue-green)"

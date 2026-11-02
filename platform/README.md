@@ -42,10 +42,11 @@ values to the GitOps repo; Argo CD creates the Ingress, and the platform reports
 Production domain changes are limited to approvers.
 
 Before adding domains, install ingress-nginx and cert-manager on each target cluster, and create the configured
-cert-manager `ClusterIssuer` (defaults to `gts`). The current `bootstrap/gcp-setup.sh` does not install cert-manager
-or create that issuer, so custom-domain HTTPS will not become ready on a fresh setup until those prerequisites are
-configured. Configure `APP_CLUSTERS_<i>_ISSUER` to select another issuer, and `APP_CLUSTERS_<i>_DNS_ZONE` when
-external-dns manages the host's DNS zone. Otherwise, point the displayed A record at the target cluster's ingress IP.
+cert-manager `ClusterIssuer` (defaults to `gts`). The bootstrap scripts install cert-manager; issuer credentials
+and DNS provider setup are intentionally separate. Configure `APP_CLUSTERS_<i>_ISSUER` to select another issuer,
+and `APP_CLUSTERS_<i>_DNS_ZONE` when external-dns manages the host's DNS zone. Otherwise, point the displayed A
+record at the target cluster's ingress IP. See [the GKE deployment tracker](../docs/GKE-DEPLOYMENT-TRACKER.md)
+for the current cluster state and remaining issuer setup.
 
 ## Configuration
 Settings come from environment variables; see `backend/src/main/resources/application.yml` and `.env.example`.

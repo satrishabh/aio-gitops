@@ -23,6 +23,7 @@ TEKTON_PIPELINES_VERSION=v1.6.0
 ARGOCD_VERSION=v3.5.6   # must match what's running; CRDs need --server-side (applicationsets CRD is too large)
 ARGO_ROLLOUTS_VERSION=v1.10.1   # blue-green for prod
 INGRESS_NGINX_VERSION=controller-v1.11.2
+CERT_MANAGER_VERSION=v1.21.3
 
 step() { echo; echo "==> $*"; }
 
@@ -65,6 +66,10 @@ done
 DOMAIN="${IP}.nip.io"
 PUBLIC_URL="http://aio.${DOMAIN}"
 echo " $IP -> $DOMAIN"
+
+# ---------------------------------------------------------------- 2b. certificates
+step "cert-manager ${CERT_MANAGER_VERSION}"
+CERT_MANAGER_VERSION="$CERT_MANAGER_VERSION" bash "$ROOT/bootstrap/install-cert-manager.sh"
 
 # ---------------------------------------------------------------- 3. Tekton + Argo CD
 step "Tekton Pipelines ${TEKTON_PIPELINES_VERSION}"

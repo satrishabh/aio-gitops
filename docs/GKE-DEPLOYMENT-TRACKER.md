@@ -13,7 +13,7 @@ Update it after each production deployment or schema migration.
 - [x] cert-manager `v1.21.3` installed in namespace `cert-manager`; controller, cainjector, and webhook are Ready.
 - [x] cert-manager installation is pinned and repeatable via `bootstrap/install-cert-manager.sh`; the generic, GCP, and workload-cluster bootstrap scripts call it.
 - [x] Flyway reports migrations V1 through V5 as successful on the GKE database. V5 creates the `domains` table.
-- [x] Custom domain backend and Helm route support are committed in `f9d8ecf`.
+- [x] Custom domain backend and Helm route support are committed in `d1e9d7b`.
 - [x] Domain API/UI authorization and core domain/watcher tests are included in that commit.
 - [x] Built and deployed `aio-platform:0.10.2` from commit `3bc4d70`. Cloud Build `aa329048-d3d8-4365-8ae7-0250287ec2f6` succeeded; image digest `sha256:eda60a5053e3099262d957ef7b40c417f315f9d1d3282f199f4ebb4f98eecf6f`.
 - [x] Verified the GKE rollout completed, the platform pod is Ready, and `http://aio.34.180.3.18.nip.io/` returns HTTP 200. The served frontend bundle includes the Domains UI.

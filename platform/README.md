@@ -21,7 +21,7 @@ React UI ──REST/SSE──> Spring Boot ──k8s API──> Tekton  (create 
 3. Optionally, it registers a GitHub webhook pointing to `/api/webhooks/github/<id>`, signed with a per-project secret:
    - a push to the default branch runs CI and deploys to dev
    - a pull request runs build and scan only
-4. It starts the first CI run. Its pipeline is clone → test → kaniko build and push (`:<sha>`) → Trivy scan → bump the tag in dev.
+4. The server starts the first CI run as part of project creation (including template creation), so API clients cannot accidentally leave a new project without a build. Its pipeline is clone → test → kaniko build and push (`:<sha>`) → Trivy scan → bump the tag in dev.
 5. Background watchers keep the database in sync:
    - Tekton is polled every 4 s
    - Argo CD is polled every 15 s

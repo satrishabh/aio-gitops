@@ -1,7 +1,6 @@
 package com.aio.platform.service;
 
 import com.aio.platform.config.AppProperties;
-import com.aio.platform.domain.CiRun;
 import com.aio.platform.domain.Project;
 import com.aio.platform.repo.ProjectRepo;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -45,7 +44,6 @@ public class TemplateService {
 
     private final GitHubClient github;
     private final ProjectService projectService;
-    private final RunService runService;
     private final ProjectRepo projects;
     private final AuditService audit;
     private final String owner;
@@ -53,11 +51,10 @@ public class TemplateService {
 
     private record Cached(Instant at, List<Map<String, Object>> items) {}
 
-    public TemplateService(GitHubClient github, ProjectService projectService, RunService runService, ProjectRepo projects,
+    public TemplateService(GitHubClient github, ProjectService projectService, ProjectRepo projects,
                            AuditService audit, AppProperties props) {
         this.github = github;
         this.projectService = projectService;
-        this.runService = runService;
         this.projects = projects;
         this.audit = audit;
         this.owner = props.gitops().owner();
@@ -293,9 +290,11 @@ public class TemplateService {
             added.add(f.getKey());
         }
 
-        Project p = projectService.create(new ProjectService.CreateRequest("https://github.com/" + owner + "/" + name,
-                name, null, null, null, null, true, req.scanSeverity(), null, null, null, null, null), actor);
-        CiRun run = runService.trigger(p, null, "TEMPLATE", actor, true);
+        ProjectService.CreationResult creation = projectService.createFromTemplate(
+                new ProjectService.CreateRequest("https://github.com/" + owner + "/" + name,
+                        name, null, null, null, null, true, req.scanSeverity(), null, null, null, null, null), actor);
+        Project p = creation.project();
+        var run = creation.run();
         audit.record(actor, "template.create", name, "from " + req.template() + (added.isEmpty() ? "" : " +" + added));
         cache.remove("mine");
 

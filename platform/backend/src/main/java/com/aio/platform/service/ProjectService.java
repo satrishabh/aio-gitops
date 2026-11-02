@@ -1,6 +1,7 @@
 package com.aio.platform.service;
 
 import com.aio.platform.config.AppProperties;
+import com.aio.platform.domain.CiRun;
 import com.aio.platform.domain.Project;
 import com.aio.platform.repo.ProjectRepo;
 import java.security.SecureRandom;
@@ -29,9 +30,14 @@ public class ProjectService {
     private final ClusterService cluster;
     private final AuditService audit;
     private final AppProperties props;
+    private final DomainService domains;
+    private final RunService runService;
 
     public ProjectService(ProjectRepo projects, GitHubClient github, GitOpsService gitops, ArgoCdService argo,
-                          ClusterService cluster, AuditService audit, AppProperties props) {
+                          ClusterService cluster, AuditService audit, AppProperties props, DomainService domains,
+                          RunService runService) {
+        this.domains = domains;
+        this.runService = runService;
         this.projects = projects;
         this.github = github;
         this.gitops = gitops;
@@ -144,7 +150,13 @@ public class ProjectService {
             try { github.deleteWebhook(p.repoOwner, p.repoName, p.webhookId); }
             catch (Exception e) { warnings.add("webhook: " + e.getMessage()); }
         }
-        projects.delete(p); // runs, steps, deployments, env status, promotions cascade in the DB
+        // Hosts shared with other projects (path routing) need a new certificate owner once this project is gone
+        java.util.List<String> sharedHosts = domains.list(p).stream().map(d -> d.host).distinct().toList();
+        projects.delete(p); // runs, steps, deployments, env status, promotions, domains cascade in the DB
+        for (String host : sharedHosts) {
+            try { domains.syncHost(host, "project " + p.name + " deleted"); }
+            catch (Exception e) { warnings.add("routes for " + host + ": " + e.getMessage()); }
+        }
         audit.record(actor, "project.delete", p.name, warnings.isEmpty() ? "clean" : String.join("; ", warnings));
         return warnings;
     }
@@ -155,7 +167,23 @@ public class ProjectService {
         return v;
     }
 
-    public Project create(CreateRequest req, String actor) {
+    public record CreationResult(Project project, CiRun run) {}
+
+    public CreationResult create(CreateRequest req, String actor) {
+        return create(req, actor, "INITIAL");
+    }
+
+    public CreationResult createFromTemplate(CreateRequest req, String actor) {
+        return create(req, actor, "TEMPLATE");
+    }
+
+    private CreationResult create(CreateRequest req, String actor, String trigger) {
+        Project project = createProject(req, actor);
+        CiRun run = runService.trigger(project, null, trigger, actor, true);
+        return new CreationResult(project, run);
+    }
+
+    private Project createProject(CreateRequest req, String actor) {
         Matcher m = GITHUB_URL.matcher(req.repoUrl() == null ? "" : req.repoUrl().trim());
         if (!m.matches()) throw new IllegalArgumentException("repoUrl must look like https://github.com/<owner>/<repo>");
         String owner = m.group(1), repoName = m.group(2);

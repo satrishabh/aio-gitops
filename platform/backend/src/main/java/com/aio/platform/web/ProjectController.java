@@ -67,7 +67,8 @@ public class ProjectController {
     }
 
     @PostMapping
-    public Project create(@RequestBody ProjectService.CreateRequest req, @AuthenticationPrincipal OAuth2User user) {
+    public ProjectService.CreationResult create(@RequestBody ProjectService.CreateRequest req,
+                                                @AuthenticationPrincipal OAuth2User user) {
         return projectService.create(req, Me.login(user));
     }
 

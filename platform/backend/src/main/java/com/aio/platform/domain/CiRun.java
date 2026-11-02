@@ -14,7 +14,7 @@ public class CiRun {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) public Long id;
     public Long projectId;
     public String pipelineRunName;
-    public String trigger;      // MANUAL | PUSH | PR
+    public String trigger;      // INITIAL | TEMPLATE | MANUAL | PUSH | PR | RERUN
     public String triggeredBy;
     public String gitRef;
     public String commitSha;

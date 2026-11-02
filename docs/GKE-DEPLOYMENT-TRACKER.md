@@ -18,6 +18,9 @@ Update it after each production deployment or schema migration.
 - [x] Previously built and deployed `aio-platform:0.10.2`; superseded by `0.10.3`.
 - [x] Built `aio-platform:0.10.3` from pushed commit `3f04b5d`. Cloud Build `086ea478-9cc1-4fda-972d-1dde4ecbc471` succeeded; image digest `sha256:03cda44f98bd712d992009f1e5621a7ea9b412d0bfb2d45d4ba0a72c9f3229f5`.
 - [x] Deployed `0.10.3` to GKE; rollout completed and the platform pod is Ready. `http://aio.34.180.3.18.nip.io/` returns HTTP 200, and the served frontend bundle includes the Domains UI.
+- [x] Migrated the platform database to Cloud SQL instance `aio-002` (`asia-south1`, PostgreSQL 18) on 2026-11-02. The app connects through the Cloud SQL Java Socket Factory and Workload Identity.
+- [x] Copied and verified all 6 projects on Cloud SQL. Flyway validated all 5 migrations and reports schema version V5; `/actuator/health/readiness` returned `{"status":"UP"}`.
+- [x] Stopped the in-cluster PostgreSQL StatefulSet after verification and retained its bound PVC for rollback. Removed the temporary migration pod, Secret, and elevated Cloud SQL migration user.
 
 ## Current state / remaining
 
@@ -25,7 +28,7 @@ Update it after each production deployment or schema migration.
 - [ ] **Cloud DNS zone not configured.** Cloud DNS API is enabled, but the project has no managed zones. Provide the public zone and configure external-dns plus cert-manager DNS-01 permissions if GTS is to manage DNS challenges. Without automated DNS, add A records manually.
 - [x] **Custom-domain UI rollout.** GKE runs `aio-platform:0.10.3`, configured in `platform/deploy/values-platform.yaml`. Cloud Build succeeded, the deployment rollout completed, the platform pod is Ready, and the served frontend bundle includes the Domains UI.
 - [ ] **Real-domain validation.** After issuer setup, add a non-production hostname, point DNS at the target cluster ingress IP, and verify DNS, Ingress, Certificate readiness, HTTPS, and path routing before using production.
-- [ ] **Database backup procedure.** No backup was taken as part of this setup. Record a successful PostgreSQL backup and restore test before a future destructive migration or database move.
+- [ ] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled. Complete and record a restore test; the in-cluster PostgreSQL PVC remains available as an additional rollback copy.
 
 ## Deployment procedure
 
@@ -68,4 +71,4 @@ Update it after each production deployment or schema migration.
 1. Obtain GTS EAB key ID/secret and decide whether GTS DNS-01 will use Cloud DNS or another DNS provider.
 2. Configure DNS-zone ownership and least-privilege service-account access; create and verify the `gts` ClusterIssuer.
 3. Test one non-production real domain end to end; then document the production DNS and certificate renewal process.
-4. Establish scheduled PostgreSQL backups and perform a restore test. Consider Cloud SQL separately from this feature rollout.
+4. Verify a Cloud SQL backup restore and document the recovery procedure before removing the retained in-cluster PostgreSQL PVC.

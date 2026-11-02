@@ -11,11 +11,11 @@ CLUSTER="${CLUSTER:-cluster-1}"
 GH_USER="${GH_USER:-satrishabh}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Platform database: "incluster" (default, the aio-postgres StatefulSet) or "cloudsql" (managed Cloud SQL for PostgreSQL).
+# Platform database: "cloudsql" (default, managed Cloud SQL for PostgreSQL) or "incluster" (the aio-postgres StatefulSet).
 # cloudsql needs Workload Identity (GKE_METADATA) on every node pool, which updates the nodes and needs spare quota.
-DB_MODE="${DB_MODE:-incluster}"
+DB_MODE="${DB_MODE:-cloudsql}"
 REGION="${LOCATION%-[a-z]}"                 # Cloud SQL is regional: asia-south1-a -> asia-south1
-SQL_INSTANCE="${SQL_INSTANCE:-aio-db}"
+SQL_INSTANCE="${SQL_INSTANCE:-aio-002}"
 SQL_TIER="${SQL_TIER:-db-f1-micro}"          # shared core, cheapest; use db-custom-1-3840 for real workloads
 SQL_GSA="aio-platform-sql@${PROJECT_ID}.iam.gserviceaccount.com"
 

@@ -57,11 +57,13 @@ public class ClusterService {
     private final ArgoCdService argo;
     private final AuditService audit;
     private final ClusterRegistry clusters;
+    private final DomainService domains;
 
     public ClusterService(KubernetesClient k8s, AppProperties props, ProjectRepo projects, CiRunRepo runs,
                           RunStepRepo steps, TektonService tekton, GitOpsService gitops, ArgoCdService argo,
-                          AuditService audit, ClusterRegistry clusters) {
+                          AuditService audit, ClusterRegistry clusters, DomainService domains) {
         this.clusters = clusters;
+        this.domains = domains;
         this.k8s = k8s;
         this.props = props;
         this.projects = projects;
@@ -180,6 +182,7 @@ public class ClusterService {
         }
         for (String env : GitOpsService.ENVS) ensureEnvironment(p, env);
         gitops.reconcile(p, onTarget);
+        domains.reconcile(p, onTarget);
         Map<String, ArgoCdService.Outcome> outcomes = new java.util.LinkedHashMap<>();
         for (String env : GitOpsService.ENVS) {
             // Remove the legacy per-project namespace first: its Ingress claims the same host, and the

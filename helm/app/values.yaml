@@ -42,7 +42,16 @@ ingress:
   enabled: false
   className: nginx
   host: app.example.com
-  tls: false
+  tls: false          # HTTPS for host; with issuer set cert-manager issues the certificate (secret <name>-tls)
+  issuer: ""          # cert-manager ClusterIssuer, e.g. gts (set by the platform per cluster)
+  forceHttps: false   # redirect http -> https
+  externalDns: false  # let external-dns create the DNS record (cluster has a managed zone)
+  annotations: {}
+
+# Custom domains / path routes (written by the platform's Domains tab):
+# - { host: shop.example.com, path: /, tls: true, issuer: gts, certOwner: true,
+#     forceHttps: true, wwwRedirect: false, stripPrefix: false, externalDns: false }
+routes: []
 
 autoscaling:
   enabled: false

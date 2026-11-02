@@ -1,5 +1,6 @@
 export const COLORS = {
   SUCCEEDED: 'green', Synced: 'green', Healthy: 'green', DONE: 'green',
+  READY: 'green', ISSUING: 'blue', PENDING_DNS: 'amber',
   RUNNING: 'blue', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber', Suspended: 'amber',
   FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
   CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray', 'RISK ACCEPTED': 'orange', 'NOT DEPLOYED': 'gray',

@@ -137,6 +137,7 @@ export default function ProjectDetail() {
         { id: 'runs', label: 'CI runs', icon: 'play', count: runs.length },
         { id: 'deploys', label: 'Deployments', icon: 'rocket', count: deployments.length },
         { id: 'promos', label: 'Promotions', icon: 'shield', count: promotions.length },
+        { id: 'domains', label: 'Domains', icon: 'globe' },
         { id: 'settings', label: 'Settings', icon: 'settings' },
       ]} />
 
@@ -226,10 +227,117 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {tab === 'domains' && <DomainsTab id={id} />}
+
       {tab === 'settings' && <>
         <Settings p={p} run={run} btn={btn} />
         <DangerZone p={p} btn={btn} run={run} onDeleted={() => nav('/projects')} />
       </>}
+    </>
+  )
+}
+
+function DomainsTab({ id }) {
+  const [form, setForm] = useState({
+    env: 'dev', host: '', path: '/', stripPrefix: false, forceHttps: true, wwwRedirect: false,
+  })
+  const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}/domains`), 15000, [id])
+  const { busy, run } = useAction(refresh)
+  const domains = data?.domains || []
+
+  async function add(e) {
+    e.preventDefault()
+    const result = await run('domain-add', () => api(`/api/projects/${id}/domains`, { method: 'POST', body: form }),
+      d => `Added https://${d.host}${d.path === '/' ? '' : d.path}`)
+    if (result) setForm({ env: form.env, host: '', path: '/', stripPrefix: false, forceHttps: true, wwwRedirect: false })
+  }
+
+  function remove(domain) {
+    if (!window.confirm(`Remove ${domain.host}${domain.path === '/' ? '' : domain.path}?`)) return
+    run(`domain-remove-${domain.id}`, () => api(`/api/projects/${id}/domains/${domain.id}`, { method: 'DELETE' }),
+      `Removed ${domain.host}${domain.path === '/' ? '' : domain.path}`)
+  }
+
+  return (
+    <>
+      <Stale stale={stale} error={error} onRetry={refresh} />
+      <form className="card form" style={{ maxWidth: 'none' }} onSubmit={add}>
+        <div className="card-head"><h3>Add a custom domain or path</h3></div>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Point a hostname to the selected environment. You can share one hostname across projects by assigning different paths.
+          HTTPS certificates are requested automatically after DNS resolves to the cluster.
+        </p>
+        <div className="row">
+          <label>Environment
+            <select value={form.env} onChange={e => setForm({ ...form, env: e.target.value })}>
+              {ENVS.map(env => <option key={env} value={env}>{env}</option>)}
+            </select>
+          </label>
+          <label>Hostname
+            <input required placeholder="app.example.com" value={form.host}
+              onChange={e => setForm({ ...form, host: e.target.value })} />
+          </label>
+          <label>Path
+            <input placeholder="/" value={form.path} onChange={e => setForm({ ...form, path: e.target.value })} />
+          </label>
+        </div>
+        <div className="row" style={{ flexWrap: 'wrap' }}>
+          <label className="check"><input type="checkbox" checked={form.stripPrefix}
+            onChange={e => setForm({ ...form, stripPrefix: e.target.checked })} />Strip path prefix</label>
+          <label className="check"><input type="checkbox" checked={form.forceHttps}
+            onChange={e => setForm({ ...form, forceHttps: e.target.checked })} />Redirect HTTP to HTTPS</label>
+          <label className="check"><input type="checkbox" checked={form.wwwRedirect}
+            onChange={e => setForm({ ...form, wwwRedirect: e.target.checked })} />Redirect www to this hostname</label>
+        </div>
+        <button className={`btn primary${busy === 'domain-add' ? ' busy' : ''}`} disabled={!!busy}>
+          <Icon name="plus" size={14} />Add domain
+        </button>
+      </form>
+
+      <div className="card flush">
+        <div className="card-head" style={{ padding: '16px 18px 0' }}>
+          <h3>Custom domains</h3>
+          <button className="btn small ghost" disabled={!!busy} onClick={() => run('domain-refresh', refresh)}>
+            <Icon name="refresh" size={13} />Refresh
+          </button>
+        </div>
+        {data == null ? error ? <p className="error" style={{ padding: 18 }}>{error}</p> : <Skeleton h={100} />
+          : domains.length === 0 ? <Empty icon="globe" title="No custom domains yet">Add a hostname above to route traffic to this project.</Empty>
+            : (
+              <table>
+                <thead><tr><th>Route</th><th>Environment</th><th>Certificate</th><th>DNS</th><th></th></tr></thead>
+                <tbody>
+                  {domains.map(d => (
+                    <tr key={d.id}>
+                      <td><a href={d.url} target="_blank" rel="noreferrer"><b>{d.host}</b>{d.path !== '/' && <code>{d.path}</code>}</a>
+                        <div className="muted">{d.stripPrefix ? 'path prefix stripped' : 'path preserved'}{d.wwwRedirect ? ' · www redirects here' : ''}</div>
+                      </td>
+                      <td>{d.env}</td>
+                      <td><Badge value={d.status} />{d.message && <div className="muted" style={{ fontSize: '0.75rem', maxWidth: 320 }}>{d.message}</div>}
+                        {d.certExpiresAt && <div className="muted" style={{ fontSize: '0.75rem' }}>Expires {fmtTime(d.certExpiresAt)}</div>}
+                      </td>
+                      <td>{d.dnsRecords.length
+                        ? d.dnsRecords.map((record, i) => <div key={`${record.name}-${i}`} className="mono" style={{ fontSize: '0.75rem' }}>
+                            A {record.name} → {record.value}
+                          </div>)
+                        : d.managedDns ? <span className="muted">Managed automatically</span>
+                          : <span className="muted">Ingress IP not reported yet</span>}
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button className="btn small" disabled={!!busy} title="Check DNS and certificate status"
+                          onClick={() => run(`domain-check-${d.id}`, () => api(`/api/projects/${id}/domains/${d.id}/check`, { method: 'POST' }), 'Domain status checked')}>
+                          <Icon name="refresh" size={12} />Check
+                        </button>{' '}
+                        <button className="btn small danger" disabled={!!busy} onClick={() => remove(d)}>
+                          <Icon name="trash" size={12} />Remove
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+      </div>
     </>
   )
 }

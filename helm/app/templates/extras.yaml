@@ -4,6 +4,11 @@ kind: Ingress
 metadata:
   name: {{ include "app.name" . }}
   labels: {{- include "app.labels" . | nindent 4 }}
+  {{- with (include "app.ingressAnnotations" (dict "tls" .Values.ingress.tls "issuer" .Values.ingress.issuer "certOwner" true
+        "forceHttps" .Values.ingress.forceHttps "externalDns" .Values.ingress.externalDns "host" .Values.ingress.host
+        "extra" .Values.ingress.annotations)) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls }}
@@ -23,6 +28,63 @@ spec:
                   port: { name: http }
 ---
 {{- end }}
+{{- /* Custom domains and path routes (managed by the platform's Domains tab). One Ingress per route so
+       redirect / rewrite annotations stay per route; ingress-nginx merges rules that share a host, which is
+       how several projects serve different paths of one domain. Only the route marked certOwner requests the
+       certificate for a host; the others reuse its tls-<host> secret (same namespace). */}}
+{{- range .Values.routes }}
+{{- $path := default "/" .path }}
+{{- $strip := and .stripPrefix (ne $path "/") }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "app.name" $ | trunc 50 | trimSuffix "-" }}-r-{{ printf "%s%s" .host $path | sha1sum | trunc 8 }}
+  labels: {{- include "app.labels" $ | nindent 4 }}
+    aio.platform/route-host: {{ .host | replace "." "-" | trunc 63 | trimSuffix "-" | quote }}
+  {{- with (include "app.ingressAnnotations" (dict "tls" .tls "issuer" .issuer "certOwner" .certOwner "forceHttps" .forceHttps
+        "externalDns" .externalDns "host" .host "wwwRedirect" .wwwRedirect "strip" $strip)) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ $.Values.ingress.className }}
+  {{- if .tls }}
+  tls:
+    - hosts:
+        - {{ .host | quote }}
+        {{- if .wwwRedirect }}
+        - {{ printf "www.%s" .host | quote }}
+        {{- end }}
+      secretName: {{ printf "tls-%s" (.host | replace "." "-") | trunc 63 | trimSuffix "-" }}
+  {{- end }}
+  rules:
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- if and .wwwRedirect .tls }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "app.name" $ }}
+                port: { name: http }
+          {{- end }}
+          {{- if $strip }}
+          - path: {{ printf "%s(/|$)(.*)" (trimSuffix "/" $path) | quote }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "app.name" $ }}
+                port: { name: http }
+          {{- else }}
+          - path: {{ $path | quote }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "app.name" $ }}
+                port: { name: http }
+          {{- end }}
+---
+{{- end }}
 {{- if and .Values.ingress.enabled .Values.blueGreen.enabled .Values.blueGreen.previewHost }}
 # Preview URL: test the new version before promoting it
 apiVersion: networking.k8s.io/v1
@@ -30,8 +92,17 @@ kind: Ingress
 metadata:
   name: {{ include "app.name" . }}-preview
   labels: {{- include "app.labels" . | nindent 4 }}
+  {{- with (include "app.ingressAnnotations" (dict "tls" .Values.ingress.tls "issuer" .Values.ingress.issuer "certOwner" true
+        "externalDns" .Values.ingress.externalDns "host" .Values.blueGreen.previewHost)) }}
+  annotations: {{- . | nindent 4 }}
+  {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts: [{{ .Values.blueGreen.previewHost | quote }}]
+      secretName: {{ include "app.name" . }}-preview-tls
+  {{- end }}
   rules:
     - host: {{ .Values.blueGreen.previewHost | quote }}
       http:

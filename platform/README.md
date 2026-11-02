@@ -36,6 +36,17 @@ Until the first CI run finishes, dev points at the placeholder tag `0.0.0`. Its 
   - If `APPROVERS` is empty, anyone except the requester can approve.
 - **Rollback:** pick a row in deployment history. The platform commits that older tag back to the GitOps repo; a prod rollback also needs approval.
 
+## Custom domains
+The Domains tab on each project adds a hostname and optional path route for dev, staging or prod. The app writes route
+values to the GitOps repo; Argo CD creates the Ingress, and the platform reports DNS and certificate status.
+Production domain changes are limited to approvers.
+
+Before adding domains, install ingress-nginx and cert-manager on each target cluster, and create the configured
+cert-manager `ClusterIssuer` (defaults to `gts`). The current `bootstrap/gcp-setup.sh` does not install cert-manager
+or create that issuer, so custom-domain HTTPS will not become ready on a fresh setup until those prerequisites are
+configured. Configure `APP_CLUSTERS_<i>_ISSUER` to select another issuer, and `APP_CLUSTERS_<i>_DNS_ZONE` when
+external-dns manages the host's DNS zone. Otherwise, point the displayed A record at the target cluster's ingress IP.
+
 ## Configuration
 Settings come from environment variables; see `backend/src/main/resources/application.yml` and `.env.example`.
 

@@ -11,6 +11,10 @@ pdb:
 ingress:
   enabled: true
   host: my-spring-boot-dev.34.180.3.18.nip.io
+  tls: true
+  issuer: gts
+  forceHttps: true
+  externalDns: false
 env: []
 resources:
   requests: { cpu: "50m", memory: "128Mi" }

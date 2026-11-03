@@ -1,6 +1,6 @@
 # GKE deployment and migration tracker
 
-Last checked: 2026-11-02
+Last checked: 2026-11-03
 Cluster: `project-d28840cd-be2f-4901-85e` / `asia-south1` / `cluster-1`
 
 Use this file as the running record for the platform deployment, cluster prerequisites, and database migrations.
@@ -21,14 +21,19 @@ Update it after each production deployment or schema migration.
 - [x] Migrated the platform database to Cloud SQL instance `aio-002` (`asia-south1`, PostgreSQL 18) on 2026-11-02. The app connects through the Cloud SQL Java Socket Factory and Workload Identity.
 - [x] Copied and verified all 6 projects on Cloud SQL. Flyway validated all 5 migrations and reports schema version V5; `/actuator/health/readiness` returned `{"status":"UP"}`.
 - [x] Stopped the in-cluster PostgreSQL StatefulSet after verification and retained its bound PVC for rollback. Removed the temporary migration pod, Secret, and elevated Cloud SQL migration user.
+- [x] Created on-demand Cloud SQL backup `1793613161796` after cutover, restored it to a disposable PostgreSQL 18 instance, verified all 6 projects and Flyway V5, then deleted the test instance. Production remained healthy and the source PVC remains bound.
+- [x] Created public Cloud DNS zone `aio-sarvaikam-app` for `app.sarvaikam.com`; expanded the dedicated `aioDnsZoneEditor` role and bound its GSA to the cert-manager KSA.
+- [x] Installed ExternalDNS `v0.24.0` in namespace `external-dns`, restricted to `app.sarvaikam.com` with `upsert-only` policy. Its pod is Ready and authenticates through Workload Identity; logs report no Cloud DNS errors. Added the direct federated-principal IAM binding required for token exchange.
+- [x] Applied the platform cluster metadata via Helm revision 13: dev/staging/prod target the in-cluster cluster, custom-domain ingress IP is `34.180.3.18`, DNS zone is `app.sarvaikam.com`, and TLS uses the planned `gts` issuer. Kept the portal at `aio.34.180.3.18.nip.io`; rollout succeeded on image `0.10.3`, so no image rebuild was needed.
 
 ## Current state / remaining
 
-- [ ] **Issuer not configured.** No `ClusterIssuer` exists. The requested issuer strategy is Google Trust Services (GTS), but its EAB credentials and DNS-01 setup have not been supplied. Do not expect certificates to issue until a `gts` `ClusterIssuer` is created and Ready.
-- [ ] **Cloud DNS zone not configured.** Cloud DNS API is enabled, but the project has no managed zones. Provide the public zone and configure external-dns plus cert-manager DNS-01 permissions if GTS is to manage DNS challenges. Without automated DNS, add A records manually.
+- [ ] **Issuer not configured.** No `ClusterIssuer` exists. The selected issuer is Google Trust Services (GTS); securely store GTS EAB credentials in cert-manager before creating the DNS-01 issuer.
+- [ ] **Cloud DNS delegation.** The `app.sarvaikam.com` public zone and ExternalDNS controller are ready, but public NS lookup confirms the parent DNS provider has not delegated the `app` subdomain. Add these NS records for host `app` only: `ns-cloud-b1.googledomains.com.`, `ns-cloud-b2.googledomains.com.`, `ns-cloud-b3.googledomains.com.`, `ns-cloud-b4.googledomains.com.` Do not change the apex or `www` records.
 - [x] **Custom-domain UI rollout.** GKE runs `aio-platform:0.10.3`, configured in `platform/deploy/values-platform.yaml`. Cloud Build succeeded, the deployment rollout completed, the platform pod is Ready, and the served frontend bundle includes the Domains UI.
 - [ ] **Real-domain validation.** After issuer setup, add a non-production hostname, point DNS at the target cluster ingress IP, and verify DNS, Ingress, Certificate readiness, HTTPS, and path routing before using production.
-- [ ] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled. Complete and record a restore test; the in-cluster PostgreSQL PVC remains available as an additional rollback copy.
+- [ ] **sarvaikam.com mapping.** Requested route: `app.sarvaikam.com` → project `sarvaikam`, `dev`, using Cloud DNS. The zone currently contains only its NS/SOA records; no app route or A/TXT records exist. Complete parent NS delegation and GTS issuer setup, then add the hostname in the Domains tab. The apex and `www` resolve to non-GKE hosting; keep them unchanged.
+- [x] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled; backup `1793613161796` restored successfully and passed data/schema verification. The in-cluster PostgreSQL PVC remains available as an additional rollback copy.
 
 ## Deployment procedure
 
@@ -49,8 +54,14 @@ Update it after each production deployment or schema migration.
    kubectl -n aio-platform rollout status deployment/aio-platform --timeout=600s
    ```
 
-5. Verify the served UI, readiness endpoint, pod logs, and live image. The preferred long-term deployment path is the
-   repository's Argo CD application; local Helm is not installed on the current workstation.
+5. Verify the served UI, readiness endpoint, pod logs, and live image. The current platform release is managed by Helm:
+
+   ```sh
+   helm upgrade aio-platform helm/app --namespace aio-platform \
+     --values platform/deploy/values-platform.yaml --wait --timeout 10m
+   ```
+
+   If the release is later moved to Argo CD, commit the same values and sync the Argo CD application instead.
 6. Update this tracker with tag, commit, date, migration version, and verification results.
 
 ## Database migration procedure
@@ -68,7 +79,8 @@ Update it after each production deployment or schema migration.
 
 ## Follow-up order
 
-1. Obtain GTS EAB key ID/secret and decide whether GTS DNS-01 will use Cloud DNS or another DNS provider.
-2. Configure DNS-zone ownership and least-privilege service-account access; create and verify the `gts` ClusterIssuer.
-3. Test one non-production real domain end to end; then document the production DNS and certificate renewal process.
-4. Verify a Cloud SQL backup restore and document the recovery procedure before removing the retained in-cluster PostgreSQL PVC.
+1. Delegate only `app.sarvaikam.com` to the four Cloud DNS nameservers listed above and verify public NS resolution.
+2. Securely add the GTS EAB key ID/secret as a cert-manager Secret; create and verify the `gts` ClusterIssuer.
+3. Add `app.sarvaikam.com` → `sarvaikam` / `dev` in the Domains tab.
+4. Verify ExternalDNS A/TXT records, Certificate readiness, HTTPS, and application routing; document renewal.
+5. Monitor Cloud SQL and retain the in-cluster PostgreSQL PVC until the chosen rollback-retention period has elapsed.

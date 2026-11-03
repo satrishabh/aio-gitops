@@ -48,6 +48,21 @@ and `APP_CLUSTERS_<i>_DNS_ZONE` when external-dns manages the host's DNS zone. O
 record at the target cluster's ingress IP. See [the GKE deployment tracker](../docs/GKE-DEPLOYMENT-TRACKER.md)
 for the current cluster state and remaining issuer setup.
 
+For a delegated Cloud DNS zone, install the ExternalDNS controller with a dedicated Workload Identity:
+
+```sh
+PROJECT_ID=project-d28840cd-be2f-4901-85e \
+DNS_ZONE=app.sarvaikam.com \
+DNS_ZONE_NAME=aio-sarvaikam-app \
+bash bootstrap/install-external-dns.sh
+```
+
+The controller is restricted to that DNS suffix and uses `upsert-only`, so it will not delete records.
+The `app` subdomain must also be delegated from the existing DNS provider to the four nameservers
+listed in the GKE deployment tracker; do not replace the apex nameservers.
+For cert-manager DNS-01 challenges, bind the DNS identity to the cert-manager service account and configure
+GTS EAB credentials in a Kubernetes Secret in the `cert-manager` namespace; never commit or expose those values.
+
 ## Configuration
 Settings come from environment variables; see `backend/src/main/resources/application.yml` and `.env.example`.
 

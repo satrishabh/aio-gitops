@@ -11,3 +11,7 @@ pdb:
 ingress:
   enabled: true
   host: docgen-staging.34.180.3.18.nip.io
+  tls: true
+  issuer: gts
+  forceHttps: true
+  externalDns: false

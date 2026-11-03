@@ -111,7 +111,9 @@ export default function App() {
             </nav>
             <span className="live-dot" title="Data refreshes automatically">Live</span>
             <ThemeToggle />
-            <Link to="/new" className="btn primary small"><Icon name="plus" size={14} />New project</Link>
+            <Link to="/new" className="btn primary small" aria-label="New project" title="New project">
+              <Icon name="plus" size={14} /><span>New project</span>
+            </Link>
           </header>
           <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>

@@ -4,35 +4,62 @@ import ThemeToggle from '../components/ThemeToggle.jsx'
 
 export default function Login() {
   const error = new URLSearchParams(window.location.search).has('error')
+    ? 'GitHub sign-in failed or this account is not allowed.'
+    : ''
+
   return (
     <main className="login-wrap">
       <div className="login-theme"><ThemeToggle /></div>
-      <div className="login-hero">
-        <div className="logo" style={{ padding: 0 }}>
-          <Wordmark height={22} className="logo-mark" /><span className="muted" style={{ fontWeight: 500 }}>Platform</span>
+      <section className="login-hero">
+        <div className="login-brand">
+          <Wordmark height={26} className="login-wordmark" />
+          <span>SHIP SOMETHING REAL</span>
         </div>
-        <h1>Ship from <span className="grad-text">GitHub to production</span> with every step tracked.</h1>
-        <p>Connect a repository with a Dockerfile. The platform tests, builds, scans and deploys it through dev, staging
-          and a gated prod, using GitOps for every change.</p>
-        <ol className="login-flow" aria-label="Delivery pipeline">
-          <li><Icon name="github" size={14} /> GitHub</li><li className="sep" aria-hidden="true">→</li>
-          <li><Icon name="check" size={14} /> Tekton CI</li><li className="sep" aria-hidden="true">→</li>
-          <li><Icon name="shield" size={14} /> Trivy</li><li className="sep" aria-hidden="true">→</li>
-          <li><Icon name="rocket" size={14} /> Argo CD</li><li className="sep" aria-hidden="true">→</li>
-          <li><Icon name="chart" size={14} /> DORA</li>
-        </ol>
-      </div>
-      <div className="login-panel">
+        <div className="login-copy">
+          <p className="login-kicker"><span /> THE DELIVERY PLATFORM FOR YOUR NEXT BIG IDEA</p>
+          <h1>From <span>first commit</span><br />to <em>fully shipped.</em></h1>
+          <p className="login-description">
+            AIO turns every project into a production-ready delivery system. Build, test, scan and deploy—
+            with every change visible and every release in your control.
+          </p>
+        </div>
+        <div className="login-pipeline" aria-label="AIO delivery pipeline">
+          <div className="pipeline-node"><Icon name="github" size={17} /><span>YOUR CODE</span></div>
+          <i />
+          <div className="pipeline-node"><Icon name="zap" size={17} /><span>CI + SCAN</span></div>
+          <i />
+          <div className="pipeline-node"><Icon name="rocket" size={17} /><span>LIVE</span></div>
+        </div>
+        <div className="login-proof">
+          <span><b>01</b> Push to GitHub</span>
+          <span><b>02</b> AIO builds &amp; verifies</span>
+          <span><b>03</b> Ship with confidence</span>
+        </div>
+        <div className="login-orbit orbit-one" />
+        <div className="login-orbit orbit-two" />
+      </section>
+
+      <section className="login-panel">
+        <div className="login-panel-top">
+          <span><LogoMark size={30} className="logo-mark" /> AIO PLATFORM</span>
+          <span className="login-online"><i /> SYSTEM ONLINE</span>
+        </div>
         <div className="card login-card">
-          <LogoMark size={52} className="logo-mark" style={{ display: 'block', margin: '0 auto 16px' }} />
-          <h2>Welcome back</h2>
-          <p className="muted" style={{ marginTop: 0 }}>Sign in with your GitHub account to continue.</p>
-          {error && <div className="banner" style={{ background: 'var(--red-bg)', color: 'var(--red)' }}>
-            <Icon name="x" size={15} />Login failed or your GitHub account is not allowed.</div>}
-          <a className="btn github" href="/oauth2/authorization/github"><Icon name="github" size={18} />Continue with GitHub</a>
-          <p className="muted" style={{ fontSize: '0.75rem', marginBottom: 0 }}>Access is limited to allow-listed GitHub users.</p>
+          <div className="login-card-mark"><LogoMark size={36} className="logo-mark" /></div>
+          <p className="login-card-kicker">YOUR DELIVERY WORKSPACE</p>
+          <h2>Welcome to AIO</h2>
+          <p className="login-subtitle">Sign in with an authorized GitHub account to continue.</p>
+          {error && <div className="login-message error" role="alert"><Icon name="x" size={16} />{error}</div>}
+          <a className="btn github login-github" href="/oauth2/authorization/github">
+            <Icon name="github" size={18} />Continue with GitHub
+          </a>
+          <p className="login-provider-note">
+            Google sign-in and shared access controls will be provided by the User Profile service when it is connected.
+          </p>
+          <p className="login-terms">Access is limited to authorized workspace members.</p>
         </div>
-      </div>
+        <footer className="login-footer"><span>© {new Date().getFullYear()} AIO Platform</span><span>Secure CI/CD · GitOps by default</span></footer>
+      </section>
     </main>
   )
 }

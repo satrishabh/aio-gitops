@@ -91,19 +91,19 @@ export default function Dashboard({ me }) {
           {projects.length === 0 ? <Empty icon="rocket" title="No projects yet">
             <Link to="/new">Connect your first GitHub repository</Link> to see it flow through dev, staging and prod.
           </Empty> : (
-            <table style={{ marginTop: 12 }}>
+            <table className="dashboard-env-table" style={{ marginTop: 12 }}>
               <thead><tr><th>Project</th><th>Last CI</th>{ENVS.map(e => <th key={e}>{e}</th>)}</tr></thead>
               <tbody>
                 {projects.map(({ project: p, lastRun, environments }) => (
                   <tr key={p.id}>
                     <td><Link to={`/projects/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text)' }}>
                       <Avatar name={p.name} size={28} /><b>{p.name}</b></Link></td>
-                    <td>{lastRun?.id ? <Link to={`/runs/${lastRun.id}`}><Badge value={lastRun.status} /></Link> : <span className="muted">never</span>}</td>
+                    <td data-label="Last CI">{lastRun?.id ? <Link to={`/runs/${lastRun.id}`}><Badge value={lastRun.status} /></Link> : <span className="muted">never</span>}</td>
                     {ENVS.map(env => {
                       const s = environments.find(e => e.environment === env)
                       const tone = envTone(s)
                       return (
-                        <td key={env}>
+                        <td key={env} data-label={env}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <span className={`dot ${tone}`} />
                             <code>{s?.replicas === 0 ? (isStopped(s) ? 'scaled down' : 'not deployed') : (s?.desiredTag || s?.imageTag || '—').slice(0, 12)}</code>

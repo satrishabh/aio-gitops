@@ -83,6 +83,13 @@ Settings come from environment variables; see `backend/src/main/resources/applic
 | `APP_PUBLIC_URL` | The portal's public URL; needed for webhook registration |
 | `APP_BASE_DOMAIN` | Optional. Each env gets ingress `<project>-<env>.<domain>` |
 
+## Public platform endpoint
+
+The AIO portal is served at `https://app.sarvaikam.com` with a GTS certificate. `APP_PUBLIC_URL` is set to this
+hostname for new GitHub webhook registrations. The `aio.34.180.3.18.nip.io` route is retained as a legacy
+webhook endpoint for existing registrations; remove that alias only after those hooks have been moved to the
+new hostname. The GitHub OAuth app includes the callback `https://app.sarvaikam.com/login/oauth2/code/github`.
+
 To create an Argo CD token, add `accounts.aio-platform: apiKey` to `argocd-cm`, grant RBAC in `argocd-rbac-cm`, then run `argocd account generate-token --account aio-platform`.
 
 ## Run locally

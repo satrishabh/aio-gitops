@@ -1,6 +1,6 @@
 # GKE deployment and migration tracker
 
-Last checked: 2026-11-03
+Last checked: 2026-11-04
 Cluster: `project-d28840cd-be2f-4901-85e` / `asia-south1` / `cluster-1`
 
 Use this file as the running record for the platform deployment, cluster prerequisites, and database migrations.
@@ -18,6 +18,7 @@ Update it after each production deployment or schema migration.
 - [x] Previously built and deployed `aio-platform:0.10.2`; superseded by `0.10.3`.
 - [x] Built `aio-platform:0.10.3` from pushed commit `3f04b5d`. Cloud Build `086ea478-9cc1-4fda-972d-1dde4ecbc471` succeeded; image digest `sha256:03cda44f98bd712d992009f1e5621a7ea9b412d0bfb2d45d4ba0a72c9f3229f5`.
 - [x] Deployed `0.10.3` to GKE; rollout completed and the platform pod is Ready. `http://aio.34.180.3.18.nip.io/` returns HTTP 200, and the served frontend bundle includes the Domains UI.
+- [x] Built `aio-platform:0.10.4` from commit `4842de5`. Cloud Build `18e066ec-c7fa-43c8-b20a-8d721492ff61` succeeded with image digest `sha256:6c4854c7c57a46d6544c8a015d48204110adba90cdfe2c8b5372c093aad83488`; Helm revision 17 is deployed and Ready.
 - [x] Migrated the platform database to Cloud SQL instance `aio-002` (`asia-south1`, PostgreSQL 18) on 2026-11-02. The app connects through the Cloud SQL Java Socket Factory and Workload Identity.
 - [x] Copied and verified all 6 projects on Cloud SQL. Flyway validated all 5 migrations and reports schema version V5; `/actuator/health/readiness` returned `{"status":"UP"}`.
 - [x] Stopped the in-cluster PostgreSQL StatefulSet after verification and retained its bound PVC for rollback. Removed the temporary migration pod, Secret, and elevated Cloud SQL migration user.
@@ -25,18 +26,23 @@ Update it after each production deployment or schema migration.
 - [x] Created public Cloud DNS zone `aio-sarvaikam-app` for `app.sarvaikam.com`; the parent zone remains on Hostinger and does not delegate the `app` child zone. Hostinger's DNS editor does not offer NS records.
 - [x] Installed ExternalDNS `v0.24.0` with `upsert-only` and a filter for `app.sarvaikam.com`. It created an A record in the Cloud DNS child zone, but that record is not publicly visible without parent-zone NS delegation.
 - [x] Created the GTS production ACME account; EAB credentials are stored in the `cert-manager` namespace. The `gts` ClusterIssuer is Ready and uses the HTTP-01 solver with ingress-nginx.
-- [x] Saved `app.sarvaikam.com` → `sarvaikam` / `dev` in the AIO Domains tab. Argo CD deployed the custom Ingress.
-- [x] Configured the platform for Hostinger-managed DNS: `APP_CLUSTERS_0_DNSZONE` is blank and the route's ExternalDNS annotation is off. Default-host TLS remains off; the portal is `aio.34.180.3.18.nip.io`, image `0.10.3`.
+- [x] Routed `learn.sarvaikam.com` to `sarvaikam` / `dev`; its GTS certificate is Ready and both the homepage and `/topics/terraform` return HTTPS 200.
+- [x] Removed `app.sarvaikam.com` from the Sarvaikam project after Learn TLS was verified. Argo CD synced commit `0fd53e8`.
+- [x] Moved the AIO portal to `https://app.sarvaikam.com` with GTS TLS and HTTP-to-HTTPS redirect. GitHub OAuth callback is saved and sign-in was verified. `APP_PUBLIC_URL` now uses the new hostname.
+- [x] Kept `aio.34.180.3.18.nip.io` as a legacy HTTP alias so existing GitHub webhooks continue to reach the platform; remove it only after those webhook URLs are migrated.
+- [x] Configured Hostinger-managed DNS: `APP_CLUSTERS_0_DNSZONE` is blank and the route's ExternalDNS annotation is off. Apex and `www` records remain unchanged.
 
 ## Current state / remaining
 
 - [x] **GTS issuer.** Production `gts` ClusterIssuer is Ready with an HTTP-01 solver using ingress-nginx.
 - [x] **Apex DNS preserved.** The domain uses Hostinger nameservers and apex/`www` records resolve. Do not change domain-level nameservers.
-- [ ] **Hostinger A record.** Add a Hostinger DNS `A` record: host `app`, target `34.180.3.18`, default TTL. This keeps the existing apex and `www` DNS unchanged.
-- [ ] **Certificate retry.** After the A record resolves publicly, replace the pending DNS-01 order so cert-manager retries with HTTP-01; verify the certificate becomes Ready.
-- [x] **Custom-domain UI rollout.** GKE runs `aio-platform:0.10.3`, configured in `platform/deploy/values-platform.yaml`. Cloud Build succeeded, the deployment rollout completed, the platform pod is Ready, and the served frontend bundle includes the Domains UI.
-- [ ] **Real-domain validation.** After issuer setup, add a non-production hostname, point DNS at the target cluster ingress IP, and verify DNS, Ingress, Certificate readiness, HTTPS, and path routing before using production.
-- [ ] **sarvaikam.com mapping.** Route `app.sarvaikam.com` → `sarvaikam` / `dev` is saved and its Ingress is deployed. Complete the Hostinger A-record + GTS HTTP-01 setup and verify HTTPS. Preserve existing apex and `www` records.
+- [x] **Hostinger A records.** `app.sarvaikam.com` and `learn.sarvaikam.com` resolve to `34.180.3.18`; apex and `www` continue to resolve to their existing Hostinger targets.
+- [x] **GTS certificates.** `tls-learn-sarvaikam-com` and `aio-platform-tls` are Ready; both sites return HTTPS 200.
+- [x] **Custom-domain and mobile UI rollout.** GKE runs `aio-platform:0.10.4`; the platform pod is Ready. At a narrow mobile viewport the Overview has no horizontal page overflow.
+- [x] **Real-domain validation.** Verified Learn homepage/topic routing, AIO HTTPS and HTTP redirect, GitHub sign-in, and the legacy webhook alias.
+- [x] **Sarvaikam host mapping.** `learn.sarvaikam.com` serves the learning app and `app.sarvaikam.com` serves AIO. Apex and `www` records remain unchanged.
+- [ ] **Shared User Profile service.** The expected `satrishabh/user-profile` GitHub repository does not exist yet; central Google/GitHub OIDC, reusable RBAC, and configurable verification email remain pending.
+- [ ] **Organization homepage.** The people-first/product-led redesign is local in `sarvaikam/website`; do not create its AIO project or publish apex/`www` until the preview is approved and `app.sarvaikam.com` is confirmed as its AIO destination.
 - [x] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled; backup `1793613161796` restored successfully and passed data/schema verification. The in-cluster PostgreSQL PVC remains available as an additional rollback copy.
 
 ## Deployment procedure
@@ -46,7 +52,7 @@ Update it after each production deployment or schema migration.
 3. Build from the `platform` context:
 
    ```sh
-   gcloud builds submit platform \
+   gcloud builds submit platform --region=asia-south1 \
      --tag asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform:<tag>
    ```
 

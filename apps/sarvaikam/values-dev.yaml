@@ -21,16 +21,8 @@ resources:
 # Managed by the AIO platform Domains tab - edit there, not here
 # Managed by the AIO platform Domains tab - edit there, not here
 # Managed by the AIO platform Domains tab - edit there, not here
+# Managed by the AIO platform Domains tab - edit there, not here
 routes:
-  - host: app.sarvaikam.com
-    path: "/"
-    tls: true
-    issuer: gts
-    certOwner: true
-    forceHttps: true
-    wwwRedirect: false
-    stripPrefix: false
-    externalDns: false
   - host: learn.sarvaikam.com
     path: "/"
     tls: true

@@ -24,15 +24,16 @@ Update it after each production deployment or schema migration.
 - [x] Created on-demand Cloud SQL backup `1793613161796` after cutover, restored it to a disposable PostgreSQL 18 instance, verified all 6 projects and Flyway V5, then deleted the test instance. Production remained healthy and the source PVC remains bound.
 - [x] Created public Cloud DNS zone `aio-sarvaikam-app` for `app.sarvaikam.com`; expanded the dedicated `aioDnsZoneEditor` role and bound its GSA to the cert-manager KSA.
 - [x] Installed ExternalDNS `v0.24.0` in namespace `external-dns`, restricted to `app.sarvaikam.com` with `upsert-only` policy. Its pod is Ready and authenticates through Workload Identity; logs report no Cloud DNS errors. Added the direct federated-principal IAM binding required for token exchange.
-- [x] Applied the platform cluster metadata via Helm revision 14: dev/staging/prod target the in-cluster cluster, custom-domain ingress IP is `34.180.3.18`, and DNS zone is `app.sarvaikam.com`. Default-host TLS remains disabled until the GTS issuer is available; portal remains at `aio.34.180.3.18.nip.io`, image `0.10.3`.
+- [x] Applied the platform cluster metadata via Helm revision 14: dev/staging/prod target the in-cluster cluster, custom-domain ingress IP is `34.180.3.18`, and DNS zone is `app.sarvaikam.com`. Default-host TLS remains disabled because the existing `nip.io` hosts are outside the delegated DNS zone; portal remains at `aio.34.180.3.18.nip.io`, image `0.10.3`.
+- [x] Created the GTS production ACME account and `gts` ClusterIssuer using EAB and Cloud DNS DNS-01 restricted to `app.sarvaikam.com`. EAB material is stored only in the `cert-manager` namespace; the ClusterIssuer reports Ready.
 
 ## Current state / remaining
 
-- [ ] **Issuer not configured.** No `ClusterIssuer` exists. The selected issuer is Google Trust Services (GTS); securely store GTS EAB credentials in cert-manager before creating the DNS-01 issuer.
-- [ ] **Cloud DNS delegation.** The `app.sarvaikam.com` public zone and ExternalDNS controller are ready, but public NS lookup confirms the parent DNS provider has not delegated the `app` subdomain. Add these NS records for host `app` only: `ns-cloud-b1.googledomains.com.`, `ns-cloud-b2.googledomains.com.`, `ns-cloud-b3.googledomains.com.`, `ns-cloud-b4.googledomains.com.` Do not change the apex or `www` records.
+- [x] **GTS issuer.** Production `gts` ClusterIssuer is Ready with a Cloud DNS DNS-01 solver for `app.sarvaikam.com`.
+- [ ] **Restore apex DNS first.** After the nameserver change, public resolvers return `SERVFAIL` for `sarvaikam.com` and `www.sarvaikam.com`; the Google nameservers refuse apex queries because the Cloud DNS zone contains only `app.sarvaikam.com`. In Hostinger, restore the domain's default nameservers (`ns1.dns-parking.com`, `ns2.dns-parking.com`) to restore the root zone. Then, in Hostinger DNS Zone Editor, add NS records for host `app` pointing to `ns-cloud-b1.googledomains.com.`, `ns-cloud-b2.googledomains.com.`, `ns-cloud-b3.googledomains.com.`, and `ns-cloud-b4.googledomains.com.` Do not change apex or `www` records.
 - [x] **Custom-domain UI rollout.** GKE runs `aio-platform:0.10.3`, configured in `platform/deploy/values-platform.yaml`. Cloud Build succeeded, the deployment rollout completed, the platform pod is Ready, and the served frontend bundle includes the Domains UI.
 - [ ] **Real-domain validation.** After issuer setup, add a non-production hostname, point DNS at the target cluster ingress IP, and verify DNS, Ingress, Certificate readiness, HTTPS, and path routing before using production.
-- [ ] **sarvaikam.com mapping.** Requested route: `app.sarvaikam.com` → project `sarvaikam`, `dev`, using Cloud DNS. The zone currently contains only its NS/SOA records; no app route or A/TXT records exist. Complete parent NS delegation and GTS issuer setup, then add the hostname in the Domains tab. The apex and `www` resolve to non-GKE hosting; keep them unchanged.
+- [ ] **sarvaikam.com mapping.** Requested route: `app.sarvaikam.com` → project `sarvaikam`, `dev`, using Cloud DNS. The zone currently contains only its NS/SOA records; no app route or A/TXT records exist. Restore Hostinger apex DNS and set up child NS delegation, then add the hostname in the Domains tab. Preserve the existing apex and `www` records.
 - [x] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled; backup `1793613161796` restored successfully and passed data/schema verification. The in-cluster PostgreSQL PVC remains available as an additional rollback copy.
 
 ## Deployment procedure
@@ -79,8 +80,8 @@ Update it after each production deployment or schema migration.
 
 ## Follow-up order
 
-1. Delegate only `app.sarvaikam.com` to the four Cloud DNS nameservers listed above and verify public NS resolution.
-2. Securely add the GTS EAB key ID/secret as a cert-manager Secret; create and verify the `gts` ClusterIssuer.
+1. Restore the Hostinger apex nameservers and confirm `sarvaikam.com` and `www.sarvaikam.com` resolve again.
+2. Delegate only `app.sarvaikam.com` to the four Cloud DNS nameservers listed above using Hostinger's DNS Zone Editor; verify public NS resolution.
 3. Add `app.sarvaikam.com` → `sarvaikam` / `dev` in the Domains tab.
 4. Verify ExternalDNS A/TXT records, Certificate readiness, HTTPS, and application routing; document renewal.
 5. Monitor Cloud SQL and retain the in-cluster PostgreSQL PVC until the chosen rollback-retention period has elapsed.

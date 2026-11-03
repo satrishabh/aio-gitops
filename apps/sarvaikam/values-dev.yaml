@@ -19,6 +19,7 @@ resources:
   requests: {cpu: "50m", memory: "128Mi"}
   limits: {cpu: "1000m", memory: "2048Mi"}
 # Managed by the AIO platform Domains tab - edit there, not here
+# Managed by the AIO platform Domains tab - edit there, not here
 routes:
   - host: app.sarvaikam.com
     path: "/"
@@ -28,4 +29,4 @@ routes:
     forceHttps: true
     wwwRedirect: false
     stripPrefix: false
-    externalDns: true
+    externalDns: false

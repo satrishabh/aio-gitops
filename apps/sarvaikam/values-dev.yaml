@@ -23,6 +23,7 @@ resources:
 # Managed by the AIO platform Domains tab - edit there, not here
 # Managed by the AIO platform Domains tab - edit there, not here
 # Managed by the AIO platform Domains tab - edit there, not here
+# Managed by the AIO platform Domains tab - edit there, not here
 routes:
   - host: learn.sarvaikam.com
     path: "/"

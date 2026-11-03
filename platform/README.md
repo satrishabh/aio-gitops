@@ -63,6 +63,11 @@ listed in the GKE deployment tracker; do not replace the apex nameservers.
 For cert-manager DNS-01 challenges, bind the DNS identity to the cert-manager service account and configure
 GTS EAB credentials in a Kubernetes Secret in the `cert-manager` namespace; never commit or expose those values.
 
+If the DNS provider cannot create a child-zone NS delegation, keep the parent DNS zone there, add an A record
+for the app hostname pointing to the cluster ingress IP, and use the GTS HTTP-01 solver. In that case leave
+`APP_CLUSTERS_<i>_DNSZONE` blank so the platform displays the manual A-record target instead of expecting
+ExternalDNS to publish the record.
+
 ## Configuration
 Settings come from environment variables; see `backend/src/main/resources/application.yml` and `.env.example`.
 

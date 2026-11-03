@@ -46,15 +46,15 @@ env:
   # - { name: APP_CLUSTERS_1_ENVS,       value: "prod" }
   # - { name: APP_CLUSTERS_1_BASEDOMAIN, value: "<ip>.nip.io" }
   # - { name: APP_CLUSTERS_1_ROLLOUTS,   value: "true" }
-  # The hub cluster also hosts dev/staging/prod. ExternalDNS manages this Cloud DNS suffix;
-  # complete parent-zone NS delegation before expecting public DNS resolution.
+  # The hub cluster also hosts dev/staging/prod. DNS for sarvaikam.com remains at Hostinger;
+  # public custom-domain A records are added there and certificates use GTS HTTP-01.
   - { name: APP_CLUSTERS_0_NAME,       value: "in-cluster" }
   - { name: APP_CLUSTERS_0_SERVER,     value: "https://kubernetes.default.svc" }
   - { name: APP_CLUSTERS_0_ENVS,       value: "dev,staging,prod" }
   - { name: APP_CLUSTERS_0_BASEDOMAIN, value: "34.180.3.18.nip.io" }
   - { name: APP_CLUSTERS_0_INGRESSIP,  value: "34.180.3.18" }
   - { name: APP_CLUSTERS_0_ISSUER,     value: "gts" }
-  - { name: APP_CLUSTERS_0_DNSZONE,    value: "app.sarvaikam.com" }
+  - { name: APP_CLUSTERS_0_DNSZONE,    value: "" }
   - { name: APP_CLUSTERS_0_TLS,        value: "false" }
 ingress:
   enabled: true

@@ -55,7 +55,7 @@ env:
   - { name: APP_CLUSTERS_0_INGRESSIP,  value: "34.180.3.18" }
   - { name: APP_CLUSTERS_0_ISSUER,     value: "gts" }
   - { name: APP_CLUSTERS_0_DNSZONE,    value: "app.sarvaikam.com" }
-  - { name: APP_CLUSTERS_0_TLS,        value: "true" }
+  - { name: APP_CLUSTERS_0_TLS,        value: "false" }
 ingress:
   enabled: true
   className: nginx

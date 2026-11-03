@@ -24,7 +24,7 @@ Update it after each production deployment or schema migration.
 - [x] Created on-demand Cloud SQL backup `1793613161796` after cutover, restored it to a disposable PostgreSQL 18 instance, verified all 6 projects and Flyway V5, then deleted the test instance. Production remained healthy and the source PVC remains bound.
 - [x] Created public Cloud DNS zone `aio-sarvaikam-app` for `app.sarvaikam.com`; expanded the dedicated `aioDnsZoneEditor` role and bound its GSA to the cert-manager KSA.
 - [x] Installed ExternalDNS `v0.24.0` in namespace `external-dns`, restricted to `app.sarvaikam.com` with `upsert-only` policy. Its pod is Ready and authenticates through Workload Identity; logs report no Cloud DNS errors. Added the direct federated-principal IAM binding required for token exchange.
-- [x] Applied the platform cluster metadata via Helm revision 13: dev/staging/prod target the in-cluster cluster, custom-domain ingress IP is `34.180.3.18`, DNS zone is `app.sarvaikam.com`, and TLS uses the planned `gts` issuer. Kept the portal at `aio.34.180.3.18.nip.io`; rollout succeeded on image `0.10.3`, so no image rebuild was needed.
+- [x] Applied the platform cluster metadata via Helm revision 14: dev/staging/prod target the in-cluster cluster, custom-domain ingress IP is `34.180.3.18`, and DNS zone is `app.sarvaikam.com`. Default-host TLS remains disabled until the GTS issuer is available; portal remains at `aio.34.180.3.18.nip.io`, image `0.10.3`.
 
 ## Current state / remaining
 

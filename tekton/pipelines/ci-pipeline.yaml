@@ -44,6 +44,7 @@ spec:
         - { name: revision, value: $(params.revision) }
       workspaces:
         - { name: source, workspace: source }
+        - { name: github-token, workspace: github-token }
 
     - name: test
       runAfter: [clone]

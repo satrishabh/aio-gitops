@@ -1,0 +1,25 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
+image:
+  repository: ghcr.io/satrishabh/user-profile-manager
+  tag: "0.0.0"
+# 0 until a real image is deployed (avoids pulling the placeholder tag)
+replicaCount: 0
+imagePullSecrets:
+  - name: ghcr-pull
+pdb:
+  enabled: false
+ingress:
+  enabled: true
+  host: user-profile-manager-staging.34.180.3.18.nip.io
+env:
+  - name: KC_DB
+    value: "postgres"
+  - name: KC_HTTP_ENABLED
+    value: "true"
+  - name: KC_PROXY_HEADERS
+    value: "xforwarded"
+  - name: VERIFY_EMAIL
+    value: "true"
+resources:
+  requests: { cpu: "250m", memory: "512Mi" }
+  limits: { cpu: "1000m", memory: "1024Mi" }

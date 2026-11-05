@@ -1,9 +1,9 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
 image:
   repository: ghcr.io/satrishabh/user-profile-manager
-  tag: "0.0.0"
+  tag: "305c7cce4b6b"
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 0
+replicaCount: 1
 containerPort: 8080
 imagePullSecrets:
   - name: ghcr-pull
@@ -32,5 +32,5 @@ probes:
     path: /health/ready
     initialDelaySeconds: 30
 resources:
-  requests: { cpu: "250m", memory: "512Mi" }
-  limits: { cpu: "1000m", memory: "1024Mi" }
+  requests: {cpu: "250m", memory: "512Mi"}
+  limits: {cpu: "1000m", memory: "1024Mi"}

@@ -31,6 +31,17 @@ probes:
   readiness:
     path: /health/ready
     initialDelaySeconds: 30
+# Managed by AIO GitOps for the Hostinger-backed custom domain.
+routes:
+  - host: profile.sarvaikam.com
+    path: "/"
+    tls: true
+    issuer: gts
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: false
+    externalDns: false
 resources:
   requests: {cpu: "250m", memory: "512Mi"}
   limits: {cpu: "1000m", memory: "1024Mi"}

@@ -1,6 +1,6 @@
 # GKE deployment and migration tracker
 
-Last checked: 2026-11-04
+Last checked: 2026-11-06
 Cluster: `project-d28840cd-be2f-4901-85e` / `asia-south1` / `cluster-1`
 
 Use this file as the running record for the platform deployment, cluster prerequisites, and database migrations.
@@ -31,6 +31,9 @@ Update it after each production deployment or schema migration.
 - [x] Moved the AIO portal to `https://app.sarvaikam.com` with GTS TLS and HTTP-to-HTTPS redirect. GitHub OAuth callback is saved and sign-in was verified. `APP_PUBLIC_URL` now uses the new hostname.
 - [x] Kept `aio.34.180.3.18.nip.io` as a legacy HTTP alias so existing GitHub webhooks continue to reach the platform; remove it only after those webhook URLs are migrated.
 - [x] Configured Hostinger-managed DNS: `APP_CLUSTERS_0_DNSZONE` is blank and the route's ExternalDNS annotation is off. Apex and `www` records remain unchanged.
+- [x] Created `satrishabh/user-profile-manager` as a separate repository and AIO project. AIO build `user-profile-manager-ci-7cl76` passed clone, shell validation, Kaniko build, Trivy gating, and the dev GitOps update for image `b252e7a94418`.
+- [x] Deployed Keycloak `26.8.1` with the patched Guava `33.7.2-jre`, Cloud SQL, Google/GitHub identity providers, Resend SMTP, verification email, password reset, and PKCE for `sarvaikam-learn`.
+- [x] Routed `profile.sarvaikam.com` through AIO GitOps with GTS TLS. The certificate is Ready; OIDC discovery and the account console return HTTPS 200, both social-login redirects resolve to their providers, and the pod is Ready with zero restarts.
 
 ## Current state / remaining
 
@@ -41,7 +44,7 @@ Update it after each production deployment or schema migration.
 - [x] **Custom-domain and mobile UI rollout.** GKE runs `aio-platform:0.10.4`; the platform pod is Ready. At a narrow mobile viewport the Overview has no horizontal page overflow.
 - [x] **Real-domain validation.** Verified Learn homepage/topic routing, AIO HTTPS and HTTP redirect, GitHub sign-in, and the legacy webhook alias.
 - [x] **Sarvaikam host mapping.** `learn.sarvaikam.com` serves the learning app and `app.sarvaikam.com` serves AIO. Apex and `www` records remain unchanged.
-- [ ] **Shared User Profile service.** The expected `satrishabh/user-profile` GitHub repository does not exist yet; central Google/GitHub OIDC, reusable RBAC, and configurable verification email remain pending.
+- [x] **Shared User Profile service.** `satrishabh/user-profile-manager` is deployed through AIO at `https://profile.sarvaikam.com` with central Google/GitHub OIDC, realm roles, verification email, password reset, and the reusable `sarvaikam-learn` PKCE client.
 - [ ] **Organization homepage.** The people-first/product-led redesign is local in `sarvaikam/website`; do not create its AIO project or publish apex/`www` until the preview is approved and `app.sarvaikam.com` is confirmed as its AIO destination.
 - [x] **Database restore rehearsal.** Cloud SQL automated backups and point-in-time recovery are enabled; backup `1793613161796` restored successfully and passed data/schema verification. The in-cluster PostgreSQL PVC remains available as an additional rollback copy.
 

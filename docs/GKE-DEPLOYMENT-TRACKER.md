@@ -8,6 +8,11 @@ Update it after each production deployment or schema migration.
 
 ## Completed
 
+- [x] Released AIO `0.13.0` on 2026-11-07. Source `ff4f1dd`; release `c58303e`; Cloud Build `ace3be7b-12ef-4695-a4fc-b53052e08b3c`; image digest `sha256:a4c239d68271ae2b3bee8945849392e04bdec479b71f221ab971ff51b050bfa2`. Appearance moved into profile/settings; the bell opens the authorized audit feed. Backend ownership uses immutable issuer/subject identities, guards detail/log/stream/action routes, and scopes collection queries and metrics. User/cluster inventory is admin-only. Repository picker no longer requests the removed GitHub OAuth registration or exposes platform-token repositories to regular users.
+- [x] `0.13.0` validation: 72 backend tests passed, including cross-user HTTP denial, stable-subject ownership, filtered-before-pagination repository queries, and metrics/audit scoping. Profile/settings and audit-bell browser checks passed locally at 320–1440 px with API fixtures. Production rollout completed; pod Ready with zero restarts, readiness UP, Argo CD Synced/Healthy. Flyway validated seven migrations and applied V7 successfully, with schema now V7.
+- [x] Traced the public GitHub social sign-in to the separate AIO OAuth client `Ov23liDyksZMmiP8NLYE`, using callback `https://profile.sarvaikam.com/realms/aio/broker/github/endpoint`. The user confirmed updating that OAuth app's callback. A completed social sign-in still requires user confirmation; the public redirect trace does not authenticate a GitHub account.
+- [ ] `0.13.0` live two-role authorization smoke test: scripts are prepared, but automatic approval review rejected creating disposable production admin/business identities without explicit authorization. No test identities were created by the rejected command. Pending the user's approval or a test with existing signed-in sessions.
+
 - [x] Released AIO `0.12.5` on 2026-11-07 with the AIO wordmark and smaller “by Sarvaikam” attribution beside the mobile menu. Source `bf8ca76`; release `2026a6c`; Cloud Build `499b5da0-4269-45b7-a75d-4cf7b51a8a1e`; digest `sha256:5a64663597336d7e8350a9d7ba0c2f591ac6c8a290de2ca489c1419e3ad9640f`. Frontend build, existing responsive navigation checks, and visual header inspection passed locally. Live login and JS bundle returned HTTP 200, and the served bundle contains the new branding. Rollout completed; readiness UP, Argo CD Synced/Healthy, and final pod Ready with zero restarts.
 
 - [x] Released AIO `0.12.4` on 2026-11-07: restored the desktop/tablet login grid, preserved mobile sign-in order, removed redundant mobile breadcrumb labels, and replaced the appearance menu with a subtle one-tap light/dark icon. UI source `7b90c84` (desktop correction `c8815be`); release `b81a20f`, merged with unrelated automated app deployment in `52e69a1`. Cloud Build `ee1f482f-ca51-4da9-bed0-a26d37e5820d` succeeded; digest `sha256:daa7805e3351d6b37b3b2627031bec987156d025e75a525bb97bce76625269a3`. The earlier superseded build `ed3a17bb-3e32-4697-9972-fec00f1a29a3` was cancelled before publication.
@@ -54,7 +59,7 @@ Update it after each production deployment or schema migration.
 - [x] **Apex DNS preserved.** The domain uses Hostinger nameservers and apex/`www` records resolve. Do not change domain-level nameservers.
 - [x] **Hostinger A records.** `app.sarvaikam.com` and `learn.sarvaikam.com` resolve to `34.180.3.18`; apex and `www` continue to resolve to their existing Hostinger targets.
 - [x] **GTS certificates.** `tls-learn-sarvaikam-com` and `aio-platform-tls` are Ready; both sites return HTTPS 200.
-- [x] **Current platform rollout.** GKE runs `aio-platform:0.12.5`; Argo CD reports Synced/Healthy, rollout completed, readiness is UP, and the served frontend includes the mobile AIO/by Sarvaikam branding. Appearance/layout checks from 320 to 1920 px passed for `0.12.4`; responsive navigation checks were repeated locally for the branding change. The earlier `0.10.4` rollout verified mobile Overview overflow.
+- [x] **Current platform rollout.** GKE runs `aio-platform:0.13.0`, schema V7; Argo CD Synced/Healthy, readiness UP, pod Ready with zero restarts. Appearance is in profile/settings and audit activity is under the bell. Cross-user authorization was tested locally; the live two-role test awaits explicit approval for disposable production identities.
 - [x] **Real-domain validation.** Verified Learn homepage/topic routing, AIO HTTPS and HTTP redirect, GitHub sign-in, and the legacy webhook alias.
 - [x] **Sarvaikam host mapping.** `learn.sarvaikam.com` serves the learning app and `app.sarvaikam.com` serves AIO. Apex and `www` records remain unchanged.
 - [x] **Shared User Profile service.** `satrishabh/user-profile-manager` is deployed through AIO at `https://profile.sarvaikam.com` with central Google/GitHub OIDC, realm roles, verification email, password reset, and the reusable `sarvaikam-learn` PKCE client.
@@ -93,8 +98,8 @@ Update it after each production deployment or schema migration.
 ## Database migration procedure
 
 - Flyway migrations are in `platform/backend/src/main/resources/db/migration/` and run automatically at application
-  startup. Current recorded schema version is **V5 (`domains`)**.
-- Never edit a migration already applied to a shared database. Add the next sequential migration (currently V6).
+  startup. Current recorded schema version is **V7 (`resource ownership`)**.
+- Never edit a migration already applied to a shared database. Add the next sequential migration (currently V8).
 - Prefer additive, backward-compatible changes. For a breaking schema change, use expand → deploy compatible code →
   backfill → deploy code using the new schema → contract in a later migration.
 - Before applying a destructive migration or moving databases, take a verified backup and document the restore point.

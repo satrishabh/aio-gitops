@@ -128,6 +128,30 @@ Application-specific custom roles may be added alongside a base tier. They must 
 roles of `aio-platform`; realm roles or roles from another client must not be used as an AIO access
 shortcut.
 
+### Per-user data access
+
+Only `aio-admin` can view all users' projects, builds, deployments, scans, metrics, and audit history.
+Other approved users see projects owned by their immutable OIDC issuer/subject identity; related
+builds, logs, SSE streams, deployment operations, and approvals enforce the same ownership at the
+API boundary. Standalone scans belong to their initiating identity. Regular users' audit feeds
+contain only events attributed to that identity. Cluster inventory and the user directory are
+admin-only; an approver role does not bypass resource ownership.
+
+Migration V7 binds historical project, scan, and audit rows to already-recorded OIDC users.
+Unmatched rows stay admin-only rather than being claimed when someone registers a matching name.
+Ownership never depends on a mutable display name or email.
+
+Appearance is available in **Profile & settings**. The notification bell opens the authorized
+audit feed and links to the full audit log. OIDC sign-in does not provide a GitHub repository token:
+regular users' repository picker lists only their connected repositories, and the platform-token
+listing is admin-only. Private repository onboarding/inspection requires existing authorized
+ownership or an administrator; public repositories and newly generated per-user templates remain
+available without exposing other users' private repositories.
+
+For GitHub social sign-in, the AIO OAuth app must register the exact broker callback
+`https://profile.sarvaikam.com/realms/aio/broker/github/endpoint`. This differs from AIO's own OIDC
+callback (`https://app.sarvaikam.com/login/oauth2/code/profile`) and from Learn's separate realm.
+
 ### Domain configuration ownership
 
 The Domains tab owns only the top-level `routes:` block in an application's environment values:

@@ -11,7 +11,7 @@ containerPort: 8080
 probes:
   liveness:
     path: /actuator/health/liveness
-    initialDelaySeconds: 60
+    initialDelaySeconds: 120
   readiness:
     path: /actuator/health/readiness
     initialDelaySeconds: 20

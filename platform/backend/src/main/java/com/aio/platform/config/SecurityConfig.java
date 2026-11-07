@@ -9,6 +9,7 @@ import java.io.IOException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
@@ -32,7 +33,9 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/webhooks/**", "/actuator/health/**", "/actuator/health").permitAll()
-                .requestMatchers("/api/**").authenticated()
+                .requestMatchers("/api/me").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
+                .requestMatchers(HttpMethod.GET, "/api/projects", "/api/metrics").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
+                .requestMatchers("/api/**").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS")
                 .anyRequest().permitAll()) // static SPA assets + client-side routes
             .oauth2Login(o -> o
                 .loginPage("/login")

@@ -21,9 +21,12 @@ const FEED = {
 const feedIcon = a => FEED[a] || (a.startsWith('deploy.') ? ['rocket', 'green'] : ['zap', 'gray'])
 
 export default function Dashboard({ me }) {
+  const community = me.accessTier === 'community'
   const { data, error, stale, refresh } = usePoll(async () => {
     const [projects, metrics, audit, pending] = await Promise.all([
-      api('/api/projects'), api('/api/metrics?days=14'), api('/api/audit'), api('/api/promotions?status=PENDING'),
+      api('/api/projects'), api('/api/metrics?days=14'),
+      community ? Promise.resolve([]) : api('/api/audit'),
+      community ? Promise.resolve([]) : api('/api/promotions?status=PENDING'),
     ])
     return { projects, metrics, audit: audit.slice(0, 12), pending }
   }, 10000)
@@ -47,7 +50,7 @@ export default function Dashboard({ me }) {
       <Stale stale={stale} error={error} onRetry={refresh} />
       <PageHead title={`${greet}, ${me.name?.split(' ')[0] || me.login}`}
                 sub="Everything flowing from GitHub through Tekton CI and Argo CD, in one place.">
-        <Link to="/new" className="btn primary"><Icon name="plus" size={15} />New project</Link>
+        {!community && <Link to="/new" className="btn primary"><Icon name="plus" size={15} />New project</Link>}
       </PageHead>
 
       <div className="grid cols-4" style={{ marginBottom: 18 }}>
@@ -89,16 +92,19 @@ export default function Dashboard({ me }) {
         <div className="card flush">
           <div className="card-head"><h3>Environments</h3><Link to="/projects" className="btn small ghost">All projects</Link></div>
           {projects.length === 0 ? <Empty icon="rocket" title="No projects yet">
-            <Link to="/new">Connect your first GitHub repository</Link> to see it flow through dev, staging and prod.
+            {community ? 'No project summaries are available.' : <><Link to="/new">Connect your first GitHub repository</Link> to see it flow through dev, staging and prod.</>}
           </Empty> : (
             <table className="dashboard-env-table" style={{ marginTop: 12 }}>
               <thead><tr><th>Project</th><th>Last CI</th>{ENVS.map(e => <th key={e}>{e}</th>)}</tr></thead>
               <tbody>
                 {projects.map(({ project: p, lastRun, environments }) => (
                   <tr key={p.id}>
-                    <td><Link to={`/projects/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text)' }}>
-                      <Avatar name={p.name} size={28} /><b>{p.name}</b></Link></td>
-                    <td data-label="Last CI">{lastRun?.id ? <Link to={`/runs/${lastRun.id}`}><Badge value={lastRun.status} /></Link> : <span className="muted">never</span>}</td>
+                    <td>{community
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text)' }}><Avatar name={p.name} size={28} /><b>{p.name}</b></span>
+                      : <Link to={`/projects/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text)' }}><Avatar name={p.name} size={28} /><b>{p.name}</b></Link>}</td>
+                    <td data-label="Last CI">{lastRun?.id
+                      ? (community ? <Badge value={lastRun.status} /> : <Link to={`/runs/${lastRun.id}`}><Badge value={lastRun.status} /></Link>)
+                      : <span className="muted">never</span>}</td>
                     {ENVS.map(env => {
                       const s = environments.find(e => e.environment === env)
                       const tone = envTone(s)
@@ -117,7 +123,7 @@ export default function Dashboard({ me }) {
             </table>
           )}
         </div>
-        <div className="card">
+        {!community && <div className="card">
           <div className="card-head"><h3>Activity</h3><Link to="/audit" className="btn small ghost">Audit log</Link></div>
           <ul className="feed">
             {audit.map(e => {
@@ -134,7 +140,7 @@ export default function Dashboard({ me }) {
             })}
             {audit.length === 0 && <li className="muted">No activity yet.</li>}
           </ul>
-        </div>
+        </div>}
       </div>
     </>
   )

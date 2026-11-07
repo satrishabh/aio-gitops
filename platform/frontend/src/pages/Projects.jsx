@@ -8,7 +8,9 @@ import { Stale, usePoll } from '../hooks.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 
-export default function Projects() {
+export default function Projects({ me }) {
+  const community = me?.accessTier === 'community'
+  const ProjectCard = community ? 'div' : Link
   const { data: items, error, stale, refresh } = usePoll(() => api('/api/projects'), 10000)
   const [q, setQ] = useState('')
 
@@ -22,18 +24,18 @@ export default function Projects() {
         <div className="search" style={{ width: 260 }}>
           <Icon name="search" size={15} /><input type="search" aria-label="Search projects" placeholder="Search projects…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
-        <Link to="/new" className="btn primary"><Icon name="plus" size={15} />New project</Link>
+        {!community && <Link to="/new" className="btn primary"><Icon name="plus" size={15} />New project</Link>}
       </PageHead>
 
       {items.length === 0 ? (
         <div className="card"><Empty icon="rocket" title="No projects yet"
-          action={<Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link>}>
-          Pick a GitHub repository with a Dockerfile — we will build, scan and deploy it for you.
+          action={community ? null : <Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link>}>
+          {community ? 'No project summaries are available.' : 'Pick a GitHub repository with a Dockerfile — we will build, scan and deploy it for you.'}
         </Empty></div>
       ) : (
         <div className="project-grid">
           {shown.map(({ project: p, lastRun, environments }) => (
-            <Link key={p.id} to={`/projects/${p.id}`} className="card project-card">
+            <ProjectCard key={p.id} to={community ? undefined : `/projects/${p.id}`} className="card project-card">
               <div className="title">
                 <Avatar name={p.name} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -59,7 +61,7 @@ export default function Projects() {
                 {lastRun?.id ? <>Run #{lastRun.id} · {ago(lastRun.createdAt)}</> : 'No CI runs yet'}
                 <span style={{ marginLeft: 'auto' }}>scan gate <code>{p.scanSeverity}</code></span>
               </div>
-            </Link>
+            </ProjectCard>
           ))}
         </div>
       )}

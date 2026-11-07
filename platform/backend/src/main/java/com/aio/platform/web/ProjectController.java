@@ -8,6 +8,7 @@ import com.aio.platform.service.ClusterService;
 import com.aio.platform.service.ProjectService;
 import com.aio.platform.service.PromotionService;
 import com.aio.platform.service.RunService;
+import com.aio.platform.security.AioAuthorization;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,11 +60,34 @@ public class ProjectController {
     }
 
     @GetMapping
-    public List<Map<String, Object>> list() {
+    public List<Map<String, Object>> list(@AuthenticationPrincipal OAuth2User user) {
+        boolean community = "community".equals(AioAuthorization.tier(user));
         return projects.findAll(Sort.by("name")).stream().map(p -> Map.<String, Object>of(
-                "project", p,
-                "lastRun", runs.findFirstByProjectIdOrderByIdDesc(p.id).map(r -> (Object) r).orElse(Map.of()),
+                "project", community ? communityProject(p) : p,
+                "lastRun", runs.findFirstByProjectIdOrderByIdDesc(p.id)
+                        .map(r -> community ? (Object) communityRun(r) : r).orElse(Map.of()),
                 "environments", envs.findByProjectId(p.id))).toList();
+    }
+
+    private static Map<String, Object> communityProject(Project p) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", p.id);
+        out.put("name", p.name);
+        out.put("repoOwner", p.repoOwner);
+        out.put("repoName", p.repoName);
+        out.put("defaultBranch", p.defaultBranch);
+        out.put("scanSeverity", p.scanSeverity);
+        out.put("createdAt", p.createdAt);
+        return out;
+    }
+
+    private static Map<String, Object> communityRun(CiRun run) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("id", run.id);
+        out.put("status", run.status);
+        out.put("createdAt", run.createdAt);
+        out.put("finishedAt", run.finishedAt);
+        return out;
     }
 
     @PostMapping

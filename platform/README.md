@@ -73,13 +73,13 @@ Settings come from environment variables; see `backend/src/main/resources/applic
 
 | Var | Purpose |
 |---|---|
-| `OIDC_ISSUER_URI` | User Profile Manager realm issuer |
+| `OIDC_ISSUER_URI` | AIO's isolated User Profile Manager realm issuer |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | AIO's confidential OIDC client. Callback: `https://<host>/login/oauth2/code/profile` |
 | `GITHUB_TOKEN` | Read access to app repos, `contents:write` on the GitOps repo, `admin:repo_hook` for webhooks |
 | `ARGOCD_URL` / `ARGOCD_TOKEN` | Token for an Argo CD account with `applications` create/get/sync rights in project `apps` |
 | `APP_REGISTRY` | Image prefix, e.g. `ghcr.io/my-org` or `docker.io/myuser` |
 | `GITOPS_*` | GitOps repo URL, owner, repo name and branch (it must contain `helm/app`) |
-| `ALLOWED_USERS` / `ALLOWED_ROLES` | OIDC usernames/emails or realm roles allowed to log in. If both are empty, any realm user can log in |
+| `ALLOWED_USERS` / `ALLOWED_ROLES` | OIDC usernames/emails or AIO client roles allowed to log in. If both are empty, any AIO-realm user can log in |
 | `APPROVERS` | Normalized User Profile usernames allowed to approve prod |
 | `APP_PUBLIC_URL` | The portal's public URL; needed for webhook registration |
 | `APP_BASE_DOMAIN` | Optional. Each env gets ingress `<project>-<env>.<domain>` |
@@ -92,6 +92,32 @@ webhook endpoint for existing registrations; remove that alias only after those 
 new hostname. The `aio-platform` OIDC client includes callback
 `https://app.sarvaikam.com/login/oauth2/code/profile` and post-logout redirect
 `https://app.sarvaikam.com/login`.
+
+### AIO registration approval and roles
+
+User Profile Manager hosts isolated realms. AIO users register in the `aio` realm; Learn users
+register separately in the `sarvaikam` realm. Accounts, credentials, sessions, roles, and client
+consent do not cross realm boundaries. AIO access is approved with client-scoped roles on
+`aio-platform`:
+
+| Client role | AIO access |
+|---|---|
+| `aio-admin` | Full access and production approval |
+| `aio-business` | Project, build, scan, dev, and staging operations |
+| `aio-approver` | Optional production approval added to a business user |
+| `aio-community` | Read-only project summaries and delivery metrics |
+
+A newly registered profile has no AIO client role and is denied by AIO until an identity
+administrator assigns one. `ALLOWED_USERS` is a break-glass allowlist and receives admin access;
+keep it restricted. Roles belonging to Learn or another OIDC client do not grant AIO access.
+
+### Domain configuration ownership
+
+The Domains tab owns only the top-level `routes:` block in an application's environment values:
+host, path, TLS/certificate ownership, HTTPS redirect, optional prefix stripping, and whether the
+cluster manages DNS. Image, environment variables, secrets, probes, resources, autoscaling, and
+all application-specific Helm values remain owned by the deployed application. Reconciliation is
+idempotent and preserves those application-owned values.
 
 To create an Argo CD token, add `accounts.aio-platform: apiKey` to `argocd-cm`, grant RBAC in `argocd-rbac-cm`, then run `argocd account generate-token --account aio-platform`.
 
@@ -114,7 +140,7 @@ kubectl apply -f deploy/rbac.yaml
 kubectl -n aio-platform create secret generic aio-platform-secrets \
   --from-literal=DB_URL=jdbc:postgresql://aio-postgres:5432/aio --from-literal=DB_USER=aio \
   --from-literal=DB_PASSWORD=$(openssl rand -hex 16) \
-  --from-literal=OIDC_ISSUER_URI=https://profile.sarvaikam.com/realms/sarvaikam \
+  --from-literal=OIDC_ISSUER_URI=https://profile.sarvaikam.com/realms/aio \
   --from-literal=OIDC_CLIENT_ID=aio-platform --from-literal=OIDC_CLIENT_SECRET=... \
   --from-literal=GITHUB_TOKEN=... --from-literal=ARGOCD_TOKEN=...
 kubectl apply -f deploy/postgres.yaml
@@ -133,7 +159,7 @@ The tests cover GitOps tag editing, scan-summary parsing, name sanitizing and we
 - Webhooks are verified with HMAC-SHA256 (constant-time compare) and are the only unauthenticated API.
 - All other API calls need a User Profile Manager OIDC session. CSRF is enforced with a cookie token.
 - Repo URLs, git refs, paths and image tags are validated against strict patterns before they reach Kubernetes or Git.
-- The test command runs as shell in CI pods by design. Only allow trusted OIDC users or realm roles to log in.
+- The test command runs as shell in CI pods by design. Only allow trusted OIDC users or AIO client roles to log in.
 - The platform's ServiceAccount can only touch PipelineRuns, TaskRuns and pod logs in the `ci` namespace.
 - `ARGOCD_INSECURE=true` skips TLS verification. Use it only for the in-cluster `argocd-server` service URL.
 - Run one replica: the pollers have no leader election.

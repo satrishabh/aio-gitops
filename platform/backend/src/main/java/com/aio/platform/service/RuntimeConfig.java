@@ -17,6 +17,8 @@ import java.util.regex.Pattern;
 public final class RuntimeConfig {
     private RuntimeConfig() {}
 
+    static final String ROUTES_MARKER = "# Managed by the AIO platform Domains tab - edit there, not here\n";
+
     public record Env(String name, String value) {}
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -110,6 +112,11 @@ public final class RuntimeConfig {
 
     /** Replaces (or appends) a top-level YAML block: the "key:" line plus every indented line after it. */
     static String setBlock(String yaml, String key, String block) {
+        if ("routes".equals(key)) {
+            yaml = yaml.replaceFirst("(?m)(?:^" + Pattern.quote(ROUTES_MARKER.stripTrailing())
+                    + "\\R)+(?=^routes:)", "");
+            block = ROUTES_MARKER + block;
+        }
         Pattern p = Pattern.compile("(?m)^" + Pattern.quote(key) + ":.*(?:\\R|$)(?:[ \\t]+.*(?:\\R|$)|-.*(?:\\R|$))*");
         Matcher m = p.matcher(yaml);
         if (m.find()) return yaml.substring(0, m.start()) + block + yaml.substring(m.end());

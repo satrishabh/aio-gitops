@@ -35,6 +35,19 @@ class ProfileIdentityTest {
         assertThat(ProfileIdentity.realmRoles(user)).containsExactly("aio-user", "profile-admin");
     }
 
+    @Test
+    void extractsOnlyRolesForTheAioClient() {
+        var user = user(Map.of(
+                "sub", "7f1a",
+                "preferred_username", "operator",
+                "resource_access", Map.of(
+                        "aio-platform", Map.of("roles", List.of("AIO-Business", "aio-approver")),
+                        "another-app", Map.of("roles", List.of("admin")))));
+
+        assertThat(ProfileIdentity.clientRoles(user, "aio-platform"))
+                .containsExactly("aio-business", "aio-approver");
+    }
+
     private static DefaultOAuth2User user(Map<String, Object> attributes) {
         return new DefaultOAuth2User(
                 List.of(new SimpleGrantedAuthority("ROLE_USER")), attributes, "sub");

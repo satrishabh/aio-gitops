@@ -191,7 +191,7 @@ public class DomainService {
 
     static String routesBlock(List<Domain> routes, ClusterRegistry clusters, String env) {
         if (routes.isEmpty()) return "routes: []\n";
-        StringBuilder b = new StringBuilder("# Managed by the AIO platform Domains tab - edit there, not here\nroutes:\n");
+        StringBuilder b = new StringBuilder("routes:\n");
         for (Domain d : routes) {
             b.append("  - host: ").append(d.host).append('\n')
              .append("    path: \"").append(d.path).append("\"\n")

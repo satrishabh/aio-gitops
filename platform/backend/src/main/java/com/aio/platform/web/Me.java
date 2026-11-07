@@ -3,6 +3,7 @@ package com.aio.platform.web;
 import com.aio.platform.repo.AuditRepo;
 import com.aio.platform.repo.AppUserRepo;
 import com.aio.platform.security.ProfileIdentity;
+import com.aio.platform.security.AioAuthorization;
 import com.aio.platform.service.PromotionService;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +36,8 @@ public class Me {
         m.put("login", login);
         m.put("name", ProfileIdentity.name(user));
         m.put("avatarUrl", ProfileIdentity.avatarUrl(user));
+        m.put("accessTier", AioAuthorization.tier(user));
+        m.put("roles", AioAuthorization.roles(user));
         m.put("approver", promotions.isApprover(login));
         m.put("canSelfApprove", promotions.canSelfApprove(login));
         return m;

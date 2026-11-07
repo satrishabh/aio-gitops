@@ -45,6 +45,7 @@ export default function App() {
   // Pending prod approvals badge in the sidebar
   useEffect(() => {
     if (!me) return
+    if (me.accessTier === 'community') { setPending(0); return }
     const load = () => api('/api/promotions?status=PENDING').then(x => setPending(x.length)).catch(() => {})
     load()
     const t = setInterval(load, 15000)
@@ -65,6 +66,7 @@ export default function App() {
   if (isLogin) return <Login />
   if (loading) return <div className="center" role="status" aria-label="Loading AIO Platform"><LogoMark size={44} className="logo-mark pulse" /></div>
   if (!me) return null
+  const community = me.accessTier === 'community'
 
   return (
     <ToastProvider>
@@ -78,18 +80,22 @@ export default function App() {
             <div className="nav-section">Workspace</div>
             <NavLink to="/" end><Icon name="home" />Overview</NavLink>
             <NavLink to="/projects"><Icon name="grid" />Projects</NavLink>
-            <NavLink to="/new"><Icon name="plus" />New project</NavLink>
-            <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
-            <div className="nav-section">Pipelines</div>
-            <NavLink to="/pipelines/ci"><Icon name="zap" />CI</NavLink>
-            <NavLink to="/pipelines/cd"><Icon name="rocket" />CD</NavLink>
-            <NavLink to="/pipelines/security" className={({ isActive }) => isActive || location.pathname.startsWith('/scans/') ? 'active' : ''}>
-              <Icon name="shield" />Security</NavLink>
+            {!community && <>
+              <NavLink to="/new"><Icon name="plus" />New project</NavLink>
+              <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
+              <div className="nav-section">Pipelines</div>
+              <NavLink to="/pipelines/ci"><Icon name="zap" />CI</NavLink>
+              <NavLink to="/pipelines/cd"><Icon name="rocket" />CD</NavLink>
+              <NavLink to="/pipelines/security" className={({ isActive }) => isActive || location.pathname.startsWith('/scans/') ? 'active' : ''}>
+                <Icon name="shield" />Security</NavLink>
+            </>}
             <div className="nav-section">Delivery</div>
-            <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>
+            {!community && <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>}
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
-            <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>
-            <NavLink to="/audit"><Icon name="list" />Audit log</NavLink>
+            {!community && <>
+              <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>
+              <NavLink to="/audit"><Icon name="list" />Audit log</NavLink>
+            </>}
           </nav>
           <div className="sidebar-foot">
             <div className="me">
@@ -111,14 +117,14 @@ export default function App() {
             </nav>
             <span className="live-dot" title="Data refreshes automatically">Live</span>
             <ThemeToggle />
-            <Link to="/new" className="btn primary small" aria-label="New project" title="New project">
+            {!community && <Link to="/new" className="btn primary small" aria-label="New project" title="New project">
               <Icon name="plus" size={14} /><span>New project</span>
-            </Link>
+            </Link>}
           </header>
           <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>
               <Route path="/" element={<Dashboard me={me} />} />
-              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects" element={<Projects me={me} />} />
               <Route path="/new" element={<NewProject />} />
               <Route path="/templates" element={<Templates />} />
               <Route path="/projects/:id" element={<ProjectDetail me={me} />} />

@@ -54,6 +54,10 @@ class DomainServiceTest {
 
         String block = DomainService.routesBlock(List.of(route), null, "dev");
 
+        assertTrue(block.startsWith("routes:\n"));
+        assertFalse(block.contains("image:"));
+        assertFalse(block.contains("env:"));
+        assertFalse(block.contains("resources:"));
         assertTrue(block.contains("host: shop.example.com"));
         assertTrue(block.contains("path: \"/store\""));
         assertTrue(block.contains("issuer: gts"));

@@ -4,7 +4,7 @@
 image:
   # built with Cloud Build into Artifact Registry (same project, so GKE nodes pull it without a secret)
   repository: asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform
-  tag: "0.11.0"
+  tag: "0.12.0"
 replicaCount: 1        # schedulers poll Tekton/Argo; keep 1 replica (no leader election)
 serviceAccountName: aio-platform
 containerPort: 8080
@@ -31,8 +31,8 @@ env:
   - { name: GITOPS_OWNER, value: "satrishabh" }
   - { name: GITOPS_REPO, value: "aio-gitops" }
   - { name: ALLOWED_USERS, value: "satrishabh" }
-  # Optional alternative/addition: realm roles allowed to enter AIO.
-  - { name: ALLOWED_ROLES, value: "" }
+  # AIO-realm client roles approved to enter the portal.
+  - { name: ALLOWED_ROLES, value: "aio-admin,aio-business,aio-community" }
   # listed approvers may approve prod requests, including their own (audited as self-approval)
   - { name: APPROVERS, value: "satrishabh" }
   - { name: APP_REGISTRY_USER, value: "satrishabh" }

@@ -38,7 +38,7 @@ try {
     # Platform: merge repository and OIDC keys into the existing secret (keeps DB / Argo CD values)
     $patch = @{ data = @{
         GITHUB_TOKEN       = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\GITHUB_TOKEN"))
-        OIDC_ISSUER_URI    = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('https://profile.sarvaikam.com/realms/sarvaikam'))
+        OIDC_ISSUER_URI    = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('https://profile.sarvaikam.com/realms/aio'))
         OIDC_CLIENT_ID     = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\OIDC_CLIENT_ID"))
         OIDC_CLIENT_SECRET = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\OIDC_CLIENT_SECRET"))
     } } | ConvertTo-Json -Compress

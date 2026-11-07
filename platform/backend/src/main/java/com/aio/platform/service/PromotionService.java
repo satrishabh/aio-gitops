@@ -1,6 +1,7 @@
 package com.aio.platform.service;
 
 import com.aio.platform.config.AppProperties;
+import com.aio.platform.security.AioAuthorization;
 import com.aio.platform.domain.Deployment;
 import com.aio.platform.domain.Project;
 import com.aio.platform.domain.Promotion;
@@ -81,11 +82,13 @@ public class PromotionService {
     }
 
     public boolean isApprover(String login) {
+        if (AioAuthorization.currentUserHas(AioAuthorization.ADMIN, AioAuthorization.APPROVER)) return true;
         var approvers = props.security().approvers();
         return approvers.isEmpty() || approvers.contains(login.toLowerCase());
     }
 
     public boolean canSelfApprove(String login) {
+        if (AioAuthorization.currentUserHas(AioAuthorization.ADMIN, AioAuthorization.APPROVER)) return true;
         return canApprove(props.security().approvers(), login, login);
     }
 
@@ -99,6 +102,7 @@ public class PromotionService {
     }
 
     private boolean canApprove(String actor, Promotion pr) {
+        if (AioAuthorization.currentUserHas(AioAuthorization.ADMIN, AioAuthorization.APPROVER)) return true;
         return canApprove(props.security().approvers(), actor, pr.requestedBy);
     }
 

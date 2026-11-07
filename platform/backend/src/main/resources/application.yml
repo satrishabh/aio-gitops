@@ -34,7 +34,7 @@ spring:
             client-name: User Profile Manager
         provider:
           profile:
-            issuer-uri: ${OIDC_ISSUER_URI:https://profile.sarvaikam.com/realms/sarvaikam}
+            issuer-uri: ${OIDC_ISSUER_URI:https://profile.sarvaikam.com/realms/aio}
 
 management:
   endpoints:
@@ -84,7 +84,7 @@ app:
     api-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
   security:
-    # Comma-separated OIDC usernames/emails and/or realm roles. If all are empty, any realm user can log in.
+    # Comma-separated OIDC usernames/emails and/or AIO client roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}
     allowed-roles: ${ALLOWED_ROLES:}
     # Deprecated: brokered OIDC sessions do not expose GitHub organization membership.

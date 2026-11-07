@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.aio.platform.domain.Project;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 class RuntimeConfigTest {
@@ -46,6 +47,35 @@ class RuntimeConfigTest {
         assertFalse(out.contains("OLD"));
         assertTrue(out.startsWith("env: []\n"));
         assertTrue(out.endsWith("replicaCount: 2\n"), out);
+    }
+
+    @Test
+    void replacesOnlyManagedRoutesAndCollapsesDuplicateMarkers() {
+        String yaml = """
+                image:
+                  tag: app-owned
+                env:
+                  - name: APP_SETTING
+                    value: keep-me
+                # Managed by the AIO platform Domains tab - edit there, not here
+                # Managed by the AIO platform Domains tab - edit there, not here
+                routes:
+                  - host: old.example.com
+                    path: "/"
+                resources:
+                  limits: { cpu: "2", memory: "2Gi" }
+                """;
+
+        String routes = "routes:\n  - host: new.example.com\n    path: \"/api\"\n";
+        String out = RuntimeConfig.setBlock(yaml, "routes", routes);
+
+        assertTrue(out.contains("tag: app-owned"));
+        assertTrue(out.contains("APP_SETTING\n    value: keep-me"));
+        assertTrue(out.contains("limits: { cpu: \"2\", memory: \"2Gi\" }"));
+        assertFalse(out.contains("old.example.com"));
+        assertTrue(out.contains("new.example.com"));
+        assertEquals(1, out.split(Pattern.quote(RuntimeConfig.ROUTES_MARKER.stripTrailing()), -1).length - 1);
+        assertEquals(out, RuntimeConfig.setBlock(out, "routes", routes));
     }
 
     @Test

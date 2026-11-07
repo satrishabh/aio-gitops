@@ -176,7 +176,7 @@ kubectl -n aio-platform create secret generic aio-platform-secrets \
   --from-literal=DB_URL="$DB_URL" \
   --from-literal=DB_USER=aio \
   --from-literal=DB_PASSWORD="$DB_PASSWORD" \
-  --from-literal=OIDC_ISSUER_URI="https://profile.sarvaikam.com/realms/sarvaikam" \
+  --from-literal=OIDC_ISSUER_URI="https://profile.sarvaikam.com/realms/aio" \
   --from-literal=OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
   --from-literal=OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
   --from-literal=GITHUB_TOKEN="$GH_PAT" \

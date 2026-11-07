@@ -48,13 +48,13 @@ export default function Login() {
           <div className="login-card-mark"><LogoMark size={36} className="logo-mark" /></div>
           <p className="login-card-kicker">YOUR DELIVERY WORKSPACE</p>
           <h2>Welcome to AIO</h2>
-          <p className="login-subtitle">Sign in with your shared User Profile account to continue.</p>
+          <p className="login-subtitle">Sign in with your AIO account to continue.</p>
           {error && <div className="login-message error" role="alert"><Icon name="x" size={16} />{error}</div>}
           <a className="btn login-sso" href="/oauth2/authorization/profile">
-            <Icon name="shield" size={18} />Continue with User Profile
+            <Icon name="shield" size={18} />Continue with AIO Account
           </a>
           <p className="login-provider-note">
-            Choose email, Google, or GitHub on the next screen. One identity works across connected Sarvaikam apps.
+            AIO registration and access are separate from Learn and every other application.
           </p>
           <p className="login-terms">Access is limited to authorized workspace members.</p>
         </div>

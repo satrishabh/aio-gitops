@@ -51,6 +51,20 @@ public final class ProfileIdentity {
         return result;
     }
 
+    public static Set<String> clientRoles(OAuth2User user, String clientId) {
+        Object access = user.getAttributes().get("resource_access");
+        if (!(access instanceof Map<?, ?> resources)) return Set.of();
+        Object client = resources.get(clientId);
+        if (!(client instanceof Map<?, ?> clientAccess)) return Set.of();
+        Object roles = clientAccess.get("roles");
+        if (!(roles instanceof Iterable<?> iterable)) return Set.of();
+        Set<String> result = new LinkedHashSet<>();
+        for (Object role : iterable) {
+            if (role != null) result.add(String.valueOf(role).toLowerCase(Locale.ROOT));
+        }
+        return result;
+    }
+
     private static String first(OAuth2User user, String... claims) {
         for (String claim : claims) {
             String value = claim(user, claim);

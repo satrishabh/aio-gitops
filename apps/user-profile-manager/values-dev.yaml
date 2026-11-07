@@ -1,7 +1,7 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
 image:
   repository: ghcr.io/satrishabh/user-profile-manager
-  tag: "599392d6f6e7"
+  tag: "56092540195a"
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
 replicaCount: 1
 containerPort: 8080

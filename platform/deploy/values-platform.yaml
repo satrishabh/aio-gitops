@@ -30,7 +30,8 @@ env:
   - { name: GITOPS_REPO_URL, value: "https://github.com/satrishabh/aio-gitops.git" }
   - { name: GITOPS_OWNER, value: "satrishabh" }
   - { name: GITOPS_REPO, value: "aio-gitops" }
-  - { name: ALLOWED_USERS, value: "satrishabh" }
+  # Keep empty for public registration: approval must come from a client role, never an unverified username.
+  - { name: ALLOWED_USERS, value: "" }
   # AIO-realm client roles approved to enter the portal.
   - { name: ALLOWED_ROLES, value: "aio-admin,aio-business,aio-community" }
   # listed approvers may approve prod requests, including their own (audited as self-approval)

@@ -108,8 +108,9 @@ consent do not cross realm boundaries. AIO access is approved with client-scoped
 | `aio-community` | Read-only project summaries and delivery metrics |
 
 A newly registered profile has no AIO client role and is denied by AIO until an identity
-administrator assigns one. `ALLOWED_USERS` is a break-glass allowlist and receives admin access;
-keep it restricted. Roles belonging to Learn or another OIDC client do not grant AIO access.
+administrator assigns one. Keep `ALLOWED_USERS` empty when public registration is enabled; access
+must never depend on an unverified, user-chosen username. Roles belonging to Learn or another OIDC
+client do not grant AIO access. Use the Keycloak master administrator only for bootstrap/recovery.
 
 Approval workflow:
 

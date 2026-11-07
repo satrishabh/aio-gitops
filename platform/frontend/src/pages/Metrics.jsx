@@ -32,6 +32,7 @@ export default function Metrics() {
       </select>
     </PageHead>
   )
+  if (error && !data) return <><PageHead title="Delivery metrics" /><Stale stale={stale} error={error} onRetry={refresh} /></>
   if (!data) return <>{head}<div className="grid cols-4"><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></div><Skeleton h={260} /></>
   const o = data.overall
   const [bandLabel, bandTone] = band(o)

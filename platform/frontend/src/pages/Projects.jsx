@@ -14,8 +14,9 @@ export default function Projects({ me }) {
   const { data: items, error, stale, refresh } = usePoll(() => api('/api/projects'), 10000)
   const [q, setQ] = useState('')
 
+  if (error && !items) return <><PageHead title="Projects" /><Stale stale={stale} error={error} onRetry={refresh} /></>
   if (!items) return <><PageHead title="Projects" /><div className="project-grid"><Skeleton h={190} /><Skeleton h={190} /><Skeleton h={190} /></div></>
-  const shown = items.filter(({ project: p }) => `${p.name} ${p.repoOwner}/${p.repoName}`.toLowerCase().includes(q.toLowerCase()))
+  const shown = items.filter(({ project: p }) => `${p.name} ${p.repoOwner}/${p.repoName}`.toLowerCase().includes(q.trim().toLowerCase()))
 
   return (
     <>
@@ -32,7 +33,7 @@ export default function Projects({ me }) {
           action={community ? null : <Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link>}>
           {community ? 'No project summaries are available.' : 'Pick a GitHub repository with a Dockerfile — we will build, scan and deploy it for you.'}
         </Empty></div>
-      ) : (
+      ) : shown.length === 0 ? <div className="card"><Empty icon="search" title="No matching projects" action={<button className="btn" onClick={() => setQ('')}>Clear search</button>}>Try a different project or repository name.</Empty></div> : (
         <div className="project-grid">
           {shown.map(({ project: p, lastRun, environments }) => (
             <ProjectCard key={p.id} to={community ? undefined : `/projects/${p.id}`} className="card project-card">

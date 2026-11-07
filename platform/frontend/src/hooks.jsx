@@ -63,8 +63,8 @@ export function useAction(after) {
 export function Stale({ stale, error, onRetry }) {
   if (!stale) return null
   return (
-    <div className="banner">
-      Connection problem — showing last known data ({error}). Retrying automatically…{' '}
+    <div className="banner" role="alert">
+      Unable to refresh data ({error}). Retrying automatically…{' '}
       <button className="btn small" onClick={onRetry}>Retry now</button>
     </div>
   )

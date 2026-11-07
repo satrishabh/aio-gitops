@@ -1,0 +1,30 @@
+/* Appearance refinements preserve the existing page structure. */
+.appearance { border-radius: 10px; padding: 3px; }
+.appearance button { width: auto; min-width: 58px; height: 32px; padding: 0 9px; display: flex; gap: 5px; justify-content: center; border-radius: 7px; font: inherit; font-size: .76rem; }
+.appearance button[aria-checked="true"] { background: var(--panel); }
+:root[data-theme="dark"] .appearance button[aria-checked="true"] { background: #48484a; }
+.appearance button:focus-visible { border-radius: 7px; }
+.login-hero { background: var(--panel-2); color: var(--text); border-right: 1px solid var(--line); }
+.login-hero::before, .login-orbit { display: none; }
+.login-brand, .login-wordmark, .login-hero h1 { color: var(--brand-ink); }
+.login-brand span, .login-kicker, .login-description, .login-proof { color: var(--muted); }
+.login-hero h1 { font-size: clamp(2.8rem, 4.8vw, 5rem); line-height: 1.06; letter-spacing: -.045em; }
+.login-hero h1 span { color: var(--text); }
+.login-hero h1 em { color: var(--accent); }
+.login-kicker span { background: var(--accent); box-shadow: none; }
+.login-pipeline { background: var(--panel); border: 1px solid var(--line-2); box-shadow: none; backdrop-filter: none; border-radius: 12px; }
+.pipeline-node { color: var(--text-2); }
+.pipeline-node svg, .login-proof b { color: var(--accent); }
+.login-pipeline > i { background: var(--line-2); }
+.login-theme { position: absolute; }
+.login-panel-top { padding-top: 40px; flex-wrap: wrap; gap: 12px; }
+@media (pointer: coarse) { .appearance button { min-width: 44px; min-height: 44px; } }
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; }
+  .crumbs { flex-basis: calc(100% - 48px); }
+  .topbar .appearance { order: 1; margin-left: auto; }
+  .login-brand { flex-wrap: wrap; padding-top: 36px; }
+}
+@media (prefers-contrast: more) {
+  .appearance button[aria-checked="true"] { outline: 2px solid var(--text); outline-offset: -2px; }
+}

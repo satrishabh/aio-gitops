@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
 import Icon from '../components/Icon.jsx'
@@ -142,12 +142,33 @@ function UsePanel({ template, onClose }) {
   }
 
   const busy = step >= 0 && step < 4
+  const drawerRef = useRef(null)
+  const busyRef = useRef(busy)
+  busyRef.current = busy
+  useEffect(() => {
+    const previous = document.activeElement
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const drawer = drawerRef.current
+    drawer.focus()
+    const onKey = e => {
+      if (e.key === 'Escape' && !busyRef.current) { e.preventDefault(); onClose() }
+      if (e.key !== 'Tab') return
+      const controls = [...drawer.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')]
+      const first = controls[0], last = controls[controls.length - 1]
+      if (!first) { e.preventDefault(); drawer.focus(); return }
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === drawer)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (document.activeElement === last || document.activeElement === drawer)) { e.preventDefault(); first.focus() }
+    }
+    drawer.addEventListener('keydown', onKey)
+    return () => { drawer.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus() }
+  }, [])
   return (
     <div className="overlay" onClick={busy ? undefined : onClose}>
-      <aside className="drawer" onClick={e => e.stopPropagation()}>
+      <aside ref={drawerRef} role="dialog" aria-modal="true" aria-labelledby="template-dialog-title" tabIndex={-1} className="drawer" onClick={e => e.stopPropagation()}>
         <div className="card-head">
-          <h3>Use {template.fullName}</h3>
-          <button className="icon-btn" onClick={onClose} disabled={busy}><Icon name="x" /></button>
+          <h3 id="template-dialog-title">Use {template.fullName}</h3>
+          <button className="icon-btn" aria-label="Close template panel" onClick={onClose} disabled={busy}><Icon name="x" /></button>
         </div>
         {insErr && <p className="error">{insErr}</p>}
         {!ins && !insErr && <Skeleton h={70} />}

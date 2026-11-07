@@ -34,6 +34,7 @@ export default function Dashboard({ me }) {
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
+  if (error && !data) return <><PageHead title="Overview" /><Stale stale={stale} error={error} onRetry={refresh} /></>
   if (!data) return <>
     <PageHead title={`${greet}, ${me.name?.split(' ')[0] || me.login}`} sub="Loading your delivery pipeline…" />
     <div className="grid cols-4"><Skeleton h={104} /><Skeleton h={104} /><Skeleton h={104} /><Skeleton h={104} /></div>

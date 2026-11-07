@@ -12,8 +12,11 @@
       // Resolve the theme before first paint so there is no light/dark flash. Kept in sync with src/theme.js.
       (function () {
         var p = 'system'; try { p = localStorage.getItem('aio-theme') || 'system' } catch (e) {}
+        if (['system', 'light', 'dark'].indexOf(p) === -1) p = 'system'
         var dark = p === 'dark' || (p === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#000000' : '#f5f5f7')
       })()
     </script>
   </head>

@@ -12,6 +12,7 @@ export default function Audit() {
   const { data, error, stale, refresh } = usePoll(() => api('/api/audit'), 15000)
   const [q, setQ] = useState('')
 
+  if (error && !data) return <><PageHead title="Audit log" /><Stale stale={stale} error={error} onRetry={refresh} /></>
   if (!data) return <><PageHead title="Audit log" /><Skeleton h={420} /></>
   const shown = data.filter(e => !q || JSON.stringify(e).toLowerCase().includes(q.toLowerCase()))
 

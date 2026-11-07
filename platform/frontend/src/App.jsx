@@ -32,6 +32,7 @@ const CRUMBS = [
 
 export default function App() {
   const [me, setMe] = useState(null)
+  const [sessionError, setSessionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState(0)
   const location = useLocation()
@@ -39,7 +40,9 @@ export default function App() {
 
   useEffect(() => {
     if (isLogin) { setLoading(false); return }
-    api('/api/me').then(setMe).catch(() => {}).finally(() => setLoading(false))
+    setLoading(true)
+    setSessionError('')
+    api('/api/me').then(setMe).catch(e => setSessionError(e.message)).finally(() => setLoading(false))
   }, [isLogin])
 
   // Pending prod approvals badge in the sidebar
@@ -55,7 +58,7 @@ export default function App() {
   // On client-side navigation: name the page and move focus to the content, as a full page load would.
   const mainRef = useRef(null)
   const firstRender = useRef(true)
-  const crumb = (CRUMBS.find(([re]) => re.test(location.pathname)) || [null, ''])[1]
+  const crumb = (CRUMBS.find(([re]) => re.test(location.pathname)) || [null, 'Page not found'])[1]
   useEffect(() => {
     document.title = crumb ? `${crumb.split(' / ').pop()} · AIO Platform` : 'AIO Platform'
     if (firstRender.current) { firstRender.current = false; return }
@@ -65,7 +68,7 @@ export default function App() {
 
   if (isLogin) return <Login />
   if (loading) return <div className="center" role="status" aria-label="Loading AIO Platform"><LogoMark size={44} className="logo-mark pulse" /></div>
-  if (!me) return null
+  if (!me) return <div className="center"><div className="card" role="alert"><h1>Unable to load your workspace</h1><p>{sessionError || 'Your session could not be loaded.'}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button> <Link className="btn" to="/login">Go to login</Link></div></div>
   const community = me.accessTier === 'community'
 
   return (
@@ -125,6 +128,7 @@ export default function App() {
           </header>
           <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>
+              <Route path="*" element={<div className="empty-state"><h1>Page not found</h1><p>This address does not match an AIO page.</p><Link className="btn primary" to="/">Back to overview</Link></div>} />
               <Route path="/" element={<Dashboard me={me} />} />
               <Route path="/projects" element={<Projects me={me} />} />
               <Route path="/new" element={<NewProject />} />

@@ -644,3 +644,27 @@ select option { background: var(--panel-solid); color: var(--text); }
 .tpl-steps li span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.74rem; background: var(--fill); color: var(--muted); }
 .tpl-steps li.active { color: var(--text); } .tpl-steps li.active span { background: var(--accent-tint); color: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
 .tpl-steps li.done { color: var(--text); } .tpl-steps li.done span { background: var(--green); color: #fff; }
+
+/* Keep dense delivery data and controls usable in narrow viewports. */
+.grid > *, .project-grid > *, .card, .env-chip { min-width: 0; }
+.sidebar { overflow-y: auto; height: 100dvh; }
+.me .who b, .me .who span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.card:has(> table) { overflow-x: auto; }
+.page-head > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.page-head .search { max-width: 100%; }
+.banner { flex-wrap: wrap; overflow-wrap: anywhere; }
+.tpl-grid { grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); }
+.drawer { width: min(460px, calc(100% - 24px)); }
+.drawer h3 { overflow-wrap: anywhere; }
+.drawer .card-head { align-items: flex-start; }
+.drawer .icon-btn { flex-shrink: 0; }
+.form label.check input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .sidebar { height: auto; }
+  .page-head > :first-child { flex-basis: 100%; }
+  .page-head .spacer { display: none; }
+  .env-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .env-row input:first-child { grid-column: 1 / -1; }
+  .row > * { min-width: min(180px, 100%); max-width: 100%; }
+  .tpl-actions { flex-wrap: wrap; }
+}

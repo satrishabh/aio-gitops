@@ -57,22 +57,33 @@ const { tmpdir } = require('node:os')
     await page.mouse.move(0, 0)
     await page.locator('h1').click()
     assert.equal(await page.getByRole('radiogroup', { name: 'Appearance' }).isVisible(), false, 'Outside click dismisses choices')
-    for (const width of [1440, 768, 390, 320]) {
+    for (const width of [1920, 1440, 1280, 1100, 1024, 768, 761, 760, 390, 320]) {
       await page.setViewportSize({ width, height: 900 })
       for (const mode of ['Light appearance', 'Dark appearance']) {
         await choose(mode)
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `No page overflow at ${width}px in ${mode}`)
+        const hero = await page.locator('.login-hero').boundingBox()
+        const panel = await page.locator('.login-panel').boundingBox()
+        if (width > 760) {
+          assert.ok(Math.abs(hero.y - panel.y) < 1, `Desktop columns share a row at ${width}px`)
+          assert.ok(panel.x >= hero.x + hero.width - 1, `Sign-in sits beside the introduction at ${width}px`)
+          assert.ok(panel.width > width * .35, `Sign-in has usable space at ${width}px`)
+        } else {
+          assert.ok(panel.y < hero.y, `Mobile keeps sign-in first at ${width}px`)
+        }
       }
     }
     await page.keyboard.press('Escape')
     const heading = await page.getByRole('heading', { name: 'Welcome to AIO' }).boundingBox()
     assert.ok(heading.y < 900, 'Mobile sign-in is visible without scrolling')
-    await page.screenshot({ path: join(tmpdir(), 'aio-live-dark-mobile.png'), fullPage: true })
+    await page.screenshot({ path: join(tmpdir(), 'aio-live-dark-mobile.png'), fullPage: true, animations: 'disabled' })
     await page.setViewportSize({ width: 1440, height: 1000 })
     await choose('Light appearance')
-    await page.screenshot({ path: join(tmpdir(), 'aio-live-light-desktop.png'), fullPage: true })
+    await page.keyboard.press('Escape')
+    await page.getByRole('heading', { name: 'Welcome to AIO' }).click()
+    await page.screenshot({ path: join(tmpdir(), 'aio-live-light-desktop.png'), fullPage: true, animations: 'disabled' })
     assert.deepEqual(errors, [], 'No browser JavaScript errors')
-    console.log(JSON.stringify({ result: 'PASS', checks: ['login HTTP 200', 'Light/Dark hero', 'reload persistence', 'cross-tab sync', 'live system changes', 'Home/End keyboard selection', 'hover reveal and Escape/outside dismissal', 'mobile sign-in above fold', '320/390/768/1440px layouts in both modes', 'no JavaScript errors'], screenshots: [join(tmpdir(), 'aio-live-dark-mobile.png'), join(tmpdir(), 'aio-live-light-desktop.png')] }, null, 2))
+    console.log(JSON.stringify({ result: 'PASS', checks: ['login HTTP 200', 'Light/Dark hero', 'reload persistence', 'cross-tab sync', 'live system changes', 'Home/End keyboard selection', 'hover reveal and Escape/outside dismissal', 'mobile sign-in above fold', '320–1920px layouts in both modes; desktop columns and mobile order verified', 'no JavaScript errors'], screenshots: [join(tmpdir(), 'aio-live-dark-mobile.png'), join(tmpdir(), 'aio-live-light-desktop.png')] }, null, 2))
   } finally {
     await browser.close()
   }

@@ -8,6 +8,9 @@ Update it after each production deployment or schema migration.
 
 ## Completed
 
+- [x] Released AIO `0.12.3` on 2026-11-07 through Argo CD automatic sync. UI source `d04903f`; release `4a218db`; Cloud Build `9330e53a-dcd1-442b-a912-13a6c9101629`; image digest `sha256:b18fd23ba1d704827ed05d7cbddc4ac27315921a23d335ebf1893f50fecbd4cb`. Rollout completed, readiness is UP, and Argo CD reports Synced/Healthy.
+- [x] Verified the live `0.12.3` login: hover reveal, Escape/outside dismissal, manual/system themes, reload persistence, cross-tab sync, keyboard selection, mobile sign-in visibility, and both appearances at 320/390/768/1440 px, with no browser JavaScript errors. Locally verified mobile touch and workspace drawer behavior using API fixtures; the desktop sidebar remains visible. Authenticated production workspace screens were not exercised by this browser run.
+
 - [x] Released AIO `0.12.2` on 2026-11-07 through Argo CD automatic sync. UI source commit `4048e0b`; release commit `562763a`. Cloud Build `3ace62cf-f451-46ed-b317-9be533cef5b2` succeeded; image digest `sha256:da28ce895f2b6df9e29c614bf673a9c362319043ed78f23e42721ef2958c7eec`.
 - [x] Verified `0.12.2` rollout and readiness (`UP`); startup validated all six Flyway migrations, with schema V6 unchanged. Preflight checks passed: 64 backend tests, four appearance tests, frontend production build, and Helm lint/render.
 - [x] Verified the deployed HTTPS login in headless Edge: Light/Dark changes the hero, preference survives reload, cross-tab synchronization works, Auto follows live device appearance changes, Home/End selection works, and both appearances have no page overflow at 320/390/768/1440 px. No browser JavaScript errors detected. Authenticated workspace screens were not exercised by this browser run.
@@ -45,7 +48,7 @@ Update it after each production deployment or schema migration.
 - [x] **Apex DNS preserved.** The domain uses Hostinger nameservers and apex/`www` records resolve. Do not change domain-level nameservers.
 - [x] **Hostinger A records.** `app.sarvaikam.com` and `learn.sarvaikam.com` resolve to `34.180.3.18`; apex and `www` continue to resolve to their existing Hostinger targets.
 - [x] **GTS certificates.** `tls-learn-sarvaikam-com` and `aio-platform-tls` are Ready; both sites return HTTPS 200.
-- [x] **Current platform rollout.** GKE runs `aio-platform:0.12.2`; Argo CD reports Synced/Healthy, the platform pod is Ready with zero restarts, and the live login appearance checks passed at desktop and mobile widths. The earlier `0.10.4` rollout verified mobile Overview overflow.
+- [x] **Current platform rollout.** GKE runs `aio-platform:0.12.3`; Argo CD reports Synced/Healthy, rollout completed, readiness is UP, and the live login appearance checks passed at desktop and mobile widths. The earlier `0.10.4` rollout verified mobile Overview overflow.
 - [x] **Real-domain validation.** Verified Learn homepage/topic routing, AIO HTTPS and HTTP redirect, GitHub sign-in, and the legacy webhook alias.
 - [x] **Sarvaikam host mapping.** `learn.sarvaikam.com` serves the learning app and `app.sarvaikam.com` serves AIO. Apex and `www` records remain unchanged.
 - [x] **Shared User Profile service.** `satrishabh/user-profile-manager` is deployed through AIO at `https://profile.sarvaikam.com` with central Google/GitHub OIDC, realm roles, verification email, password reset, and the reusable `sarvaikam-learn` PKCE client.

@@ -111,6 +111,22 @@ A newly registered profile has no AIO client role and is denied by AIO until an 
 administrator assigns one. `ALLOWED_USERS` is a break-glass allowlist and receives admin access;
 keep it restricted. Roles belonging to Learn or another OIDC client do not grant AIO access.
 
+Approval workflow:
+
+1. The user selects **Register** on AIO's login page, creates an AIO-realm account, and verifies
+   their email. This does not create or reuse a Learn account.
+2. In the Keycloak Admin Console, select realm `aio`, open **Users**, select the user, then open
+   **Role mapping > Assign role** and filter by client `aio-platform`.
+3. Assign exactly one base tier: `aio-admin`, `aio-business`, or `aio-community`. Add
+   `aio-approver` only to a business user who may approve production changes.
+4. The user starts a new AIO login session. Users without an approved base tier remain denied.
+5. To revoke access immediately, remove the AIO client roles and terminate that user's active
+   sessions in the `aio` realm; removing a role alone does not invalidate an already issued token.
+
+Application-specific custom roles may be added alongside a base tier. They must remain client
+roles of `aio-platform`; realm roles or roles from another client must not be used as an AIO access
+shortcut.
+
 ### Domain configuration ownership
 
 The Domains tab owns only the top-level `routes:` block in an application's environment values:

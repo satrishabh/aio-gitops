@@ -28,5 +28,6 @@ public class Project {
     @JsonIgnore public String webhookSecret;
     public Long webhookId;
     public String createdBy;
+    @JsonIgnore @Column(length = 500) public String ownerSubject;
     public Instant createdAt = Instant.now();
 }

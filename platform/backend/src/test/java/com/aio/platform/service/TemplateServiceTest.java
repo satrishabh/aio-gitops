@@ -42,7 +42,7 @@ class TemplateServiceTest {
     @Test
     void communityQueryStripsQualifiersAndValidates() {
         String q = TemplateService.communityQuery("ui-dashboard", "tailwind user:evil <script>", "TypeScript");
-        assertEquals("tailwind user evil script dashboard language:TypeScript template:true archived:false stars:>10", q);
+        assertEquals("tailwind user evil script dashboard language:TypeScript template:true is:public archived:false stars:>10", q);
         assertThrows(IllegalArgumentException.class, () -> TemplateService.communityQuery("nope", null, null));
         assertThrows(IllegalArgumentException.class, () -> TemplateService.communityQuery(null, null, "a b"));
     }

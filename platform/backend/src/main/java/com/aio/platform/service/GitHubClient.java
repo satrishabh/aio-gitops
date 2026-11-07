@@ -139,7 +139,14 @@ public class GitHubClient {
         gh.put().uri("/repos/{o}/{r}/topics", owner, repo).body(Map.of("names", topics)).retrieve().toBodilessEntity();
     }
 
-    /** Repos visible to the logged-in user (uses their OAuth token, not the platform PAT). */
+    /** Platform-token repository listing. The caller must restrict this to administrators. */
+    public List<Map<String, Object>> listConfiguredRepos() {
+        List<Map<String, Object>> repos = gh.get().uri("/user/repos?per_page=100&sort=updated")
+                .retrieve().body(new ParameterizedTypeReference<>() {});
+        return repos == null ? List.of() : repos;
+    }
+
+    /** Explicit user-token listing for integrations that actually possess a GitHub access token. */
     public List<Map<String, Object>> listUserRepos(String userToken) {
         List<Map<String, Object>> repos = RestClient.create(apiUrl).get()
                 .uri("/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member")

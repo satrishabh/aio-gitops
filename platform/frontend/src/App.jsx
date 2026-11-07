@@ -3,7 +3,7 @@ import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { api, logout } from './api.js'
 import { ToastProvider } from './components/Toast.jsx'
 import Icon from './components/Icon.jsx'
-import ThemeToggle from './components/ThemeToggle.jsx'
+import AccountControls from './components/AccountControls.jsx'
 import { LogoMark, Wordmark } from './components/Logo.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -125,8 +125,7 @@ export default function App() {
             {!community && <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>}
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
             {!community && <>
-              <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>
-              <NavLink to="/audit"><Icon name="list" />Audit log</NavLink>
+              {me.accessTier === 'admin' && <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>}
             </>}
           </nav>
           <div className="sidebar-foot">
@@ -155,10 +154,10 @@ export default function App() {
               ))}
             </nav>
             <span className="live-dot" title="Data refreshes automatically">Live</span>
-            <ThemeToggle />
             {!community && <Link to="/new" className="btn primary small" aria-label="New project" title="New project">
               <Icon name="plus" size={14} /><span>New project</span>
             </Link>}
+            <AccountControls me={me} />
           </header>
           <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>

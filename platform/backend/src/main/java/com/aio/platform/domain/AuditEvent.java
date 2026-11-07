@@ -8,6 +8,7 @@ import java.time.Instant;
 public class AuditEvent {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) public Long id;
     public String actor;
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(length = 500) public String actorSubject;
     public String action;
     public String target;
     public String details;

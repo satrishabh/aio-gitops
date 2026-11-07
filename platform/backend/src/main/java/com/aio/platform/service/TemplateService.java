@@ -68,7 +68,9 @@ public class TemplateService {
             case "starters" -> cached("starters", Duration.ofMinutes(10), this::starters);
             case "mine" -> cached("mine", Duration.ofMinutes(1), () -> search(
                     "user:" + owner + " topic:" + TOPIC + " template:true", "mine").stream()
-                    .filter(t -> !String.valueOf(t.get("name")).startsWith("aio-template-")).toList());
+                    .filter(t -> !String.valueOf(t.get("name")).startsWith("aio-template-")).toList()).stream()
+                    .filter(t -> com.aio.platform.security.UserScope.admin() || com.aio.platform.security.UserScope.projects(projects)
+                            .stream().anyMatch(p -> String.valueOf(t.get("fullName")).equalsIgnoreCase(p.repoOwner + "/" + p.repoName))).toList();
             case "community" -> {
                 String query = communityQuery(category, q, language);
                 yield cached("c:" + query, Duration.ofMinutes(10), () -> search(query, "community"));
@@ -114,6 +116,7 @@ public class TemplateService {
             parts.add("language:" + language);
         }
         parts.add("template:true");
+        parts.add("is:public");
         parts.add("archived:false");
         parts.add("stars:>10");
         return String.join(" ", parts);
@@ -161,6 +164,7 @@ public class TemplateService {
     public Inspection inspect(String fullName) {
         String[] or = split(fullName);
         Map<String, Object> repo = github.getRepo(or[0], or[1]);
+        com.aio.platform.security.UserScope.repository(projects, repo);
         List<String> entries = github.rootEntries(or[0], or[1]);
         if (entries == null) entries = List.of();
         String pkg = null;

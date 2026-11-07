@@ -37,12 +37,14 @@ public class ScanService {
     private final ProjectRepo projects;
     private final TektonService tekton;
     private final AuditService audit;
+    private final GitHubClient github;
 
-    public ScanService(ScanRunRepo scans, ProjectRepo projects, TektonService tekton, AuditService audit) {
+    public ScanService(ScanRunRepo scans, ProjectRepo projects, TektonService tekton, AuditService audit, GitHubClient github) {
         this.scans = scans;
         this.projects = projects;
         this.tekton = tekton;
         this.audit = audit;
+        this.github = github;
     }
 
     /** repoUrl, or projectId to scan a project's repo; image optional (needed for the "image" scanner). */
@@ -95,12 +97,18 @@ public class ScanService {
 
     public ScanRun start(StartRequest req, String actor) {
         if (req == null) throw new IllegalArgumentException("repoUrl or projectId is required");
-        Project p = req.projectId() == null ? null : projects.findById(req.projectId()).orElseThrow();
+        Project p = req.projectId() == null ? null : com.aio.platform.security.UserScope.project(projects, req.projectId());
         String repo = normalizeRepo(p != null ? p.repoUrl : req.repoUrl());
+        if (p == null && !com.aio.platform.security.UserScope.admin()) {
+            Matcher repository = GITHUB_URL.matcher(repo);
+            if (!repository.matches()) throw new IllegalArgumentException("invalid repository");
+            com.aio.platform.security.UserScope.repository(projects, github.getRepo(repository.group(1), repository.group(2)));
+        }
         String ref = normalizeRef(req.ref(), p != null ? p.defaultBranch : "main");
         String image = normalizeImage(req.image());
         Set<String> scanners = normalizeScanners(req.scanners(), image);
         ScanRun s = new ScanRun();
+        s.ownerSubject = com.aio.platform.security.UserScope.subject();
         s.projectId = p == null ? null : p.id;
         s.repoUrl = repo;
         s.gitRef = ref;
@@ -115,6 +123,7 @@ public class ScanService {
     public ScanRun rerun(ScanRun prev, String actor) {
         if (prev.isActive()) throw new IllegalArgumentException("scan #" + prev.id + " is still running");
         ScanRun s = new ScanRun();
+        s.ownerSubject = com.aio.platform.security.UserScope.subject();
         s.projectId = prev.projectId;
         s.repoUrl = prev.repoUrl;
         s.gitRef = prev.gitRef;   // same branch, not the old commit: a re-scan should see today's code and advisories

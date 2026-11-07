@@ -5,5 +5,6 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditRepo extends JpaRepository<AuditEvent, Long> {
+    List<AuditEvent> findTop300ByActorSubjectOrderByIdDesc(String subject);
     List<AuditEvent> findTop300ByOrderByIdDesc();
 }

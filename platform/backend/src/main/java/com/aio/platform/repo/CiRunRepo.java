@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CiRunRepo extends JpaRepository<CiRun, Long> {
+    List<CiRun> findByProjectIdInOrderByIdDesc(Collection<Long> projectIds, Pageable page);
+    List<CiRun> findByProjectIdInAndCreatedAtAfterOrderByIdAsc(Collection<Long> projectIds, java.time.Instant after);
     List<CiRun> findByStatusIn(Collection<String> statuses);
 
     List<CiRun> findByProjectIdOrderByIdDesc(Long projectId, Pageable page);

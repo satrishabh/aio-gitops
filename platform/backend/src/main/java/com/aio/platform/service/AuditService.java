@@ -13,8 +13,13 @@ public class AuditService {
     }
 
     public void record(String actor, String action, String target, String details) {
+        record(actor, action, target, details, com.aio.platform.security.UserScope.subject());
+    }
+
+    public void record(String actor, String action, String target, String details, String subject) {
         AuditEvent e = new AuditEvent();
         e.actor = actor == null ? "system" : actor;
+        e.actorSubject = subject;
         e.action = action;
         e.target = target;
         e.details = details;

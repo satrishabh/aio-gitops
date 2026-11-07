@@ -50,13 +50,19 @@ public class MetricsService {
     public Map<String, Object> overview(int days) {
         int d = Math.max(1, Math.min(days, 365));
         Instant since = Instant.now().minus(Duration.ofDays(d));
-        List<CiRun> allRuns = runs.findByCreatedAtAfterOrderByIdAsc(since);
-        List<Deployment> allDeps = deployments.findByDeployedAtAfter(since);
-        List<Promotion> allPromos = promotions.findAllByOrderByIdDesc(org.springframework.data.domain.PageRequest.of(0, 5000))
+        var visibleProjects = com.aio.platform.security.UserScope.projects(projects);
+        var ids = visibleProjects.stream().map(p -> p.id).toList();
+        boolean admin = com.aio.platform.security.UserScope.admin();
+        List<CiRun> allRuns = admin ? runs.findByCreatedAtAfterOrderByIdAsc(since)
+                : runs.findByProjectIdInAndCreatedAtAfterOrderByIdAsc(ids, since);
+        List<Deployment> allDeps = admin ? deployments.findByDeployedAtAfter(since)
+                : deployments.findByProjectIdInAndDeployedAtAfter(ids, since);
+        var page = org.springframework.data.domain.PageRequest.of(0, 5000);
+        List<Promotion> allPromos = (admin ? promotions.findAllByOrderByIdDesc(page) : promotions.findVisible(ids, null, page))
                 .stream().filter(p -> p.requestedAt != null && p.requestedAt.isAfter(since)).toList();
 
         Map<String, Object> perProject = new LinkedHashMap<>();
-        for (Project p : projects.findAll(org.springframework.data.domain.Sort.by("name"))) {
+        for (Project p : visibleProjects) {
             perProject.put(p.name, compute(d,
                     allDeps.stream().filter(x -> p.id.equals(x.projectId)).toList(),
                     allRuns.stream().filter(x -> p.id.equals(x.projectId)).toList(),

@@ -27,6 +27,7 @@ public class ScanRun {
     public boolean findingsTruncated;
     public String trigger;
     public String triggeredBy;
+    @com.fasterxml.jackson.annotation.JsonIgnore @Column(length = 500) public String ownerSubject;
     public Long rerunOf;
     public boolean logsArchived;
     public Instant createdAt = Instant.now();

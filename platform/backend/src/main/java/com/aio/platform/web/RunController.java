@@ -44,8 +44,11 @@ public class RunController {
     @GetMapping
     public List<Map<String, Object>> list(@RequestParam(defaultValue = "50") int limit) {
         var names = new java.util.HashMap<Long, String>();
-        projects.findAll().forEach(p -> names.put(p.id, p.name));
-        return runs.findAllByOrderByIdDesc(org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 200))))
+        com.aio.platform.security.UserScope.projects(projects).forEach(p -> names.put(p.id, p.name));
+        var page = org.springframework.data.domain.PageRequest.of(0, Math.max(1, Math.min(limit, 200)));
+        var visible = com.aio.platform.security.UserScope.admin() ? runs.findAllByOrderByIdDesc(page)
+                : runs.findByProjectIdInOrderByIdDesc(com.aio.platform.security.UserScope.projectIds(projects), page);
+        return visible
                 .stream().map(r -> Map.<String, Object>of("run", r, "project",
                         Map.of("id", r.projectId, "name", names.getOrDefault(r.projectId, "(deleted)")))).toList();
     }

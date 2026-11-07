@@ -1,0 +1,35 @@
+.account-controls { display: flex; align-items: center; gap: 2px; position: relative; flex-shrink: 0; }
+.account-button { width: 44px; height: 44px; color: var(--text-2); border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+.account-button[aria-expanded="true"] { background: var(--fill-2); color: var(--text); }
+.profile-button img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.account-panel {
+  position: absolute; right: 0; top: calc(100% + 10px); z-index: 30; width: min(360px, calc(100vw - 24px));
+  max-height: min(640px, calc(100dvh - 100px)); overflow-y: auto; overscroll-behavior: contain;
+  padding: 18px; border: 1px solid var(--line-2); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow-lift);
+}
+.account-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.account-panel-head h2 { margin: 0; font-size: 1.05rem; }
+.account-panel-head button { flex-shrink: 0; }
+.profile-summary { display: flex; flex-direction: column; gap: 4px; padding-bottom: 18px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.profile-summary strong { font-size: 1rem; }
+.profile-summary span { color: var(--muted); font-size: .85rem; }
+.profile-summary .profile-tier { text-transform: capitalize; }
+.profile-appearance { display: block; margin: 18px 0; font-size: .88rem; font-weight: 600; }
+.profile-appearance select { font-weight: 400; }
+.account-logout { width: 100%; justify-content: center; }
+.activity-note { margin: 8px 0 16px; color: var(--muted); font-size: .85rem; }
+.activity-error { padding: 10px; background: var(--red-bg); border-radius: 10px; font-size: .85rem; overflow-wrap: anywhere; }
+.activity-error p { margin: 0 0 8px; }
+.activity-list { padding: 0; margin: 0; list-style: none; }
+.activity-list li { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.activity-list li > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.activity-list strong { font-size: .86rem; font-weight: 600; text-transform: capitalize; }
+.activity-list time { flex-shrink: 0; color: var(--muted); font-size: .74rem; }
+.activity-list p { margin: 5px 0 0; color: var(--text-2); font-size: .82rem; }
+.activity-list .activity-details { color: var(--muted); }
+.activity-all { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 0 0; font-size: .86rem; }
+@media (max-width: 760px) {
+  .topbar { gap: 4px; }
+  .account-panel { right: 0; }
+  .mobile-brand { margin-right: auto; }
+}

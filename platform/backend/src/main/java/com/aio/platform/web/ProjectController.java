@@ -62,7 +62,7 @@ public class ProjectController {
     @GetMapping
     public List<Map<String, Object>> list(@AuthenticationPrincipal OAuth2User user) {
         boolean community = "community".equals(AioAuthorization.tier(user));
-        return projects.findAll(Sort.by("name")).stream().map(p -> Map.<String, Object>of(
+        return com.aio.platform.security.UserScope.projects(projects).stream().map(p -> Map.<String, Object>of(
                 "project", community ? communityProject(p) : p,
                 "lastRun", runs.findFirstByProjectIdOrderByIdDesc(p.id)
                         .map(r -> community ? (Object) communityRun(r) : r).orElse(Map.of()),

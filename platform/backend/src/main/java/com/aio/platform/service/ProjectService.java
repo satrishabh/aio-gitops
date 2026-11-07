@@ -178,12 +178,12 @@ public class ProjectService {
     }
 
     private CreationResult create(CreateRequest req, String actor, String trigger) {
-        Project project = createProject(req, actor);
+        Project project = createProject(req, actor, "TEMPLATE".equals(trigger));
         CiRun run = runService.trigger(project, null, trigger, actor, true);
         return new CreationResult(project, run);
     }
 
-    private Project createProject(CreateRequest req, String actor) {
+    private Project createProject(CreateRequest req, String actor, boolean generatedForCurrentUser) {
         Matcher m = GITHUB_URL.matcher(req.repoUrl() == null ? "" : req.repoUrl().trim());
         if (!m.matches()) throw new IllegalArgumentException("repoUrl must look like https://github.com/<owner>/<repo>");
         String owner = m.group(1), repoName = m.group(2);
@@ -192,6 +192,7 @@ public class ProjectService {
         if (projects.findByName(name).isPresent()) throw new IllegalArgumentException("project already exists: " + name);
 
         Map<String, Object> repo = github.getRepo(owner, repoName); // fails fast if not reachable with our token
+        if (!generatedForCurrentUser) com.aio.platform.security.UserScope.repository(projects, repo);
 
         Project p = new Project();
         p.name = name;
@@ -208,6 +209,7 @@ public class ProjectService {
         RANDOM.nextBytes(secret);
         p.webhookSecret = HexFormat.of().formatHex(secret);
         p.createdBy = actor;
+        p.ownerSubject = com.aio.platform.security.UserScope.subject();
         p.scanSeverity = req.scanSeverity() == null || req.scanSeverity().isBlank() ? "HIGH,CRITICAL" : validSeverity(req.scanSeverity());
         applyRuntime(p, req.envVars(), req.cpuRequest(), req.cpuLimit(), req.memoryRequest(), req.memoryLimit());
         p = projects.save(p);

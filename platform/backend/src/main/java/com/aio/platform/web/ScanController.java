@@ -58,7 +58,10 @@ public class ScanController {
     public List<Map<String, Object>> list(@RequestParam(required = false) Long projectId,
                                           @RequestParam(defaultValue = "50") int limit) {
         var page = PageRequest.of(0, Math.max(1, Math.min(limit, 200)));
-        var list = projectId == null ? scans.findAllByOrderByIdDesc(page) : scans.findByProjectIdOrderByIdDesc(projectId, page);
+        if (projectId != null) com.aio.platform.security.UserScope.project(projects, projectId);
+        var list = projectId != null ? scans.findByProjectIdOrderByIdDesc(projectId, page)
+                : com.aio.platform.security.UserScope.admin() ? scans.findAllByOrderByIdDesc(page)
+                : scans.findVisible(com.aio.platform.security.UserScope.projectIds(projects), com.aio.platform.security.UserScope.subject(), page);
         return list.stream().map(this::summary).toList();
     }
 

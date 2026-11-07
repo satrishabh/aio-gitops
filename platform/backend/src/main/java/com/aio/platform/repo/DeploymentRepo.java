@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DeploymentRepo extends JpaRepository<Deployment, Long> {
+    List<Deployment> findByProjectIdInAndDeployedAtAfter(java.util.Collection<Long> ids, java.time.Instant after);
     List<Deployment> findByProjectIdOrderByDeployedAtDesc(Long projectId, Pageable page);
 
     boolean existsByProjectIdAndEnvironmentAndArgoHistoryId(Long projectId, String environment, Long argoHistoryId);

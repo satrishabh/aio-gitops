@@ -51,15 +51,19 @@ public class ProfileOidcUserService extends OidcUserService {
 
         String subject = user.getIssuer() + "|" + user.getSubject();
         AppUser appUser = users.findBySubject(subject)
-                .or(() -> users.findByLogin(login))
+                .or(() -> users.findByLogin(login).filter(existing -> existing.subject == null))
                 .orElseGet(AppUser::new);
+        if (appUser.id == null && users.findByLogin(login).filter(existing -> existing.subject != null
+                && !subject.equals(existing.subject)).isPresent()) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("access_denied"), "Account identity conflict; contact an administrator");
+        }
         appUser.subject = subject;
         appUser.login = login;
         appUser.name = ProfileIdentity.name(user);
         appUser.avatarUrl = ProfileIdentity.avatarUrl(user);
         appUser.lastLoginAt = Instant.now();
         users.save(appUser);
-        audit.record(login, "login", null, "issuer=user-profile-manager");
+        audit.record(login, "login", null, "issuer=user-profile-manager", subject);
         return withAioAuthorities(user, allowlistedUser, clientRoles);
     }
 

@@ -34,6 +34,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/webhooks/**", "/actuator/health/**", "/actuator/health").permitAll()
                 .requestMatchers("/api/me").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
+                .requestMatchers("/api/users", "/api/clusters").hasRole("AIO_ADMIN")
                 .requestMatchers(HttpMethod.GET, "/api/projects", "/api/metrics").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
                 .requestMatchers("/api/**").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS")
                 .anyRequest().permitAll()) // static SPA assets + client-side routes

@@ -45,7 +45,9 @@ public class Me {
 
     @GetMapping("/api/audit")
     public Object audit() {
-        return audit.findTop300ByOrderByIdDesc();
+        if (com.aio.platform.security.UserScope.admin()) return audit.findTop300ByOrderByIdDesc();
+        String subject = com.aio.platform.security.UserScope.subject();
+        return subject == null ? List.of() : audit.findTop300ByActorSubjectOrderByIdDesc(subject);
     }
 
     @GetMapping("/api/users")

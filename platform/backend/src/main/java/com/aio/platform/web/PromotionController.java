@@ -25,6 +25,8 @@ public class PromotionController {
 
     @GetMapping
     public List<Promotion> list(@RequestParam(required = false) String status) {
+        if (!com.aio.platform.security.UserScope.admin()) return promotions.findVisible(
+                com.aio.platform.security.UserScope.projectIds(projects), status, PageRequest.of(0, 200));
         return status == null
                 ? promotions.findAllByOrderByIdDesc(PageRequest.of(0, 200))
                 : promotions.findByStatusOrderByIdDesc(status);

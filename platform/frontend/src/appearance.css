@@ -24,7 +24,7 @@
 @media (hover: hover) { .appearance-trigger:hover { opacity: .8; background: var(--fill-2); } }
 .appearance-trigger:active { opacity: 1; }
 .appearance-trigger:focus-visible { opacity: 1; }
-.mobile-nav-toggle, .mobile-nav-close, .mobile-nav-backdrop { display: none; }
+.mobile-nav-toggle, .mobile-nav-close, .mobile-nav-backdrop, .mobile-brand { display: none; }
 /* Desktop/tablet retain two balanced columns; mobile rules stay independent. */
 @media (min-width: 761px) {
   .login-wrap { grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); }
@@ -47,6 +47,9 @@
   .topbar > .btn { margin-left: auto; }
   .mobile-nav-toggle, .mobile-nav-close { display: grid; flex-shrink: 0; }
   .mobile-nav-toggle { width: 44px; height: 44px; }
+  .mobile-brand { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; min-width: 0; min-height: 44px; padding: 3px 4px; color: var(--text); text-decoration: none; }
+  .mobile-brand:hover { text-decoration: none; }
+  .mobile-brand small { font-size: .65rem; line-height: 1.2; color: var(--muted); white-space: nowrap; letter-spacing: .01em; }
   .mobile-nav-close { position: absolute; right: 12px; top: 12px; }
   .mobile-nav-backdrop { display: block; position: fixed; inset: 0; z-index: 40; border: 0; padding: 0; background: rgba(0,0,0,.32); cursor: pointer; }
   .sidebar { display: none; }

@@ -142,6 +142,10 @@ export default function App() {
         <div className="content">
           <header className="topbar">
             <button ref={menuButton} className="mobile-nav-toggle icon-btn" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNav} onClick={() => setMobileNav(true)}><Icon name="menu" size={21} /></button>
+            <Link to="/" className="mobile-brand" aria-label="AIO by Sarvaikam — home">
+              <Wordmark height={19} className="logo-mark" />
+              <small>by Sarvaikam</small>
+            </Link>
             <nav className="crumbs" aria-label="Breadcrumb">
               {crumb.split(' / ').map((c, i, a) => (
                 <span key={c} style={{ display: 'contents' }}>

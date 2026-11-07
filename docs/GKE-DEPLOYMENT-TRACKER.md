@@ -1,12 +1,14 @@
 # GKE deployment and migration tracker
 
-Last checked: 2026-11-07
+Last checked: 2026-11-08
 Cluster: `project-d28840cd-be2f-4901-85e` / `asia-south1` / `cluster-1`
 
 Use this file as the running record for the platform deployment, cluster prerequisites, and database migrations.
 Update it after each production deployment or schema migration.
 
 ## Completed
+
+- [x] On 2026-11-08 the user explicitly accepted the known Guava HIGH finding (`CVE-2026-102554`, installed `33.6.0-jre`) for **Learn dev only** and authorized deploying exact source commit `9f351eb036f92f5cd9c7ec236656731bb674001c`. Updated only `apps/sarvaikam/values-dev.yaml` to image tag `9f351eb036f9`, preserving `sarvaikam-profile-runtime`. This is an explicit manual GitOps deployment exception for the already-built image; the failed CI scan remains failed and the HIGH/CRITICAL policy is unchanged. No change to staging, production, or `sarvaikam-home`. Rollout verification pending.
 
 - [x] On 2026-11-07 added `envFrom.secretRef.name: sarvaikam-profile-runtime` to `apps/sarvaikam/values-dev.yaml` in `satrishabh/aio-gitops` (`af9097b`). Argo CD synced `sarvaikam-dev`; the deployment now references the existing dev Secret and Learn `/health` returns HTTP 200. Image remains `ce0ecec8868f`: requested commit `9f351eb036f92f5cd9c7ec236656731bb674001c` was already built by `sarvaikam-ci-xrwlm` as `ghcr.io/satrishabh/sarvaikam:9f351eb036f9` (digest `sha256:3196bbf1b3a4cb95e7c93722de166dfc3bdb38a1f5178abad8f515f5df8d6fd8`), but its HIGH/CRITICAL gate blocked deployment on Guava `33.6.0-jre` / `CVE-2026-102554` (fixed version reported as `33.7.2`). Awaiting the user's decision between a patched follow-up commit and an explicit dev-only risk exception. `sarvaikam-home` was not changed.
 

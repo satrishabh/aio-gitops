@@ -126,6 +126,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: non
 .me .who span { color: var(--muted); font-size: 0.76rem; }
 .icon-btn { background: none; border: none; color: var(--muted); border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: grid; place-items: center; transition: background .2s var(--spring); }
 .icon-btn:hover { background: var(--fill); color: var(--text); }
+.logout-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--fill-2); color: var(--text); cursor: pointer;
+  font: inherit; font-size: .78rem; font-weight: 600; white-space: nowrap; transition: background .2s var(--spring), border-color .2s;
+}
+.logout-btn:hover { background: var(--fill); border-color: color-mix(in srgb, var(--text) 20%, var(--line)); }
+.logout-btn svg { flex: none; }
 
 /* appearance picker (System / Light / Dark) */
 .appearance { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--fill); }
@@ -532,7 +539,7 @@ select option { background: var(--panel-solid); color: var(--text); }
   .sidebar-foot { display: block; margin: 0; padding: 0; border: 0; }
   .sidebar-foot .me { padding: 0 0 6px; }
   .sidebar-foot .me img, .sidebar-foot .who { display: none; }
-  .sidebar-foot .icon-btn { width: 36px; height: 36px; }
+  .sidebar-foot .logout-btn { min-height: 36px; padding: 7px 9px; }
   .nav-section { display: none; }
   .nav {
     grid-column: 1 / -1; display: flex; flex-direction: row; gap: 3px; width: 100%; min-width: 0;

@@ -101,7 +101,9 @@ export default function App() {
             <div className="me">
               {me.avatarUrl && <img src={me.avatarUrl} alt="" />}
               <div className="who"><b>{me.name || me.login}</b><span>@{me.login}{me.approver ? ' · approver' : ''}</span></div>
-              <button className="icon-btn" title="Log out" aria-label="Log out" onClick={logout}><Icon name="logout" /></button>
+              <button className="logout-btn" type="button" title="Log out" onClick={logout}>
+                <Icon name="logout" /><span>Log out</span>
+              </button>
             </div>
           </div>
         </aside>

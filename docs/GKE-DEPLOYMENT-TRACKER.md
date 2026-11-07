@@ -1,12 +1,16 @@
 # GKE deployment and migration tracker
 
-Last checked: 2026-11-06
+Last checked: 2026-11-07
 Cluster: `project-d28840cd-be2f-4901-85e` / `asia-south1` / `cluster-1`
 
 Use this file as the running record for the platform deployment, cluster prerequisites, and database migrations.
 Update it after each production deployment or schema migration.
 
 ## Completed
+
+- [x] Released AIO `0.12.2` on 2026-11-07 through Argo CD automatic sync. UI source commit `4048e0b`; release commit `562763a`. Cloud Build `3ace62cf-f451-46ed-b317-9be533cef5b2` succeeded; image digest `sha256:da28ce895f2b6df9e29c614bf673a9c362319043ed78f23e42721ef2958c7eec`.
+- [x] Verified `0.12.2` rollout and readiness (`UP`); startup validated all six Flyway migrations, with schema V6 unchanged. Preflight checks passed: 64 backend tests, four appearance tests, frontend production build, and Helm lint/render.
+- [x] Verified the deployed HTTPS login in headless Edge: Light/Dark changes the hero, preference survives reload, cross-tab synchronization works, Auto follows live device appearance changes, Home/End selection works, and both appearances have no page overflow at 320/390/768/1440 px. No browser JavaScript errors detected. Authenticated workspace screens were not exercised by this browser run.
 
 - [x] GKE context is configured and reachable; `aio-platform` namespace is active.
 - [x] Platform deployment and in-cluster PostgreSQL are healthy.
@@ -41,7 +45,7 @@ Update it after each production deployment or schema migration.
 - [x] **Apex DNS preserved.** The domain uses Hostinger nameservers and apex/`www` records resolve. Do not change domain-level nameservers.
 - [x] **Hostinger A records.** `app.sarvaikam.com` and `learn.sarvaikam.com` resolve to `34.180.3.18`; apex and `www` continue to resolve to their existing Hostinger targets.
 - [x] **GTS certificates.** `tls-learn-sarvaikam-com` and `aio-platform-tls` are Ready; both sites return HTTPS 200.
-- [x] **Custom-domain and mobile UI rollout.** GKE runs `aio-platform:0.10.4`; the platform pod is Ready. At a narrow mobile viewport the Overview has no horizontal page overflow.
+- [x] **Current platform rollout.** GKE runs `aio-platform:0.12.2`; Argo CD reports Synced/Healthy, the platform pod is Ready with zero restarts, and the live login appearance checks passed at desktop and mobile widths. The earlier `0.10.4` rollout verified mobile Overview overflow.
 - [x] **Real-domain validation.** Verified Learn homepage/topic routing, AIO HTTPS and HTTP redirect, GitHub sign-in, and the legacy webhook alias.
 - [x] **Sarvaikam host mapping.** `learn.sarvaikam.com` serves the learning app and `app.sarvaikam.com` serves AIO. Apex and `www` records remain unchanged.
 - [x] **Shared User Profile service.** `satrishabh/user-profile-manager` is deployed through AIO at `https://profile.sarvaikam.com` with central Google/GitHub OIDC, realm roles, verification email, password reset, and the reusable `sarvaikam-learn` PKCE client.
@@ -59,7 +63,7 @@ Update it after each production deployment or schema migration.
      --tag asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform:<tag>
    ```
 
-4. Update the image in namespace `aio-platform` and wait for rollout:
+4. Production is now managed by Argo CD with automatic sync. Commit and push the tested source and updated image tag in `platform/deploy/values-platform.yaml`; refresh the `aio-platform` Application, then wait for it to apply the new image and complete rollout. The direct image update below is for emergency intervention only; Argo CD will restore the GitOps value:
 
    ```sh
    kubectl -n aio-platform set image deployment/aio-platform \
@@ -67,7 +71,7 @@ Update it after each production deployment or schema migration.
    kubectl -n aio-platform rollout status deployment/aio-platform --timeout=600s
    ```
 
-5. Verify the served UI, readiness endpoint, pod logs, and live image. The current platform release is managed by Helm:
+5. Verify the served UI, readiness endpoint, pod logs, live image digest, and Argo CD Synced/Healthy status. The older Helm release remains in cluster history; the following command is for the legacy Helm workflow, not the current production deployment:
 
    ```sh
    helm upgrade aio-platform helm/app --namespace aio-platform \

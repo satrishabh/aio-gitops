@@ -109,8 +109,8 @@ kubectl apply -f "$ROOT/platform/deploy/rbac.yaml"
 # ---------------------------------------------------------------- 4. secrets (typed by you, hidden)
 step "Secrets - input is hidden and not stored on disk"
 read -rsp "GitHub PAT (classic: repo, write:packages, read:packages, admin:repo_hook, read:org): " GH_PAT; echo
-read -rp  "GitHub OAuth App Client ID: " GH_CLIENT_ID
-read -rsp "GitHub OAuth App Client secret: " GH_CLIENT_SECRET; echo
+read -rp  "User Profile OIDC client ID (aio-platform): " OIDC_CLIENT_ID
+read -rsp "User Profile OIDC client secret: " OIDC_CLIENT_SECRET; echo
 
 AUTH=$(printf '%s:%s' "$GH_USER" "$GH_PAT" | base64 -w0)
 printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$AUTH" > /dev/shm/config.json
@@ -176,8 +176,9 @@ kubectl -n aio-platform create secret generic aio-platform-secrets \
   --from-literal=DB_URL="$DB_URL" \
   --from-literal=DB_USER=aio \
   --from-literal=DB_PASSWORD="$DB_PASSWORD" \
-  --from-literal=GITHUB_CLIENT_ID="$GH_CLIENT_ID" \
-  --from-literal=GITHUB_CLIENT_SECRET="$GH_CLIENT_SECRET" \
+  --from-literal=OIDC_ISSUER_URI="https://profile.sarvaikam.com/realms/sarvaikam" \
+  --from-literal=OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
+  --from-literal=OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
   --from-literal=GITHUB_TOKEN="$GH_PAT" \
   --from-literal=ARGOCD_TOKEN="$ARGOCD_TOKEN" \
   --from-literal=APP_PUBLIC_URL="$PUBLIC_URL" \
@@ -194,7 +195,7 @@ AR_REPO=$(echo "$PLATFORM_IMAGE" | cut -d/ -f3)
 gcloud artifacts repositories describe "$AR_REPO" --location "$REGION" >/dev/null 2>&1 || \
   gcloud artifacts repositories create "$AR_REPO" --repository-format docker --location "$REGION"
 gcloud builds submit "$ROOT/platform" --tag "${PLATFORM_IMAGE}:${PLATFORM_TAG}"
-unset GH_PAT GH_CLIENT_SECRET ARGOCD_TOKEN SESSION ADMIN_PW
+unset GH_PAT OIDC_CLIENT_SECRET ARGOCD_TOKEN SESSION ADMIN_PW
 
 step "Database + platform"
 if [ "$DB_MODE" = "cloudsql" ]; then
@@ -218,9 +219,10 @@ cat <<EOF
  Argo CD admin : kubectl -n argocd port-forward svc/argocd-server 8080:443  (user admin)
  Tekton UI     : kubectl -n tekton-pipelines port-forward svc/tekton-dashboard 9097:9097
 
- 1. GitHub -> Settings -> Developer settings -> OAuth Apps -> AIO Platform:
-      Homepage URL : ${PUBLIC_URL}
-      Callback URL : ${PUBLIC_URL}/login/oauth2/code/github
+ 1. Register AIO in User Profile Manager as a confidential OIDC client:
+      Client ID    : aio-platform
+      Redirect URI : ${PUBLIC_URL}/login/oauth2/code/profile
+      Logout URI   : ${PUBLIC_URL}/login
  2. GitHub -> your profile -> Packages -> aio-platform -> Package settings -> Change visibility -> Public
     (do the same for each app image after its first CI build, e.g. sample-app)
  3. Open ${PUBLIC_URL}, sign in, New project -> https://github.com/${GH_USER}/sample-app

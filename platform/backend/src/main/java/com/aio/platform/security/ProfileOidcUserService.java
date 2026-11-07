@@ -1,0 +1,75 @@
+package com.aio.platform.security;
+
+import com.aio.platform.config.AppProperties;
+import com.aio.platform.domain.AppUser;
+import com.aio.platform.repo.AppUserRepo;
+import com.aio.platform.service.AuditService;
+import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.stereotype.Service;
+
+/** Loads a User Profile Manager identity, enforces AIO access policy, and records the user. */
+@Service
+public class ProfileOidcUserService extends OidcUserService {
+    private static final Logger log = LoggerFactory.getLogger(ProfileOidcUserService.class);
+
+    private final AppProperties props;
+    private final AppUserRepo users;
+    private final AuditService audit;
+
+    public ProfileOidcUserService(AppProperties props, AppUserRepo users, AuditService audit) {
+        this.props = props;
+        this.users = users;
+        this.audit = audit;
+    }
+
+    @Override
+    public OidcUser loadUser(OidcUserRequest request) throws OAuth2AuthenticationException {
+        OidcUser user = super.loadUser(request);
+        String login = ProfileIdentity.login(user);
+
+        if (!isAllowed(user)) {
+            audit.record(login, "login.denied", null, "issuer=user-profile-manager");
+            throw new OAuth2AuthenticationException(new OAuth2Error("access_denied"),
+                    "User Profile Manager account is not allowed to access AIO");
+        }
+
+        String subject = user.getIssuer() + "|" + user.getSubject();
+        AppUser appUser = users.findBySubject(subject)
+                .or(() -> users.findByLogin(login))
+                .orElseGet(AppUser::new);
+        appUser.subject = subject;
+        appUser.login = login;
+        appUser.name = ProfileIdentity.name(user);
+        appUser.avatarUrl = ProfileIdentity.avatarUrl(user);
+        appUser.lastLoginAt = Instant.now();
+        users.save(appUser);
+        audit.record(login, "login", null, "issuer=user-profile-manager");
+        return user;
+    }
+
+    private boolean isAllowed(OidcUser user) {
+        var security = props.security();
+        if (!security.allowedOrgs().isEmpty()) {
+            log.warn("ALLOWED_ORGS is ignored for OIDC login; use ALLOWED_USERS or ALLOWED_ROLES");
+        }
+        boolean noPolicy = security.allowedUsers().isEmpty() && security.allowedRoles().isEmpty();
+        if (noPolicy) {
+            if (!security.allowedOrgs().isEmpty()) return false;
+            log.warn("No allowed-users/allowed-roles configured; allowing OIDC user {}",
+                    ProfileIdentity.login(user));
+            return true;
+        }
+        boolean userAllowed = ProfileIdentity.allowlistCandidates(user).stream()
+                .anyMatch(security.allowedUsers()::contains);
+        boolean roleAllowed = ProfileIdentity.realmRoles(user).stream()
+                .anyMatch(security.allowedRoles()::contains);
+        return userAllowed || roleAllowed;
+    }
+}

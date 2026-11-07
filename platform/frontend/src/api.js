@@ -34,8 +34,16 @@ export async function api(path, { method = 'GET', body, text = false } = {}) {
 }
 
 export async function logout() {
-  await fetch('/logout', { method: 'POST', credentials: 'include', headers: { 'X-XSRF-TOKEN': csrfToken() } })
-  window.location.assign('/login')
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = '/logout'
+  const csrf = document.createElement('input')
+  csrf.type = 'hidden'
+  csrf.name = '_csrf'
+  csrf.value = csrfToken()
+  form.appendChild(csrf)
+  document.body.appendChild(form)
+  form.submit()
 }
 
 export function fmtTime(t) {

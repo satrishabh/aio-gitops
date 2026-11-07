@@ -2,7 +2,7 @@
 
 You paste a GitHub URL. The platform runs **CI on Tekton** and **CD on Argo CD**, and records everything along the way: runs, steps, live logs, images, vulnerability scans, deployments, promotions, approvals, rollbacks and the audit log.
 
-- **Stack:** Java 21 / Spring Boot 3 backend, React (Vite) frontend, PostgreSQL, GitHub OAuth login.
+- **Stack:** Java 21 / Spring Boot 3 backend, React (Vite) frontend, PostgreSQL, and OIDC login through User Profile Manager.
 - **Cloud-agnostic:** it needs only a Kubernetes cluster with the Tekton + Argo CD setup from the repo root (`bootstrap/install.sh`).
 
 ```
@@ -73,13 +73,14 @@ Settings come from environment variables; see `backend/src/main/resources/applic
 
 | Var | Purpose |
 |---|---|
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth App. Callback: `https://<host>/login/oauth2/code/github` |
+| `OIDC_ISSUER_URI` | User Profile Manager realm issuer |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | AIO's confidential OIDC client. Callback: `https://<host>/login/oauth2/code/profile` |
 | `GITHUB_TOKEN` | Read access to app repos, `contents:write` on the GitOps repo, `admin:repo_hook` for webhooks |
 | `ARGOCD_URL` / `ARGOCD_TOKEN` | Token for an Argo CD account with `applications` create/get/sync rights in project `apps` |
 | `APP_REGISTRY` | Image prefix, e.g. `ghcr.io/my-org` or `docker.io/myuser` |
 | `GITOPS_*` | GitOps repo URL, owner, repo name and branch (it must contain `helm/app`) |
-| `ALLOWED_USERS` / `ALLOWED_ORGS` | Who may log in. If both are empty, any GitHub user can log in |
-| `APPROVERS` | GitHub logins allowed to approve prod |
+| `ALLOWED_USERS` / `ALLOWED_ROLES` | OIDC usernames/emails or realm roles allowed to log in. If both are empty, any realm user can log in |
+| `APPROVERS` | Normalized User Profile usernames allowed to approve prod |
 | `APP_PUBLIC_URL` | The portal's public URL; needed for webhook registration |
 | `APP_BASE_DOMAIN` | Optional. Each env gets ingress `<project>-<env>.<domain>` |
 
@@ -88,7 +89,9 @@ Settings come from environment variables; see `backend/src/main/resources/applic
 The AIO portal is served at `https://app.sarvaikam.com` with a GTS certificate. `APP_PUBLIC_URL` is set to this
 hostname for new GitHub webhook registrations. The `aio.34.180.3.18.nip.io` route is retained as a legacy
 webhook endpoint for existing registrations; remove that alias only after those hooks have been moved to the
-new hostname. The GitHub OAuth app includes the callback `https://app.sarvaikam.com/login/oauth2/code/github`.
+new hostname. The `aio-platform` OIDC client includes callback
+`https://app.sarvaikam.com/login/oauth2/code/profile` and post-logout redirect
+`https://app.sarvaikam.com/login`.
 
 To create an Argo CD token, add `accounts.aio-platform: apiKey` to `argocd-cm`, grant RBAC in `argocd-rbac-cm`, then run `argocd account generate-token --account aio-platform`.
 
@@ -102,7 +105,8 @@ For UI hot reload:
 cd backend && mvn spring-boot:run    # needs Postgres on :5432
 cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
-For the dev server, set the OAuth callback to `http://localhost:5173/login/oauth2/code/github`.
+For local backend login, add `http://localhost:8080/login/oauth2/code/profile` to a development
+OIDC client's redirect allowlist. The Vite server proxies API/login traffic to that backend.
 
 ## Deploy to a cluster
 ```bash
@@ -110,7 +114,8 @@ kubectl apply -f deploy/rbac.yaml
 kubectl -n aio-platform create secret generic aio-platform-secrets \
   --from-literal=DB_URL=jdbc:postgresql://aio-postgres:5432/aio --from-literal=DB_USER=aio \
   --from-literal=DB_PASSWORD=$(openssl rand -hex 16) \
-  --from-literal=GITHUB_CLIENT_ID=... --from-literal=GITHUB_CLIENT_SECRET=... \
+  --from-literal=OIDC_ISSUER_URI=https://profile.sarvaikam.com/realms/sarvaikam \
+  --from-literal=OIDC_CLIENT_ID=aio-platform --from-literal=OIDC_CLIENT_SECRET=... \
   --from-literal=GITHUB_TOKEN=... --from-literal=ARGOCD_TOKEN=...
 kubectl apply -f deploy/postgres.yaml
 kubectl apply -f ../argocd/projects/app-project.yaml   # allows <project>-<env> namespaces
@@ -126,9 +131,9 @@ The tests cover GitOps tag editing, scan-summary parsing, name sanitizing and we
 
 ## Security notes
 - Webhooks are verified with HMAC-SHA256 (constant-time compare) and are the only unauthenticated API.
-- All other API calls need a GitHub session. CSRF is enforced with a cookie token.
+- All other API calls need a User Profile Manager OIDC session. CSRF is enforced with a cookie token.
 - Repo URLs, git refs, paths and image tags are validated against strict patterns before they reach Kubernetes or Git.
-- The test command runs as shell in CI pods by design. Only allow trusted users and orgs to log in.
+- The test command runs as shell in CI pods by design. Only allow trusted OIDC users or realm roles to log in.
 - The platform's ServiceAccount can only touch PipelineRuns, TaskRuns and pod logs in the `ci` namespace.
 - `ARGOCD_INSECURE=true` skips TLS verification. Use it only for the in-cluster `argocd-server` service URL.
 - Run one replica: the pollers have no leader election.

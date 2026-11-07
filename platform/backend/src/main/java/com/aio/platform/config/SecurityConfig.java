@@ -1,6 +1,6 @@
 package com.aio.platform.config;
 
-import com.aio.platform.security.AllowlistOAuth2UserService;
+import com.aio.platform.security.ProfileOidcUserService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -23,7 +25,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, AllowlistOAuth2UserService userService) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, ProfileOidcUserService userService,
+                                           ClientRegistrationRepository clients) throws Exception {
+        var oidcLogout = new OidcClientInitiatedLogoutSuccessHandler(clients);
+        oidcLogout.setPostLogoutRedirectUri("{baseUrl}/login");
         http
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/webhooks/**", "/actuator/health/**", "/actuator/health").permitAll()
@@ -31,10 +36,10 @@ public class SecurityConfig {
                 .anyRequest().permitAll()) // static SPA assets + client-side routes
             .oauth2Login(o -> o
                 .loginPage("/login")
-                .userInfoEndpoint(u -> u.userService(userService))
+                .userInfoEndpoint(u -> u.oidcUserService(userService))
                 .defaultSuccessUrl("/", true)
                 .failureUrl("/login?error"))
-            .logout(l -> l.logoutUrl("/logout").logoutSuccessUrl("/login"))
+            .logout(l -> l.logoutUrl("/logout").logoutSuccessHandler(oidcLogout))
             .exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
                 new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED), new AntPathRequestMatcher("/api/**")))
             .csrf(c -> c

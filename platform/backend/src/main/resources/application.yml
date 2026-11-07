@@ -24,10 +24,17 @@ spring:
     oauth2:
       client:
         registration:
-          github:
-            client-id: ${GITHUB_CLIENT_ID:changeme}
-            client-secret: ${GITHUB_CLIENT_SECRET:changeme}
-            scope: read:user,read:org
+          profile:
+            provider: profile
+            client-id: ${OIDC_CLIENT_ID:aio-platform}
+            client-secret: ${OIDC_CLIENT_SECRET:changeme}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid,profile,email
+            client-name: User Profile Manager
+        provider:
+          profile:
+            issuer-uri: ${OIDC_ISSUER_URI:https://profile.sarvaikam.com/realms/sarvaikam}
 
 management:
   endpoints:
@@ -77,8 +84,10 @@ app:
     api-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
   security:
-    # Comma-separated. If both lists are empty, any GitHub user can log in (not recommended).
+    # Comma-separated OIDC usernames/emails and/or realm roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}
+    allowed-roles: ${ALLOWED_ROLES:}
+    # Deprecated: brokered OIDC sessions do not expose GitHub organization membership.
     allowed-orgs: ${ALLOWED_ORGS:}
     # Who may approve production promotions. Empty = any logged-in user except the requester.
     approvers: ${APPROVERS:}

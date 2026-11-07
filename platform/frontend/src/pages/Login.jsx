@@ -4,7 +4,7 @@ import ThemeToggle from '../components/ThemeToggle.jsx'
 
 export default function Login() {
   const error = new URLSearchParams(window.location.search).has('error')
-    ? 'GitHub sign-in failed or this account is not allowed.'
+    ? 'Sign-in failed or this User Profile account is not allowed to access AIO.'
     : ''
 
   return (
@@ -48,13 +48,13 @@ export default function Login() {
           <div className="login-card-mark"><LogoMark size={36} className="logo-mark" /></div>
           <p className="login-card-kicker">YOUR DELIVERY WORKSPACE</p>
           <h2>Welcome to AIO</h2>
-          <p className="login-subtitle">Sign in with an authorized GitHub account to continue.</p>
+          <p className="login-subtitle">Sign in with your shared User Profile account to continue.</p>
           {error && <div className="login-message error" role="alert"><Icon name="x" size={16} />{error}</div>}
-          <a className="btn github login-github" href="/oauth2/authorization/github">
-            <Icon name="github" size={18} />Continue with GitHub
+          <a className="btn login-sso" href="/oauth2/authorization/profile">
+            <Icon name="shield" size={18} />Continue with User Profile
           </a>
           <p className="login-provider-note">
-            Google sign-in and shared access controls will be provided by the User Profile service when it is connected.
+            Choose email, Google, or GitHub on the next screen. One identity works across connected Sarvaikam apps.
           </p>
           <p className="login-terms">Access is limited to authorized workspace members.</p>
         </div>

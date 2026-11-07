@@ -50,9 +50,11 @@ public record AppProperties(
 
     public record GitHub(String apiUrl, String token) {}
 
-    public record Security(List<String> allowedUsers, List<String> allowedOrgs, List<String> approvers) {
+    public record Security(List<String> allowedUsers, List<String> allowedRoles,
+                           List<String> allowedOrgs, List<String> approvers) {
         public Security {
             allowedUsers = clean(allowedUsers);
+            allowedRoles = clean(allowedRoles);
             allowedOrgs = clean(allowedOrgs);
             approvers = clean(approvers);
         }

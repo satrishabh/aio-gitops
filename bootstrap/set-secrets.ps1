@@ -16,9 +16,9 @@ function Read-Secret([string]$prompt) {
 kubectl get ns ci aio-platform | Out-Null   # fails fast if not connected to cluster-1
 
 $pat          = Read-Secret 'GitHub PAT (classic, ghp_...)'
-$clientId     = Read-Host  -Prompt 'GitHub OAuth App Client ID'
-$clientSecret = Read-Secret 'GitHub OAuth App Client secret'
-if (-not $pat -or -not $clientId -or -not $clientSecret) { throw 'all three values are required' }
+$oidcClientId = Read-Host  -Prompt 'User Profile OIDC client ID (aio-platform)'
+$oidcSecret   = Read-Secret 'User Profile OIDC client secret'
+if (-not $pat -or -not $oidcClientId -or -not $oidcSecret) { throw 'all three values are required' }
 
 $dir = Join-Path $env:TEMP ("aio-" + [guid]::NewGuid())
 New-Item -ItemType Directory $dir | Out-Null
@@ -28,25 +28,26 @@ try {
     [IO.File]::WriteAllText("$dir\config.json", "{`"auths`":{`"ghcr.io`":{`"auth`":`"$auth`"}}}", $utf8)
     [IO.File]::WriteAllText("$dir\token", $pat, $utf8)
     [IO.File]::WriteAllText("$dir\GITHUB_TOKEN", $pat, $utf8)
-    [IO.File]::WriteAllText("$dir\GITHUB_CLIENT_ID", $clientId, $utf8)
-    [IO.File]::WriteAllText("$dir\GITHUB_CLIENT_SECRET", $clientSecret, $utf8)
+    [IO.File]::WriteAllText("$dir\OIDC_CLIENT_ID", $oidcClientId, $utf8)
+    [IO.File]::WriteAllText("$dir\OIDC_CLIENT_SECRET", $oidcSecret, $utf8)
 
     # CI: Kaniko pushes to GHCR, update-gitops commits image tags
     kubectl -n ci create secret generic registry-credentials "--from-file=config.json=$dir\config.json" --dry-run=client -o yaml | kubectl apply -f -
     kubectl -n ci create secret generic github-token "--from-file=token=$dir\token" --dry-run=client -o yaml | kubectl apply -f -
 
-    # Platform: merge GitHub keys into the existing secret (keeps DB / Argo CD values)
+    # Platform: merge repository and OIDC keys into the existing secret (keeps DB / Argo CD values)
     $patch = @{ data = @{
-        GITHUB_TOKEN         = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\GITHUB_TOKEN"))
-        GITHUB_CLIENT_ID     = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\GITHUB_CLIENT_ID"))
-        GITHUB_CLIENT_SECRET = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\GITHUB_CLIENT_SECRET"))
+        GITHUB_TOKEN       = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\GITHUB_TOKEN"))
+        OIDC_ISSUER_URI    = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('https://profile.sarvaikam.com/realms/sarvaikam'))
+        OIDC_CLIENT_ID     = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\OIDC_CLIENT_ID"))
+        OIDC_CLIENT_SECRET = [Convert]::ToBase64String([IO.File]::ReadAllBytes("$dir\OIDC_CLIENT_SECRET"))
     } } | ConvertTo-Json -Compress
     [IO.File]::WriteAllText("$dir\patch.json", $patch, $utf8)
     kubectl -n aio-platform patch secret aio-platform-secrets --type merge --patch-file "$dir\patch.json"
 }
 finally {
     Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
-    Remove-Variable pat, clientSecret, auth, patch -ErrorAction SilentlyContinue
+    Remove-Variable pat, oidcSecret, auth, patch -ErrorAction SilentlyContinue
 }
 
 kubectl -n aio-platform rollout restart deploy/aio-platform

@@ -2,6 +2,7 @@ package com.aio.platform.web;
 
 import com.aio.platform.repo.AuditRepo;
 import com.aio.platform.repo.AppUserRepo;
+import com.aio.platform.security.ProfileIdentity;
 import com.aio.platform.service.PromotionService;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +25,7 @@ public class Me {
     }
 
     static String login(OAuth2User user) {
-        if (user == null) throw new SecurityException("not logged in");
-        return String.valueOf(user.getAttributes().get("login"));
+        return ProfileIdentity.login(user);
     }
 
     @GetMapping("/api/me")
@@ -33,8 +33,8 @@ public class Me {
         String login = login(user);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("login", login);
-        m.put("name", user.getAttributes().get("name"));
-        m.put("avatarUrl", user.getAttributes().get("avatar_url"));
+        m.put("name", ProfileIdentity.name(user));
+        m.put("avatarUrl", ProfileIdentity.avatarUrl(user));
         m.put("approver", promotions.isApprover(login));
         m.put("canSelfApprove", promotions.canSelfApprove(login));
         return m;

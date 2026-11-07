@@ -1,9 +1,4 @@
 /* Appearance refinements preserve the existing page structure. */
-.appearance { border-radius: 10px; padding: 3px; }
-.appearance button { width: auto; min-width: 58px; height: 32px; padding: 0 9px; display: flex; gap: 5px; justify-content: center; border-radius: 7px; font: inherit; font-size: .76rem; }
-.appearance button[aria-checked="true"] { background: var(--panel); }
-:root[data-theme="dark"] .appearance button[aria-checked="true"] { background: #48484a; }
-.appearance button:focus-visible { border-radius: 7px; }
 .login-hero { background: var(--panel-2); color: var(--text); border-right: 1px solid var(--line); }
 .login-hero::before, .login-orbit { display: none; }
 .login-brand, .login-wordmark, .login-hero h1 { color: var(--brand-ink); }
@@ -22,15 +17,13 @@
 .appearance-dock { position: fixed; top: 50%; right: max(10px, env(safe-area-inset-right)); transform: translateY(-50%); z-index: 35; }
 .appearance-trigger {
   width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
-  border: 1px solid var(--line-2); border-radius: 15px; background: var(--chrome); color: var(--text-2);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: var(--shadow);
-  cursor: pointer; opacity: .72; transition: opacity .18s ease, background .18s ease;
+  border: 0; border-radius: 50%; background: transparent; color: var(--text-2);
+  box-shadow: none;
+  cursor: pointer; opacity: .35; transition: opacity .18s ease, background .18s ease;
 }
-.appearance-dock:hover .appearance-trigger, .appearance-dock:focus-within .appearance-trigger,
-.appearance-trigger[aria-expanded="true"] { opacity: 1; background: var(--panel); }
-.appearance-popover { position: absolute; right: 100%; top: 50%; transform: translateY(-50%); padding-right: 10px; }
-.appearance-popover[hidden] { display: none; }
-.appearance-popover .appearance { background: var(--chrome); border: 1px solid var(--line-2); box-shadow: var(--shadow-lift); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+@media (hover: hover) { .appearance-trigger:hover { opacity: .8; background: var(--fill-2); } }
+.appearance-trigger:active { opacity: 1; }
+.appearance-trigger:focus-visible { opacity: 1; }
 .mobile-nav-toggle, .mobile-nav-close, .mobile-nav-backdrop { display: none; }
 /* Desktop/tablet retain two balanced columns; mobile rules stay independent. */
 @media (min-width: 761px) {
@@ -47,10 +40,11 @@
   .login-footer { flex-wrap: wrap; }
   .login-sso { white-space: normal; text-align: center; }
 }
-@media (pointer: coarse) { .appearance button { min-width: 44px; min-height: 44px; } }
+
 @media (max-width: 760px) {
   .topbar { flex-wrap: nowrap; padding-top: max(7px, env(safe-area-inset-top)); }
-  .crumbs { flex-basis: auto; }
+  .topbar .crumbs, .topbar .live-dot { display: none; }
+  .topbar > .btn { margin-left: auto; }
   .mobile-nav-toggle, .mobile-nav-close { display: grid; flex-shrink: 0; }
   .mobile-nav-toggle { width: 44px; height: 44px; }
   .mobile-nav-close { position: absolute; right: 12px; top: 12px; }
@@ -77,8 +71,8 @@
   .login-pipeline { flex-wrap: wrap; }
 }
 @media (prefers-contrast: more) {
-  .appearance button[aria-checked="true"] { outline: 2px solid var(--text); outline-offset: -2px; }
+  .appearance-trigger { opacity: 1; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .appearance-trigger, .appearance-popover .appearance { background: var(--panel); opacity: 1; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .appearance-trigger { opacity: 1; }
 }

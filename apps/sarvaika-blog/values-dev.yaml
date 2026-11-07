@@ -32,3 +32,11 @@ ingress:
   issuer: gts
   forceHttps: true
   externalDns: false
+routes:
+  - host: blog.sarvaikam.com
+    path: /
+    tls: true
+    issuer: gts
+    certOwner: true
+    forceHttps: true
+    externalDns: false

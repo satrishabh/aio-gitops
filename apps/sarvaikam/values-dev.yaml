@@ -15,6 +15,9 @@ ingress:
 imagePullSecrets:
   - name: ghcr-pull
 env: []
+envFrom:
+  - secretRef:
+      name: sarvaikam-profile-runtime
 resources:
   requests: {cpu: "50m", memory: "128Mi"}
   limits: {cpu: "1000m", memory: "2048Mi"}

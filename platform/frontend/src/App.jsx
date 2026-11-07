@@ -35,8 +35,35 @@ export default function App() {
   const [sessionError, setSessionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [pending, setPending] = useState(0)
+  const [mobileNav, setMobileNav] = useState(false)
+  const menuButton = useRef(null)
+  const sidebar = useRef(null)
   const location = useLocation()
   const isLogin = location.pathname === '/login'
+
+  useEffect(() => { setMobileNav(false) }, [location.pathname])
+  useEffect(() => {
+    if (!mobileNav) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    sidebar.current?.querySelector('a')?.focus()
+    const onKey = e => {
+      if (e.key === 'Escape') { setMobileNav(false); menuButton.current?.focus() }
+      if (e.key !== 'Tab') return
+      const controls = [...sidebar.current.querySelectorAll('a, button')]
+      const first = controls[0], last = controls.at(-1)
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    const onResize = () => { if (window.innerWidth > 760) setMobileNav(false) }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onResize)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [mobileNav])
 
   useEffect(() => {
     if (isLogin) { setLoading(false); return }
@@ -75,11 +102,13 @@ export default function App() {
     <ToastProvider>
       <a href="#main" className="skip-link">Skip to content</a>
       <div className="shell">
-        <aside className="sidebar">
+        {mobileNav && <button className="mobile-nav-backdrop" aria-label="Close navigation" onClick={() => { setMobileNav(false); menuButton.current?.focus() }} />}
+        <aside ref={sidebar} id="workspace-navigation" className={`sidebar${mobileNav ? ' mobile-open' : ''}`}>
+          <button className="mobile-nav-close icon-btn" aria-label="Close navigation" onClick={() => { setMobileNav(false); menuButton.current?.focus() }}><Icon name="x" /></button>
           <Link to="/" className="logo" aria-label="AIO Platform — overview">
             <span><Wordmark height={18} className="logo-mark" /><small>CI · CD · GitOps</small></span>
           </Link>
-          <nav className="nav" aria-label="Main">
+          <nav className="nav" aria-label="Main" onClick={e => { if (mobileNav && e.target.closest('a')) { setMobileNav(false); mainRef.current?.focus() } }}>
             <div className="nav-section">Workspace</div>
             <NavLink to="/" end><Icon name="home" />Overview</NavLink>
             <NavLink to="/projects"><Icon name="grid" />Projects</NavLink>
@@ -112,6 +141,7 @@ export default function App() {
         </aside>
         <div className="content">
           <header className="topbar">
+            <button ref={menuButton} className="mobile-nav-toggle icon-btn" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNav} onClick={() => setMobileNav(true)}><Icon name="menu" size={21} /></button>
             <nav className="crumbs" aria-label="Breadcrumb">
               {crumb.split(' / ').map((c, i, a) => (
                 <span key={c} style={{ display: 'contents' }}>

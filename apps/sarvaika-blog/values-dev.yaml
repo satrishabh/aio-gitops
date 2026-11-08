@@ -2,7 +2,7 @@ nameOverride: sarvaika-blog
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/sarvaika-blog
-  tag: "d7d6fb132211"
+  tag: "4795c5fa9bff"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

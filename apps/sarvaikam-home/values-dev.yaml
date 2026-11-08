@@ -1,7 +1,7 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
 image:
   repository: ghcr.io/satrishabh/sarvaikam-home
-  tag: "38402952dbf9"
+  tag: "d8b8e4e5d3d6"
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
 replicaCount: 1
 imagePullSecrets:

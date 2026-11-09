@@ -79,7 +79,8 @@ Settings come from environment variables; see `backend/src/main/resources/applic
 | `ARGOCD_URL` / `ARGOCD_TOKEN` | Token for an Argo CD account with `applications` create/get/sync rights in project `apps` |
 | `APP_REGISTRY` | Image prefix, e.g. `ghcr.io/my-org` or `docker.io/myuser` |
 | `GITOPS_*` | GitOps repo URL, owner, repo name and branch (it must contain `helm/app`) |
-| `ALLOWED_USERS` / `ALLOWED_ROLES` | OIDC usernames/emails or AIO client roles allowed to log in. If both are empty, any AIO-realm user can log in |
+| `ALLOWED_USERS` / `ALLOWED_ROLES` | OIDC usernames/emails or AIO client roles allowed to log in. If both are empty, nobody can log in (fail closed) |
+| `DB_PASSWORD` | Required (no default). Set it in `.env` or the secret |
 | `APPROVERS` | Normalized User Profile usernames allowed to approve prod |
 | `APP_PUBLIC_URL` | The portal's public URL; needed for webhook registration |
 | `APP_BASE_DOMAIN` | Optional. Each env gets ingress `<project>-<env>.<domain>` |
@@ -202,5 +203,5 @@ The tests cover GitOps tag editing, scan-summary parsing, name sanitizing and we
 - Repo URLs, git refs, paths and image tags are validated against strict patterns before they reach Kubernetes or Git.
 - The test command runs as shell in CI pods by design. Only allow trusted OIDC users or AIO client roles to log in.
 - The platform's ServiceAccount can only touch PipelineRuns, TaskRuns and pod logs in the `ci` namespace.
-- `ARGOCD_INSECURE=true` skips TLS verification. Use it only for the in-cluster `argocd-server` service URL.
+- `ARGOCD_INSECURE=true` skips TLS verification. The platform refuses to start with it unless `ARGOCD_URL` is an in-cluster `*.svc` host or `localhost`.
 - Run one replica: the pollers have no leader election.

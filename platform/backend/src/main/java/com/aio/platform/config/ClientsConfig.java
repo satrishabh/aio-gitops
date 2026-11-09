@@ -3,6 +3,7 @@ package com.aio.platform.config;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import java.net.Socket;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
@@ -42,6 +43,7 @@ public class ClientsConfig {
         HttpClient.Builder http = HttpClient.newBuilder();
         if (props.argocd().insecure()) {
             // argocd-server ships a self-signed cert in-cluster; only enable for the internal service URL
+            requireInClusterOrLocal(props.argocd().url());
             SSLContext ctx = SSLContext.getInstance("TLS");
             ctx.init(null, new TrustManager[]{new TrustAll()}, new SecureRandom());
             http.sslContext(ctx);
@@ -51,6 +53,17 @@ public class ClientsConfig {
                 .requestFactory(new JdkClientHttpRequestFactory(http.build()))
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + props.argocd().token())
                 .build();
+    }
+
+    /** TLS verification may only be skipped for in-cluster (*.svc) or localhost ArgoCD URLs, never a public host. */
+    static void requireInClusterOrLocal(String url) {
+        String host = URI.create(url).getHost();
+        if (host == null) throw new IllegalStateException("ARGOCD_URL has no host: " + url);
+        boolean inCluster = host.endsWith(".svc") || host.endsWith(".svc.cluster.local");
+        boolean local = host.equals("localhost") || host.equals("127.0.0.1");
+        if (!inCluster && !local) {
+            throw new IllegalStateException("ARGOCD_INSECURE=true is only allowed for in-cluster or localhost ARGOCD_URL, got host " + host);
+        }
     }
 
     private static final class TrustAll extends X509ExtendedTrustManager {

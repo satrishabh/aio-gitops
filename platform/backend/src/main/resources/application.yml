@@ -10,7 +10,7 @@ spring:
     # Cloud SQL: jdbc:postgresql:///aio?cloudSqlInstance=<project>:<region>:<instance>&socketFactory=com.google.cloud.sql.postgres.SocketFactory
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aio}
     username: ${DB_USER:aio}
-    password: ${DB_PASSWORD:aio}
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:5}   # small Cloud SQL tiers allow few connections
       connection-timeout: 20000
@@ -27,7 +27,7 @@ spring:
           profile:
             provider: profile
             client-id: ${OIDC_CLIENT_ID:aio-platform}
-            client-secret: ${OIDC_CLIENT_SECRET:changeme}
+            client-secret: ${OIDC_CLIENT_SECRET}
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: openid,profile,email

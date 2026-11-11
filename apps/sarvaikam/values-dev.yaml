@@ -2,7 +2,7 @@
 image:
   repository: ghcr.io/satrishabh/sarvaikam
   tag: "992873afbb0c"
-replicaCount: 0
+replicaCount: 1
 pdb:
   enabled: false
 ingress:
@@ -32,4 +32,3 @@ routes:
     wwwRedirect: false
     stripPrefix: false
     externalDns: false
-scaledDown: true

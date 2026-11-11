@@ -1,7 +1,7 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
 image:
   repository: ghcr.io/satrishabh/sarvaikam
-  tag: "218963f0ab24"
+  tag: "b12b6141918c"
 replicaCount: 1
 pdb:
   enabled: false

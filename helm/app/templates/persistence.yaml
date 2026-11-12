@@ -1,0 +1,22 @@
+{{- if .Values.persistence.enabled }}
+{{- if .Values.blueGreen.enabled }}
+{{- fail "persistence with blueGreen needs a ReadWriteMany volume and is not supported by this chart yet" }}
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "app.name" . }}-data
+  labels: {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    # Never delete stored data when the app is pruned or the chart is uninstalled.
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Delete=false
+spec:
+  accessModes: {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- with .Values.persistence.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+{{- end }}

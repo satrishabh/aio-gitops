@@ -69,3 +69,13 @@ blueGreen:
   autoPromotionEnabled: false   # wait for "Promote" in the portal
   scaleDownDelaySeconds: 600    # keep the previous version running 10 min for instant abort
   previewHost: ""               # optional ingress host for the preview Service
+
+# Optional persistent volume, off by default (no change for existing apps).
+# ReadWriteOnce attaches to one pod: keep replicaCount 1; the Deployment then uses
+# the Recreate strategy. Not supported together with blueGreen.
+persistence:
+  enabled: false
+  mountPath: /data
+  size: 1Gi
+  storageClassName: ""      # empty = cluster default StorageClass
+  accessModes: [ReadWriteOnce]

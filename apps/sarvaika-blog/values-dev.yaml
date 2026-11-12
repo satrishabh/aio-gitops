@@ -6,6 +6,11 @@ image:
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
+# Uploaded media (MEDIA_DIR=/data/media in the image) must survive restarts.
+persistence:
+  enabled: true
+  mountPath: /data
+  size: 2Gi
 envFrom:
   - secretRef:
       name: sarvaika-blog-runtime

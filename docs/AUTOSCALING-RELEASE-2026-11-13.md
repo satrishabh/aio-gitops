@@ -1,0 +1,9 @@
+# AIO autoscaling release — 2026-11-13
+
+Source revision: `1ae9f576633207f3e529f0dbcf0a8a9caf923624`.
+
+The shared application chart adds opt-in app-container CPU and Istio request-rate autoscaling, bounded scaling behavior, Stop/Start handling, and Rollout targeting. All 89 backend tests, the frontend build, 22 autoscaling contract checks, both chart lints, and rendering of 35 existing environment files passed. Kubernetes accepted the hybrid HPA in a server-side dry-run.
+
+The user explicitly authorized publication, build, and deployment after the initial automatic review rejection. Source publication succeeded, and Argo CD reported Synced/Healthy at the source revision. Cloud Build `d0287a60-9840-436a-957c-b935435b1603` succeeded, including frontend and backend build/test stages, and published image tag `autoscaling-1ae9f5766332` with digest `sha256:f3144e475777b11ce94fe48823e995fca06ce44c57913b651da755d18a64d028`. GitOps pins that digest. Live rollout verification follows publication.
+
+Autoscaling remains disabled by default; AIO remains at one replica. The cluster has CPU metrics but no custom-metrics API. No live HPA or mesh/metrics infrastructure is installed by this release. Independent delivery and tool SSO remain disabled pending their documented prerequisites. The previous platform digest is `sha256:db7d5b0304d29f36d81429823e4c4af5cc657f930ff45a47bcca6b1d3bcb6ffe`.

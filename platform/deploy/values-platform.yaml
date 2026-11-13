@@ -4,7 +4,7 @@
 image:
   # built with Cloud Build into Artifact Registry (same project, so GKE nodes pull it without a secret)
   repository: asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform
-  tag: "sha256:db7d5b0304d29f36d81429823e4c4af5cc657f930ff45a47bcca6b1d3bcb6ffe"
+  tag: "sha256:f3144e475777b11ce94fe48823e995fca06ce44c57913b651da755d18a64d028"
 replicaCount: 1        # schedulers poll Tekton/Argo; keep 1 replica (no leader election)
 serviceAccountName: aio-platform
 containerPort: 8080

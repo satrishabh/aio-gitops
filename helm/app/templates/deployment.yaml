@@ -1,3 +1,4 @@
+{{- include "app.validateAutoscaling" . -}}
 {{- if eq .Values.image.tag "latest" }}
 {{- fail "image.tag must not be 'latest'" }}
 {{- end }}
@@ -14,8 +15,12 @@ metadata:
   name: {{ include "app.name" . }}
   labels: {{- include "app.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+  {{- if ne (include "app.autoscalingActive" .) "true" }}
+  {{- if or (default false .Values.scaledDown) (and .Values.autoscaling.enabled (eq .Values.image.tag "0.0.0")) }}
+  replicas: 0
+  {{- else }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   {{- end }}
   revisionHistoryLimit: 5
   strategy:

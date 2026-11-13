@@ -1,0 +1,44 @@
+{{- include "app.validateAutoscaling" . -}}
+{{- if eq (include "app.autoscalingActive" .) "true" }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "app.name" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    {{- if .Values.blueGreen.enabled }}
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    {{- else }}
+    apiVersion: apps/v1
+    kind: Deployment
+    {{- end }}
+    name: {{ include "app.name" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  behavior: {{- toYaml .Values.autoscaling.behavior | nindent 4 }}
+  metrics:
+    # App CPU only: Envoy sidecar CPU must not distort the utilization target.
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: app
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+    {{- if .Values.autoscaling.istio.enabled }}
+    # Aggregate destination-service RPS divided by desired application replicas.
+    - type: Object
+      object:
+        describedObject:
+          apiVersion: v1
+          kind: Service
+          name: {{ include "app.name" . }}
+        metric:
+          name: {{ .Values.autoscaling.istio.metricName }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.autoscaling.istio.requestsPerSecondPerReplica | quote }}
+    {{- end }}
+{{- end }}

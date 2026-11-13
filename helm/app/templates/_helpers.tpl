@@ -15,6 +15,28 @@ app.kubernetes.io/name: {{ include "app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
+{{- define "app.autoscalingActive" -}}
+{{- if and .Values.autoscaling.enabled (not (default false .Values.scaledDown)) (ne .Values.image.tag "0.0.0") -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}
+
+{{- define "app.validateAutoscaling" -}}
+{{- if .Values.autoscaling.enabled -}}
+{{- if gt (int .Values.autoscaling.minReplicas) (int .Values.autoscaling.maxReplicas) -}}
+{{- fail "autoscaling.minReplicas cannot exceed maxReplicas" -}}
+{{- end -}}
+{{- $resources := default dict .Values.resources -}}
+{{- $requests := default dict $resources.requests -}}
+{{- $cpu := toString (default "" $requests.cpu) -}}
+{{- if or (not (regexMatch "^[0-9]+(\\.[0-9]+)?m?$" $cpu)) (le (float64 (trimSuffix "m" $cpu)) 0.0) -}}
+{{- fail "autoscaling requires a positive resources.requests.cpu for the app container" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "app.image" -}}
 {{- if hasPrefix "sha256:" .Values.image.tag -}}
 {{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.image.tag) -}}

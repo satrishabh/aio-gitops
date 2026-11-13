@@ -1,0 +1,17 @@
+# Values overlay for prometheus-community/prometheus-adapter.
+# Merge this rule with existing adapter rules; do not replace an existing custom-metrics API blindly.
+# Set prometheus.url and prometheus.port to the operator-approved Prometheus service separately.
+rules:
+  default: false
+  custom:
+    - seriesQuery: 'istio_requests_total{reporter="destination",destination_service_name!="",destination_service_name!="unknown",destination_service_namespace!="",destination_service_namespace!="unknown"}'
+      resources:
+        overrides:
+          destination_service_namespace:
+            resource: namespace
+          destination_service_name:
+            resource: service
+      name:
+        matches: '^istio_requests_total$'
+        as: istio_requests_per_second
+      metricsQuery: 'sum(rate(<<.Series>>{reporter="destination",<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)'

@@ -1,6 +1,6 @@
 # Azure portability test process
 
-Status: updated on 2026-11-14. Browser authentication and read-only preflight succeeded for AKS `creative`, resource group `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`. Isolated HTTP, service DNS and persistent-disk smoke tests passed. Application acceptance and migration have not run. See [observed results](AZURE-PREFLIGHT-2026-11-14.md).
+Status: updated on 2026-11-14. Browser authentication and preflight succeeded for AKS `creative`, resource group `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`. Isolated HTTP, service DNS, disk persistence and exact AIO image/runtime tests passed. Independent cert-manager, Argo CD and Tekton installations are Ready; internal self-signed issuance and a credential-free TaskRun passed. Homepage staging is paused pending the user-selected dedicated GHCR credential. Application acceptance and data/traffic migration remain pending. See [preflight results](AZURE-PREFLIGHT-2026-11-14.md) and [migration process](AZURE-MIGRATION-PROCESS.md).
 
 ## 1. Record the target
 

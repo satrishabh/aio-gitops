@@ -1,0 +1,40 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: validation-selfsigned
+  namespace: aio-validation
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: validation-internal
+  namespace: aio-validation
+spec:
+  secretName: validation-internal-tls
+  duration: 24h
+  renewBefore: 8h
+  dnsNames: [validation.invalid]
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: validation-selfsigned
+    kind: Issuer
+---
+apiVersion: tekton.dev/v1
+kind: TaskRun
+metadata:
+  name: azure-controller-smoke
+  namespace: aio-validation
+spec:
+  taskSpec:
+    steps:
+      - name: validate
+        image: registry.k8s.io/e2e-test-images/agnhost@sha256:99c6b4bb4a1e1df3f0b3752168c89358794d02258ebebc26bf21c29399011a85
+        command: [/bin/sh, '-c']
+        args: ['echo AIO_AZURE_TEKTON_VERIFIED']
+        computeResources:
+          requests: {cpu: 25m, memory: 32Mi}
+          limits: {cpu: 100m, memory: 128Mi}

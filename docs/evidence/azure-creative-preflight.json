@@ -18,9 +18,9 @@
                    "diskPersistenceAfterPodReplacement":  true,
                    "privateAioImagePull":  true,
                    "ingressInstalled":  false,
-                   "certManagerInstalled":  false,
-                   "argoCdInstalled":  false,
-                   "tektonInstalled":  false,
+                   "certManagerInstalled":  true,
+                   "argoCdInstalled":  true,
+                   "tektonInstalled":  true,
                    "dataRehearsal":  false,
                    "trafficAdapter":  false,
                    "rollbackValidated":  false
@@ -39,5 +39,24 @@
                              "observedAt":  "2026-11-13T21:25:30Z",
                              "command":  "java -version",
                              "image":  "asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform@sha256:6aeb3f6bdf3f8d21b933903aea5cc12a667a2fedbc58f9697367d880ec103805"
-                         }
+                         },
+    "controllerTests":  {
+                            "publicEndpointsCreated":  false,
+                            "productionApplicationsImported":  false,
+                            "tektonVersion":  "v1.6.0",
+                            "certManagerVersion":  "v1.21.3",
+                            "controllersReady":  true,
+                            "tektonTaskRunSucceeded":  true,
+                            "argoCdVersion":  "v3.5.6",
+                            "observedAt":  "2026-11-13T21:36:49Z",
+                            "internalSelfSignedCertificateReady":  true
+                        },
+    "homepageStage":  {
+                          "replicas":  0,
+                          "deployment":  "sarvaikam-home",
+                          "namespace":  "aio-validation",
+                          "image":  "ghcr.io/satrishabh/sarvaikam-home@sha256:e3c2bdd31be308169d9cedfc8f33e1480597964056caa56dfff89eb8cfa01983",
+                          "status":  "WAITING_FOR_DEDICATED_GHCR_READONLY_CREDENTIAL",
+                          "sourceRemainsServing":  true
+                      }
 }

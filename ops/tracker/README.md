@@ -18,10 +18,10 @@ Open `http://localhost:8088` while the SSH tunnel is running. Windows gcloud use
 
 ## Inventory publication
 
-The initial snapshot contains 35 Argo applications, captured at `2026-11-13T20:25:47Z` (2026-11-14 in Asia/Kolkata). It records source deployment metadata only. The Azure target is subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`, resource group `creative`; the supplied value `microsoft.aks-1794568582189` identifies an ARM deployment, not the AKS cluster name. Authenticated discovery remains required.
+The initial source snapshot contains 35 Argo applications, captured at `2026-11-13T20:25:47Z` (2026-11-14 in Asia/Kolkata). Azure evidence was separately observed at `2026-11-13T21:16:46Z`: subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`, resource group and AKS cluster `creative`, South India. Two nodes were Ready; HTTP, service DNS, disk writes and persistence after pod replacement passed. Private AIO image pull and application/controller/data/traffic acceptance remain blocked or pending. The UI displays each evidence timestamp and pending checks without enabling execution. See `docs/AZURE-PREFLIGHT-2026-11-14.md`.
 
 To refresh, gather a new authorized Argo inventory locally, exclude credentials and replace `/opt/aio-tracker/status.json` atomically through IAP with root ownership and mode 0644. This VM deliberately cannot poll clouds itself. Keep migration plans/evidence in Git or another backed-up system; the VM disk is not the sole source of truth.
 
 Source files: `index.html`, `respond.sh`, `startup.template.sh`. Setup injects Base64 versions of the static page, snapshot and responder into the startup template; Base64 here is transport encoding, not encryption, so never include credentials. Startup metadata is visible to authorized project/instance administrators.
 
-Verified: VM running with expected type/disk and no external IP/service account; socket active/enabled; private tunneled HTTP 200; dashboard title and JSON inventory of 35 applications. Azure connectivity, target readiness, data transfer and cutover are not completed by this verification.
+Verified: VM running with expected type/disk and no external IP/service account; socket active/enabled; private tunneled HTTP 200; dashboard title and JSON inventory of 35 applications. Azure connectivity and infrastructure smoke were verified by a separate authenticated operator session, then published here. This does not grant the VM cloud access or complete application readiness, data transfer or cutover.

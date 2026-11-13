@@ -1,6 +1,6 @@
 # All-workload migration and switch plan
 
-Draft: 2026-11-14. Destination and switch semantics await user selection. No application, data, cluster mapping or traffic has been moved.
+Draft: 2026-11-14. Destination is existing Azure AKS `creative` in resource group `creative`, South India. Authenticated access and isolated infrastructure smoke tests passed; see `AZURE-PREFLIGHT-2026-11-14.md`. No application, data, cluster mapping or traffic has been moved.
 
 ## Observed source inventory
 
@@ -35,4 +35,4 @@ The UI should show current serving destination and separately show the proposed 
 
 ## Blocking inputs
 
-Destination provider/cluster and access details; scope of “all”; whether both deployments stay available; desired traffic mechanism; database migration/rollback requirements. Existing Azure access details have not yet been supplied. Implementation of dependent switching actions and real migration remain pending these decisions.
+Destination provider/cluster and access details; scope of “all”; whether both deployments stay available; desired traffic mechanism; database migration/rollback requirements. Azure target identity and access are confirmed; isolated infrastructure smoke passed. Registry authorization, data rehearsal and cutover adapters remain pending. Implementation of dependent switching actions and real migration remain pending these decisions.

@@ -1,6 +1,6 @@
 # Azure portability test process
 
-Status: drafted on 2026-11-14. No Azure connection, provisioning or acceptance test has run. The local environment currently has only the existing GCP kubeconfig context and no Azure CLI. Target subscription/resource group/cluster and authenticated access are required.
+Status: updated on 2026-11-14. Browser authentication and read-only preflight succeeded for AKS `creative`, resource group `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`. Isolated HTTP, service DNS and persistent-disk smoke tests passed. Application acceptance and migration have not run. See [observed results](AZURE-PREFLIGHT-2026-11-14.md).
 
 ## 1. Record the target
 

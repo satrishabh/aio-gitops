@@ -1,0 +1,42 @@
+# All external services are supplied by the installation owner.
+image:
+  repository: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+existingSecret: aio-platform-runtime
+serviceAccount:
+  name: aio-platform
+  create: true
+  annotations: {}
+config:
+  APP_PUBLIC_URL: ""
+  APP_REGISTRY: ""
+  APP_REGISTRY_USER: ""
+  GITOPS_REPO_URL: ""
+  GITOPS_OWNER: ""
+  GITOPS_REPO: ""
+  GITOPS_BRANCH: main
+  OIDC_ISSUER_URI: ""
+  OIDC_CLIENT_ID: aio-platform
+  ARGOCD_URL: ""
+  ARGOCD_INSECURE: "false"
+  TEKTON_NAMESPACE: ci
+  ALLOWED_USERS: ""
+  ALLOWED_ROLES: aio-admin,aio-business,aio-community
+  APPROVERS: ""
+  AIO_INDEPENDENT_DELIVERY: "false"
+  TOOLS_ARGOCD_URL: ""
+  TOOLS_TEKTON_URL: ""
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecretName: ""
+  annotations: {}
+resources:
+  requests: {cpu: 100m, memory: 448Mi}
+  limits: {cpu: 900m, memory: 768Mi}
+nodeSelector: {}
+tolerations: []
+affinity: {}

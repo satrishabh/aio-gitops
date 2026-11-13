@@ -1,5 +1,7 @@
 # AIO Platform: a self-service CI/CD portal
 
+For a new self-hosted installation on an existing Kubernetes cluster, use the [portable platform package and product roadmap](../docs/CLOUD-AGNOSTIC-PRODUCT.md). The GCP deployment instructions below describe the existing environment; cross-provider acceptance remains pending.
+
 You paste a GitHub URL. The platform runs **CI on Tekton** and **CD on Argo CD**, and records everything along the way: runs, steps, live logs, images, vulnerability scans, deployments, promotions, approvals, rollbacks and the audit log.
 
 - **Stack:** Java 21 / Spring Boot 3 backend, React (Vite) frontend, PostgreSQL, and OIDC login through User Profile Manager.

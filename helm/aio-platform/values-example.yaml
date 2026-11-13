@@ -1,0 +1,18 @@
+# Demonstration only. Supply your own published AIO image and digest.
+image:
+  repository: registry.example.com/platform/aio
+  digest: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+config:
+  APP_PUBLIC_URL: https://aio.example.com
+  APP_REGISTRY: registry.example.com/workloads
+  APP_REGISTRY_USER: aio-publisher
+  GITOPS_REPO_URL: https://github.com/example/aio-gitops.git
+  GITOPS_OWNER: example
+  GITOPS_REPO: aio-gitops
+  OIDC_ISSUER_URI: https://identity.example.com/realms/aio
+  ARGOCD_URL: https://argocd.example.com
+ingress:
+  enabled: true
+  className: traefik
+  host: aio.example.com
+  tlsSecretName: aio-public-tls

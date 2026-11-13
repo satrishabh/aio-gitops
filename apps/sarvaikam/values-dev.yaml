@@ -26,6 +26,8 @@ env:
   - {name: POSTGRES_USER, value: sarvaikam_app}
   - {name: REELS_DB_URL, value: "jdbc:postgresql://sarvaikam-cloudsql-proxy:5432/sarvaikam_reels?sslmode=disable"}
   - {name: REELS_DB_USER, value: sarvaikam_app}
+  - {name: GCP_CONTENT_BUCKET, value: cotent_bucket}
+  - {name: GCP_SIGNING_SERVICE_ACCOUNT, value: sarvaikam-content@project-d28840cd-be2f-4901-85e.iam.gserviceaccount.com}
 envFrom:
   - secretRef:
       name: sarvaikam-profile-runtime

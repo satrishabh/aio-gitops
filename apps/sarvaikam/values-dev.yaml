@@ -14,10 +14,23 @@ ingress:
   externalDns: false
 imagePullSecrets:
   - name: ghcr-pull
-env: []
+# Persistent dev database: Cloud SQL aio-002 via the in-namespace proxy
+# (deploy/dev/cloudsql-proxy.yaml in the sarvaikam repo). Password: secret sarvaikam-db.
+env:
+  - {name: APP_ENV, value: dev}
+  - {name: EMBEDDED_DB, value: "false"}
+  - {name: DB_HOST, value: sarvaikam-cloudsql-proxy}
+  - {name: DB_PORT, value: "5432"}
+  - {name: DB_SSLMODE, value: disable}
+  - {name: POSTGRES_DB, value: sarvaikam}
+  - {name: POSTGRES_USER, value: sarvaikam_app}
+  - {name: REELS_DB_URL, value: "jdbc:postgresql://sarvaikam-cloudsql-proxy:5432/sarvaikam_reels?sslmode=disable"}
+  - {name: REELS_DB_USER, value: sarvaikam_app}
 envFrom:
   - secretRef:
       name: sarvaikam-profile-runtime
+  - secretRef:
+      name: sarvaikam-db
 resources:
   requests: {cpu: "50m", memory: "128Mi"}
   limits: {cpu: "1000m", memory: "2048Mi"}

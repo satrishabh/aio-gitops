@@ -3,6 +3,11 @@ image:
   repository: ghcr.io/satrishabh/sarvaikam
   tag: "0bee3f3507d0"
 replicaCount: 1
+# The combined Java/Node/Go image needs longer than the old 20s liveness delay.
+# Keep readiness gating traffic while allowing all services to finish startup.
+probes:
+  liveness:
+    initialDelaySeconds: 180
 pdb:
   enabled: false
 ingress:

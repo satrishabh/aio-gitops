@@ -40,6 +40,8 @@ Learn now has `EMBEDDED_DB=false`, uses `sarvaikam-cloudsql-proxy:5432` for its 
 
 ## 4. Application staging order
 
+Current update: homepage and Learn's schema-backed content/reels APIs pass isolated Azure checks. Learn uses fresh target-only identities and a reviewed Nginx compatibility override; production identity is disconnected, so authenticated login remains pending. See [test evidence and applied mappings](AZURE-POD-TEST-AND-MAPPING.md). Profile, blog and AIO hub are not running on Azure yet.
+
 1. Homepage: stateless exact-image staging and HTTP validation.
 2. Profile manager: isolated database restore and validation client/callback configuration; preserve source identity authority.
 3. Blog and Learn/reels: restore rehearsals, object-storage resolution, identity/ownership and browser acceptance.

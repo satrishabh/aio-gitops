@@ -26,6 +26,9 @@ metadata:
   namespace: aio-validation
 spec:
   secretName: postgres-rehearsal-tls
+  commonName: postgres-rehearsal.aio-validation.svc.cluster.local
+  subject:
+    organizations: [AIO rehearsal]
   duration: 720h
   renewBefore: 168h
   dnsNames:

@@ -1,6 +1,6 @@
 # Azure portability test process
 
-Status: updated on 2026-11-14. Browser authentication and preflight succeeded for AKS `creative`, resource group `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`. Isolated HTTP, service DNS, disk persistence and exact AIO image/runtime tests passed. Independent cert-manager, Argo CD and Tekton installations are Ready; internal self-signed issuance and a credential-free TaskRun passed. Homepage staging is paused pending the user-selected dedicated GHCR credential. Application acceptance and data/traffic migration remain pending. See [preflight results](AZURE-PREFLIGHT-2026-11-14.md) and [migration process](AZURE-MIGRATION-PROCESS.md).
+Status: updated on 2026-11-14. AKS `creative` is connected; infrastructure/controller/image checks passed. Homepage and isolated Learn now run on Azure. Learn/reels snapshots occupy two schemas of one rehearsal database; backend readiness, UI assets, content/reels APIs, encrypted database sessions and schema isolation passed. Learn requires the recorded Nginx compatibility override; real identity/browser/object-storage and full delivery acceptance remain pending. Public traffic stays on GCP. See [pod tests and mapping](AZURE-POD-TEST-AND-MAPPING.md), [preflight results](AZURE-PREFLIGHT-2026-11-14.md) and [migration process](AZURE-MIGRATION-PROCESS.md).
 
 ## 1. Record the target
 

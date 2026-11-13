@@ -101,5 +101,19 @@
                                                           "contentMatched":  true
                                                       }
                                                   ]
-                          }
+                          },
+    "learnApplication":  {
+                             "image":  "ghcr.io/satrishabh/sarvaikam@sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb",
+                             "schemaIsolationPassed":  true,
+                             "ready":  true,
+                             "identityTested":  false,
+                             "nginxCompatibilityOverride":  true,
+                             "visualBrowserTested":  false,
+                             "httpChecks":  14,
+                             "uiAssets":  5,
+                             "publicTrafficCloud":  "GCP",
+                             "categories":  10,
+                             "encryptedDatabaseConnections":  4,
+                             "observedAt":  "2026-11-13T22:51:55.2634333Z"
+                         }
 }

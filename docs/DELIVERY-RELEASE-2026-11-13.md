@@ -11,3 +11,12 @@ Argo CD and Tekton UI exposure requires dedicated Keycloak clients, exact callba
 The release is prepared in an isolated worktree from remote main so newer security fixes and other applications' GitOps values are preserved. Unrelated local edits are excluded. Backend verification and frontend build run before the image is submitted; the Docker build also runs backend tests. V8/V9 are additive Flyway migrations; existing migrations are unchanged.
 
 The rollout uses the existing Cloud Build → Artifact Registry → GitOps → Argo CD path. A fresh Cloud SQL backup is requested before migrations. Image digest, source/release commits, backup result, schema version, and live health verification are recorded after rollout.
+
+Build preparation and results:
+
+- Source commit: `83f8225d033134f9cad42c98d2fe4455a1c50310`.
+- Cloud Build: `d63fb5f2-7570-4f7e-9ff3-cf230d9c8fba`, successful.
+- Image tag: `delivery-83f8225d0331`; GitOps pins digest `sha256:db7d5b0304d29f36d81429823e4c4af5cc657f930ff45a47bcca6b1d3bcb6ffe`.
+- Pre-rollout Cloud SQL backup: `1794564548817`, successful, instance `aio-002`.
+- Isolated release verification: 89 backend tests passed, frontend production build passed, both Helm charts passed lint, and the CI Role/service account/pipeline passed Kubernetes server dry-run.
+- Rollback image: `asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform:0.13.0`. V8/V9 are additive and remain in place if the application image is rolled back.

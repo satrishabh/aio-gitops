@@ -32,12 +32,14 @@ public class ProjectService {
     private final AppProperties props;
     private final DomainService domains;
     private final RunService runService;
+    private final RegistryConnections registryConnections;
 
     public ProjectService(ProjectRepo projects, GitHubClient github, GitOpsService gitops, ArgoCdService argo,
                           ClusterService cluster, AuditService audit, AppProperties props, DomainService domains,
-                          RunService runService) {
+                          RunService runService, RegistryConnections registryConnections) {
         this.domains = domains;
         this.runService = runService;
+        this.registryConnections = registryConnections;
         this.projects = projects;
         this.github = github;
         this.gitops = gitops;
@@ -150,6 +152,8 @@ public class ProjectService {
             try { github.deleteWebhook(p.repoOwner, p.repoName, p.webhookId); }
             catch (Exception e) { warnings.add("webhook: " + e.getMessage()); }
         }
+        try { registryConnections.deleteProject(p); }
+        catch (Exception e) { warnings.add("registry connection cleanup pending"); }
         // Hosts shared with other projects (path routing) need a new certificate owner once this project is gone
         java.util.List<String> sharedHosts = domains.list(p).stream().map(d -> d.host).distinct().toList();
         projects.delete(p); // runs, steps, deployments, env status, promotions, domains cascade in the DB

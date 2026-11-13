@@ -40,6 +40,13 @@ public class ApiErrors {
         return body(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    @ExceptionHandler(io.fabric8.kubernetes.client.KubernetesClientException.class)
+    ResponseEntity<Map<String, String>> kubernetes(io.fabric8.kubernetes.client.KubernetesClientException e) {
+        // API errors can include request objects. Never log or return a Secret request body.
+        log.warn("Kubernetes operation failed with HTTP {}", e.getCode());
+        return body(HttpStatus.BAD_GATEWAY, "Kubernetes operation failed; check access and cluster availability");
+    }
+
     private static ResponseEntity<Map<String, String>> body(HttpStatus s, String msg) {
         return ResponseEntity.status(s).body(Map.of("message", msg == null ? s.getReasonPhrase() : msg));
     }

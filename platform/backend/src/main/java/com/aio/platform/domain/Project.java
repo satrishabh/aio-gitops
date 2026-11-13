@@ -18,6 +18,10 @@ public class Project {
     public String testImage;
     public String testCommand;
     public String imageRepo;
+    public String deliveryConfigHash;
+    public String registryPushConnection;
+    public String registryPullConnection;
+    public String requestedArtifactTier;
     public String scanSeverity = "HIGH,CRITICAL";   // HIGH,CRITICAL | CRITICAL | NONE
     /** JSON array of {name, value}; rendered as the chart's env: list in every environment. */
     @Column(columnDefinition = "text") public String envVars = "[]";

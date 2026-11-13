@@ -23,6 +23,14 @@ public class TektonService {
 
     private final KubernetesClient k8s;
     private final AppProperties props;
+    @org.springframework.beans.factory.annotation.Value("${app.delivery.pipeline:ci-build-v2}")
+    private String buildPipeline = "ci-build-v2";
+    @org.springframework.beans.factory.annotation.Value("${app.delivery.source-secret:github-source-token}")
+    private String sourceSecret = "github-source-token";
+    @org.springframework.beans.factory.annotation.Value("${app.delivery.registry-read-secret:registry-read-credentials}")
+    private String registryReadSecret = "registry-read-credentials";
+    @org.springframework.beans.factory.annotation.Value("${app.delivery.test-images:alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine}")
+    private String approvedTestImages = "alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine";
 
     public TektonService(KubernetesClient k8s, AppProperties props) {
         this.k8s = k8s;
@@ -77,7 +85,7 @@ public class TektonService {
         params.put("repo-url", p.repoUrl);
         params.put("revision", run.gitRef);
         params.put("app-name", p.name);
-        params.put("image", p.imageRepo);
+        params.put("image", run.releaseImageRepo == null ? p.imageRepo : run.releaseImageRepo);
         params.put("dockerfile", p.dockerfile);
         params.put("context", p.contextDir);
         params.put("test-image", p.testImage);
@@ -88,8 +96,19 @@ public class TektonService {
         params.put("deploy", String.valueOf(run.deploy));
         params.put("scan-severity", run.scanSeverity == null ? "HIGH,CRITICAL" : run.scanSeverity);
 
+        boolean independent = "INDEPENDENT".equals(run.deliveryMode);
+        if (independent) {
+            if (!java.util.Arrays.asList(approvedTestImages.split(",")).contains(p.testImage))
+                throw new IllegalArgumentException("Test image is not approved for the standard-v1 build profile");
+            if (sourceSecret.equals(t.githubTokenSecret()))
+                throw new IllegalArgumentException("Independent builds require a separate read-only source credential");
+            if (!run.externalRegistry && registryReadSecret.equals(t.registrySecret()))
+                throw new IllegalArgumentException("Independent builds require separate registry push and scan credentials");
+            params.keySet().removeAll(java.util.Set.of("gitops-repo", "gitops-branch", "gitops-values-file", "deploy", "app-name"));
+        }
+
         Map<String, Object> spec = new LinkedHashMap<>();
-        spec.put("pipelineRef", Map.of("name", t.pipeline()));
+        spec.put("pipelineRef", Map.of("name", independent ? buildPipeline : t.pipeline()));
         spec.put("params", params.entrySet().stream()
                 .map(e -> Map.<String, Object>of("name", e.getKey(), "value", e.getValue())).toList());
         // hard cap on the whole run (scheduling, build, scan, GitOps update); Tekton stops every task when it expires
@@ -97,12 +116,16 @@ public class TektonService {
         spec.put("taskRunTemplate", Map.of(
                 "serviceAccountName", t.serviceAccount(),
                 "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
-        spec.put("workspaces", List.of(
+        boolean externalRegistry = independent && run.externalRegistry;
+        java.util.List<Map<String, Object>> workspaces = new java.util.ArrayList<>(List.of(
                 Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", Map.of(
                         "accessModes", List.of("ReadWriteOnce"),
                         "resources", Map.of("requests", Map.of("storage", t.storageSize()))))),
-                Map.of("name", "dockerconfig", "secret", Map.of("secretName", t.registrySecret())),
-                Map.of("name", "github-token", "secret", Map.of("secretName", t.githubTokenSecret()))));
+                Map.of("name", "dockerconfig", "secret", Map.of("secretName", externalRegistry ? RegistryConnections.runSecret(run.id, "push") : t.registrySecret())),
+                Map.of("name", "github-token", "secret", Map.of("secretName", independent ? sourceSecret : t.githubTokenSecret()))));
+        if (independent) workspaces.add(Map.of("name", "scanconfig", "secret", Map.of("secretName",
+                externalRegistry ? RegistryConnections.runSecret(run.id, "pull") : registryReadSecret)));
+        spec.put("workspaces", workspaces);
 
         GenericKubernetesResource pr = new GenericKubernetesResource();
         pr.setApiVersion("tekton.dev/v1");
@@ -115,7 +138,23 @@ public class TektonService {
                 .build());
         pr.setAdditionalProperty("spec", spec);
 
+        if (independent) {
+            pr.getMetadata().setGenerateName(null);
+            pr.getMetadata().setName("aio-run-" + run.id);
+            pr.getMetadata().getLabels().put("aio.platform/project-id", p.id.toString());
+        }
+
         return createWithRetry(pr, "aio.platform/run-id", run.id);
+    }
+
+    public String recoverIndependentRun(CiRun run) {
+        var resource = getPipelineRun("aio-run-" + run.id);
+        if (resource == null) return null;
+        var labels = resource.getMetadata().getLabels();
+        if (labels == null || !run.id.toString().equals(labels.get("aio.platform/run-id"))
+                || !run.projectId.toString().equals(labels.get("aio.platform/project-id")))
+            throw new SecurityException("PipelineRun identity does not match the persisted run");
+        return resource.getMetadata().getName();
     }
 
     /** Pipeline name of the standalone security scan (tekton/pipelines/security-scan.yaml). */

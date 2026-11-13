@@ -1,0 +1,60 @@
+{{- if .Values.argocd.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: {{ .Values.argocd.namespace }}
+data:
+  url: {{ printf "https://%s" .Values.argocd.host | quote }}
+  users.anonymous.enabled: "false"
+  oidc.config: |
+    name: AIO
+    issuer: {{ .Values.issuer | quote }}
+    clientID: {{ .Values.argocd.clientID | quote }}
+    clientSecret: ${{ .Values.argocd.clientSecretKey }}
+    requestedScopes: ["openid", "profile", "email", "groups"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: {{ .Values.argocd.namespace }}
+data:
+  policy.default: role:aio-no-access
+  scopes: '[groups]'
+  policy.aio.csv: |
+    p, role:aio-operator-view, applications, get, */*, allow
+    g, {{ .Values.argocd.operatorGroup }}, role:aio-operator-view
+    {{- range $index, $binding := .Values.argocd.bindings }}
+    {{- if not (regexMatch "^/[a-zA-Z0-9/_-]+$" $binding.group) }}{{ fail "Invalid platform-managed group" }}{{ end }}
+    {{- range $application := $binding.applications }}
+    {{- if not (regexMatch "^[a-z0-9-]+/[a-z0-9-]+$" $application) }}{{ fail "Application grants must be exact project/application names" }}{{ end }}
+    p, role:aio-view-{{ $index }}, applications, get, {{ $application }}, allow
+    {{- end }}
+    g, {{ $binding.group }}, role:aio-view-{{ $index }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aio-argocd-ui
+  namespace: {{ .Values.argocd.namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ .Values.ingressClassName }}
+  tls:
+    - hosts: [{{ .Values.argocd.host | quote }}]
+      secretName: {{ .Values.argocd.tlsSecret }}
+  rules:
+    - host: {{ .Values.argocd.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port: { number: 443 }
+{{- end }}

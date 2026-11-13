@@ -9,6 +9,7 @@ kind: ServiceAccount
 metadata:
   name: pipeline-runner
   namespace: ci
+automountServiceAccountToken: false
 ---
 # Used by the EventListener to create PipelineRuns
 apiVersion: v1

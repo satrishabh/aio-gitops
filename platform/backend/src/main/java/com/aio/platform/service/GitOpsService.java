@@ -222,7 +222,7 @@ public class GitOpsService {
         }
         if (!(doc instanceof Map<?, ?>)) throw new IllegalArgumentException("values file must be a YAML mapping");
         String tag = J.str(doc, "image", "tag");
-        if (tag == null || !tag.matches("[A-Za-z0-9_.-]{1,128}")) throw new IllegalArgumentException("image.tag is missing or invalid");
+        if (!validImageVersion(tag)) throw new IllegalArgumentException("image.tag is missing or invalid");
         String repo = J.str(doc, "image", "repository");
         if (repo != null && imageRepo != null && !repo.equals(imageRepo))
             throw new IllegalArgumentException("image.repository must stay " + imageRepo);
@@ -275,10 +275,14 @@ public class GitOpsService {
     }
 
     static String replaceTag(String yaml, String tag) {
-        if (!tag.matches("[A-Za-z0-9_.-]{1,128}")) throw new IllegalArgumentException("invalid image tag: " + tag);
+        if (!validImageVersion(tag)) throw new IllegalArgumentException("invalid image tag or digest");
         Matcher m = TAG_LINE.matcher(yaml);
         if (!m.find()) throw new IllegalStateException("no image.tag line in values file");
         return yaml.substring(0, m.start()) + m.group(1) + "\"" + tag + "\"" + yaml.substring(m.end());
+    }
+
+    static boolean validImageVersion(String value) {
+        return value != null && (value.matches("[A-Za-z0-9_.-]{1,128}") || value.matches("sha256:[a-f0-9]{64}"));
     }
 
     static String setReplicas(String yaml, int n) {

@@ -8,6 +8,22 @@ import java.net.ConnectException;
 import org.junit.jupiter.api.Test;
 
 class TektonServiceTest {
+    @Test void independentProfileRejectsArbitraryTestImagesBeforeCallingKubernetes() {
+        var k8s = org.mockito.Mockito.mock(io.fabric8.kubernetes.client.KubernetesClient.class);
+        var props = org.mockito.Mockito.mock(com.aio.platform.config.AppProperties.class);
+        org.mockito.Mockito.when(props.tekton()).thenReturn(new com.aio.platform.config.AppProperties.Tekton(
+                "ci", "ci-pipeline", "pipeline-runner", "2Gi", "registry", "github-token", "15m"));
+        org.mockito.Mockito.when(props.gitops()).thenReturn(new com.aio.platform.config.AppProperties.GitOps(
+                "https://github.com/team/gitops.git", "team", "gitops", "main", "apps", "helm/app"));
+        var p = new com.aio.platform.domain.Project(); p.name = "example"; p.testImage = "unapproved/privileged:latest";
+        var run = new com.aio.platform.domain.CiRun(); run.deliveryMode = "INDEPENDENT";
+        assertThrows(IllegalArgumentException.class, () -> new TektonService(k8s, props).createPipelineRun(p, run));
+        p.testImage = "alpine:3.20";
+        org.mockito.Mockito.when(props.tekton()).thenReturn(new com.aio.platform.config.AppProperties.Tekton(
+                "ci", "ci-pipeline", "pipeline-runner", "2Gi", "registry-read-credentials", "github-token", "15m"));
+        assertThrows(IllegalArgumentException.class, () -> new TektonService(k8s, props).createPipelineRun(p, run));
+        org.mockito.Mockito.verifyNoInteractions(k8s);
+    }
 
     private static KubernetesClientException http(int code, String msg) {
         return new KubernetesClientException(new StatusBuilder().withCode(code).withMessage(msg).build());

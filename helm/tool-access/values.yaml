@@ -1,0 +1,29 @@
+issuer: https://profile.sarvaikam.com/realms/aio
+ingressClassName: nginx
+argocd:
+  enabled: true
+  namespace: argocd
+  host: argocd.app.sarvaikam.com
+  tlsSecret: aio-argocd-tls
+  clientID: aio-argocd
+  # Store the actual value under this key in the existing argocd-secret.
+  clientSecretKey: oidc.aio.clientSecret
+  operatorGroup: /aio/operators
+  # Map platform-managed groups to exact existing Argo application names.
+  # bindings:
+  #   - group: /aio/project/immutable-owner-id
+  #     applications: [apps/example-dev, apps/example-staging, apps/example-prod]
+  bindings: []
+tekton:
+  enabled: true
+  namespace: tekton-pipelines
+  host: tekton.app.sarvaikam.com
+  tlsSecret: aio-tekton-tls
+  clientID: aio-tekton-dashboard
+  operatorGroup: /aio/operators
+  proxyImage: quay.io/oauth2-proxy/oauth2-proxy:v7.10.0
+  # Pre-create with client-secret and cookie-secret; no secrets belong in values.
+  secretName: aio-tekton-oidc
+  dashboardService: tekton-dashboard
+  dashboardPort: 9097
+  ingressNamespace: ingress-nginx

@@ -24,6 +24,10 @@ envFrom:
   - secretRef: { name: aio-platform-secrets }
   - secretRef: { name: aio-platform-oidc }
 env:
+  # Deploy the implementation without activating integrations that lack scoped credentials/SSO.
+  - { name: AIO_INDEPENDENT_DELIVERY, value: "false" }
+  - { name: TOOLS_ARGOCD_URL, value: "" }
+  - { name: TOOLS_TEKTON_URL, value: "" }
   - { name: APP_REGISTRY, value: "ghcr.io/satrishabh" }
   - { name: ARGOCD_URL, value: "https://argocd-server.argocd.svc" }
   - { name: ARGOCD_INSECURE, value: "true" }

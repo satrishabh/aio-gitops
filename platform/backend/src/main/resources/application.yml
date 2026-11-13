@@ -83,6 +83,16 @@ app:
   github:
     api-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
+  delivery:
+    independent: ${AIO_INDEPENDENT_DELIVERY:false}
+    pipeline: ci-build-v2
+    source-secret: ${AIO_SOURCE_SECRET:github-source-token}
+    registry-read-secret: ${AIO_REGISTRY_READ_SECRET:registry-read-credentials}
+    registry-hosts: ${AIO_REGISTRY_HOSTS:ghcr.io,index.docker.io,docker.io}
+    test-images: ${AIO_TEST_IMAGES:alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine}
+  tools:
+    argocd-url: ${TOOLS_ARGOCD_URL:}
+    tekton-url: ${TOOLS_TEKTON_URL:}
   security:
     # Comma-separated OIDC usernames/emails and/or AIO client roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}

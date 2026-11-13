@@ -29,6 +29,7 @@ public class ClientsConfig {
     @Bean
     public RestClient githubRestClient(AppProperties props) {
         RestClient.Builder b = RestClient.builder()
+                .requestFactory(boundedFactory(HttpClient.newBuilder()))
                 .baseUrl(props.github().apiUrl())
                 .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .defaultHeader("X-GitHub-Api-Version", "2022-11-28");
@@ -50,7 +51,7 @@ public class ClientsConfig {
         }
         return RestClient.builder()
                 .baseUrl(props.argocd().url())
-                .requestFactory(new JdkClientHttpRequestFactory(http.build()))
+                .requestFactory(boundedFactory(http))
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + props.argocd().token())
                 .build();
     }
@@ -64,6 +65,12 @@ public class ClientsConfig {
         if (!inCluster && !local) {
             throw new IllegalStateException("ARGOCD_INSECURE=true is only allowed for in-cluster or localhost ARGOCD_URL, got host " + host);
         }
+    }
+
+    private static JdkClientHttpRequestFactory boundedFactory(HttpClient.Builder http) {
+        var factory = new JdkClientHttpRequestFactory(http.connectTimeout(java.time.Duration.ofSeconds(5)).build());
+        factory.setReadTimeout(java.time.Duration.ofSeconds(20));
+        return factory;
     }
 
     private static final class TrustAll extends X509ExtendedTrustManager {

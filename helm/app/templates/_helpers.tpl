@@ -5,7 +5,7 @@
 {{- define "app.labels" -}}
 app.kubernetes.io/name: {{ include "app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ .Values.image.tag | quote }}
+app.kubernetes.io/version: {{ .Values.image.tag | replace ":" "-" | trunc 63 | trimSuffix "-" | quote }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{- end -}}
@@ -13,6 +13,17 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{- define "app.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{- define "app.image" -}}
+{{- if hasPrefix "sha256:" .Values.image.tag -}}
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.image.tag) -}}
+{{- fail "invalid image digest" -}}
+{{- end -}}
+{{- printf "%s@%s" .Values.image.repository .Values.image.tag -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.image.repository .Values.image.tag -}}
+{{- end -}}
 {{- end -}}
 
 {{- /*

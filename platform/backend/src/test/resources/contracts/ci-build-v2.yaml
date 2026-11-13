@@ -1,0 +1,79 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: ci-build-v2
+spec:
+  description: >
+    Cloud-agnostic CI: clone -> test -> build & push (tag = git SHA) -> scan -> export immutable build results.
+    Works for any language that ships a Dockerfile.
+  params:
+    - name: repo-url
+    - name: revision
+      default: main
+    - name: image
+      description: e.g. ghcr.io/my-org/my-app or docker.io/myuser/my-app
+    - name: dockerfile
+      default: ./Dockerfile
+    - name: context
+      default: "."
+    - name: test-image
+      default: alpine:3.20
+    - name: test-command
+      default: ""
+    - name: scan-severity
+      description: 'Trivy gate, e.g. "HIGH,CRITICAL", "CRITICAL", or "NONE" (report only)'
+      default: HIGH,CRITICAL
+  results:
+    - name: commit
+      value: $(tasks.clone.results.commit)
+    - name: IMAGE_URL
+      value: $(tasks.build-push.results.IMAGE_URL)
+    - name: IMAGE_DIGEST
+      value: $(tasks.build-push.results.IMAGE_DIGEST)
+    - name: SUMMARY
+      value: $(tasks.scan.results.SUMMARY)
+  workspaces:
+    - name: source
+    - name: dockerconfig
+    - name: scanconfig
+    - name: github-token
+  tasks:
+    - name: clone
+      taskRef: { name: git-clone }
+      params:
+        - { name: url, value: $(params.repo-url) }
+        - { name: revision, value: $(params.revision) }
+      workspaces:
+        - { name: source, workspace: source }
+        - { name: github-token, workspace: github-token }
+
+    - name: test
+      runAfter: [clone]
+      taskRef: { name: run-tests }
+      params:
+        - { name: TEST_IMAGE, value: $(params.test-image) }
+        - { name: TEST_COMMAND, value: $(params.test-command) }
+        - { name: CONTEXT, value: $(params.context) }
+      workspaces:
+        - { name: source, workspace: source }
+
+    - name: build-push
+      runAfter: [test]
+      taskRef: { name: kaniko-build-push }
+      params:
+        - { name: IMAGE, value: $(params.image) }
+        - { name: TAG, value: $(tasks.clone.results.short-sha) }
+        - { name: DOCKERFILE, value: $(params.dockerfile) }
+        - { name: CONTEXT, value: $(params.context) }
+      workspaces:
+        - { name: source, workspace: source }
+        - { name: dockerconfig, workspace: dockerconfig }
+
+    - name: scan
+      runAfter: [build-push]
+      taskRef: { name: trivy-scan }
+      params:
+        - { name: IMAGE_URL, value: "$(params.image)@$(tasks.build-push.results.IMAGE_DIGEST)" }
+        - { name: SEVERITY, value: $(params.scan-severity) }
+      workspaces:
+        - { name: dockerconfig, workspace: scanconfig }

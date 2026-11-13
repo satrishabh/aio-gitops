@@ -1,0 +1,109 @@
+{{- if .Values.tekton.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aio-tekton-gateway
+  namespace: {{ .Values.tekton.namespace }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aio-tekton-gateway
+  namespace: {{ .Values.tekton.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: aio-tekton-gateway }
+  template:
+    metadata:
+      labels: { app: aio-tekton-gateway }
+    spec:
+      serviceAccountName: aio-tekton-gateway
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: oauth2-proxy
+          image: {{ .Values.tekton.proxyImage | quote }}
+          args:
+            - --http-address=0.0.0.0:4180
+            - --provider=keycloak-oidc
+            - {{ printf "--oidc-issuer-url=%s" .Values.issuer | quote }}
+            - {{ printf "--client-id=%s" .Values.tekton.clientID | quote }}
+            - {{ printf "--redirect-url=https://%s/oauth2/callback" .Values.tekton.host | quote }}
+            - {{ printf "--upstream=http://%s:%v" .Values.tekton.dashboardService .Values.tekton.dashboardPort | quote }}
+            - {{ printf "--allowed-group=%s" .Values.tekton.operatorGroup | quote }}
+            - --scope=openid profile email groups
+            - --email-domain=*
+            - --code-challenge-method=S256
+            - --insecure-oidc-skip-nonce=false
+            - --cookie-name=__Host-aio-tekton
+            - --cookie-secure=true
+            - --cookie-httponly=true
+            - --cookie-samesite=lax
+            - --cookie-expire=1h
+            - --cookie-refresh=5m
+            - --reverse-proxy=true
+            - --pass-authorization-header=false
+            - --pass-access-token=false
+            - --pass-user-headers=false
+            - --skip-provider-button=true
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.tekton.secretName }}, key: client-secret } }
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.tekton.secretName }}, key: cookie-secret } }
+          ports: [{ name: http, containerPort: 4180 }]
+          readinessProbe: { httpGet: { path: /ready, port: http } }
+          livenessProbe: { httpGet: { path: /ping, port: http } }
+          resources: { requests: { cpu: 25m, memory: 64Mi }, limits: { cpu: 250m, memory: 256Mi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aio-tekton-gateway
+  namespace: {{ .Values.tekton.namespace }}
+spec:
+  selector: { app: aio-tekton-gateway }
+  ports: [{ name: http, port: 4180, targetPort: http }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aio-tekton-ui
+  namespace: {{ .Values.tekton.namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: {{ .Values.ingressClassName }}
+  tls:
+    - hosts: [{{ .Values.tekton.host | quote }}]
+      secretName: {{ .Values.tekton.tlsSecret }}
+  rules:
+    - host: {{ .Values.tekton.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aio-tekton-gateway
+                port: { number: 4180 }
+---
+# Requires a CNI that enforces NetworkPolicy. Inventory existing policies and direct ingresses first.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aio-dashboard-via-gateway-only
+  namespace: {{ .Values.tekton.namespace }}
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/part-of: tekton-dashboard }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app: aio-tekton-gateway }
+      ports: [{ protocol: TCP, port: {{ .Values.tekton.dashboardPort }} }]
+{{- end }}

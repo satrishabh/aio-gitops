@@ -52,11 +52,21 @@
                             "internalSelfSignedCertificateReady":  true
                         },
     "homepageStage":  {
-                          "replicas":  0,
+                          "replicas":  1,
                           "deployment":  "sarvaikam-home",
                           "namespace":  "aio-validation",
                           "image":  "ghcr.io/satrishabh/sarvaikam-home@sha256:e3c2bdd31be308169d9cedfc8f33e1480597964056caa56dfff89eb8cfa01983",
-                          "status":  "WAITING_FOR_DEDICATED_GHCR_READONLY_CREDENTIAL",
-                          "sourceRemainsServing":  true
+                          "status":  "READY_HTTP_VERIFIED",
+                          "sourceRemainsServing":  true,
+                          "validation":  {
+                                             "homepageStatus":  200,
+                                             "healthStatus":  200,
+                                             "restarts":  0,
+                                             "healthBody":  "ok",
+                                             "browserVisualTestRun":  false,
+                                             "htmlBytes":  8730,
+                                             "observedAt":  "2026-11-13T21:54:40Z",
+                                             "ghcrPullSucceeded":  true
+                                         }
                       }
 }

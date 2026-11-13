@@ -11,8 +11,8 @@ metadata:
   name: sarvaikam-home
   namespace: aio-validation
 spec:
-  # Enable one replica only after the dedicated GHCR pull credential is installed.
-  replicas: 0
+  # Dedicated GHCR credential and exact-image HTTP rehearsal verified on AKS.
+  replicas: 1
   selector:
     matchLabels: {app: sarvaikam-home}
   template:

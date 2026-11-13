@@ -14,9 +14,9 @@ Download URLs and SHA-256 checksums are in `ops/portable/controllers.lock.json`.
 
 `ops/portable/azure-controller-smoke.yaml` contains the observed issuance and TaskRun rehearsal. Its `validation.invalid` self-signed certificate is internal test material; this does not validate ACME, domain ownership or browser trust. The TaskRun printed `AIO_AZURE_TEKTON_VERIFIED`; this does not validate a complete application CI build/scan/release. Argo, Tekton and certificate services have no public endpoint.
 
-## 2. Private application registry — waiting for dedicated credential
+## 2. Private application registry — homepage pull verified
 
-The user chose a dedicated GHCR read-only credential instead of creating a billable ACR. No ACR was created. The homepage's exact source digest is private; anonymous GHCR pull returned 401. The Azure homepage Deployment is paused at zero replicas until pull access is installed. Source remains at one replica on GCP.
+The user chose a dedicated GHCR read-only credential instead of creating a billable ACR. No ACR was created. Initial anonymous and first authenticated attempts failed (401 and 403). After the user updated the credential, AKS pulled the pinned homepage digest successfully. At `2026-11-13T21:54:40Z`, one Azure replica was Ready with zero restarts, `/health` returned `200 ok`, and `/` returned HTTP 200 with 8730 bytes of homepage HTML. This verifies package access for this image only, not every private package or token permission scope. Source remains at one replica on GCP; no public route was moved. Visual browser acceptance remains pending.
 
 In your own interactive PowerShell terminal, run from this worktree:
 
@@ -26,7 +26,7 @@ In your own interactive PowerShell terminal, run from this worktree:
 
 Use the GitHub username that owns the dedicated token. The script prompts with hidden input and installs only `ghcr-readonly` in Azure namespace `aio-validation`. Grant only the package-read access needed for these private images, including any organization authorization required by GitHub; avoid a broad deployment/write token. Do not put the token in chat, Git, arguments or Helm values. The operator must verify token scope and package access; the helper cannot infer or reduce token permissions. Rotate/revoke this credential through GitHub and rerun the helper to update the Secret.
 
-After Secret existence and image pull are verified, scale only `aio-validation/sarvaikam-home` to one replica. Validate `/health` and the homepage through a local port-forward. `ops/portable/azure-home-stage.yaml` pins the exact running image digest; it creates no public route or DNS change. Persist any subsequently approved replica change in this manifest before adopting GitOps ownership.
+The verified one-replica target state is recorded in `ops/portable/azure-home-stage.yaml`. It pins the exact source image digest and creates no public route or DNS change. Validate `/health` and the homepage through a local-only port-forward; the session used for this test forwards local port 18089 to service port 8080. Secret rotation requires a new image-pull test; an already-running pod alone does not prove a replacement credential works.
 
 The earlier temporary GAR token test applies only to the AIO image and has been cleaned up. It is not a durable credential for GHCR or the AIO hub.
 

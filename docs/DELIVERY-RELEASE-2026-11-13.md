@@ -20,3 +20,13 @@ Build preparation and results:
 - Pre-rollout Cloud SQL backup: `1794564548817`, successful, instance `aio-002`.
 - Isolated release verification: 89 backend tests passed, frontend production build passed, both Helm charts passed lint, and the CI Role/service account/pipeline passed Kubernetes server dry-run.
 - Rollback image: `asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform:0.13.0`. V8/V9 are additive and remain in place if the application image is rolled back.
+
+Production verification completed on 2026-11-13:
+
+- Deployment commit: `29265b3a29c9794f2395750380ed3e1fc0994efc`; Argo CD reported `Synced` / `Healthy` at that revision.
+- Pod `aio-platform-8565b48f85-2pdrk` became Ready with zero restarts and the exact published image digest.
+- Flyway successfully applied both migrations and reported schema version `v9`.
+- Internal readiness returned `{"status":"UP"}`. Public login and the served frontend bundle returned HTTP 200; the bundle contains the new registry controls. Anonymous project API access returned HTTP 401.
+- The CI Role was updated after explicit approval of its Secret permission scope. `pipeline-runner` has `automountServiceAccountToken: false`. `ci/ci-build-v2` contains only clone, test, build-push, and scan tasks. An initially misplaced copy in `default` was verified unused and removed.
+- Independent delivery remains disabled globally, and both SSO tool URLs remain empty. No Istio/Prometheus installation or live hybrid autoscaling activation was included.
+- Readiness probes failed temporarily during JVM startup; rollout subsequently completed, readiness is UP, and the new pod has no restarts. Authenticated browser workflows and live registry/SSO provider acceptance remain pending.

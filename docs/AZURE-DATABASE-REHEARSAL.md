@@ -28,13 +28,26 @@ Passed: startup/readiness, TLS with hostname/certificate verification, rejection
 
 Learn's running application image contains `pg_dump` 17.12, which cannot dump the PostgreSQL 18 source. A temporary source-side PostgreSQL 18 client was therefore created using references to existing source-namespace Secret keys; no source password was exported. It was removed after metadata checks.
 
-Observed source database sizes: `sarvaikam` 9,139,903 bytes, `sarvaikam_reels` 8,099,519 bytes. Extensions: Learn `plpgsql`, `uuid-ossp`; reels `plpgsql`. These fit the guarded rehearsal allowance. No archive or application data was downloaded locally or copied to Azure.
+Observed source database sizes: `sarvaikam` 9,139,903 bytes, `sarvaikam_reels` 8,099,519 bytes. Extensions: Learn `plpgsql`, `uuid-ossp`; reels `plpgsql`. These fit the guarded rehearsal allowance. No archive or application records were written to local files or Git.
 
-Automatic approval review rejected executing the real-data transfer because it requires explicit approval for these databases and this destination. The concrete prepared operation is:
+Automatic approval review initially rejected real-data transfer pending explicit authorization. The user then requested schemas instead of separate databases and explicitly confirmed including data. The executed operation was:
 
 - Consistent `pg_dump -Fc` from GCP Cloud SQL `aio-002`, databases `sarvaikam` and `sarvaikam_reels`.
-- Binary streams through the authenticated operator's Kubernetes connections into new Azure databases `rehearsal_sarvaikam` and `rehearsal_sarvaikam_reels` on `aio-validation/postgres-rehearsal-0`, AKS `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`.
+- Binary streams through the authenticated operator's Kubernetes connections into ONE new Azure database `aio_rehearsal`, schemas `sarvaikam` and `sarvaikam_reels`, on `aio-validation/postgres-rehearsal-0`, AKS `creative`, subscription `150909ba-4c23-44e9-b98d-e8a2d433f709`. Separate application databases were not created.
 - Source stays writable and authoritative. No production connection, route or traffic is changed. Source passwords remain in GCP. Application data, including any user records, will be present in the Azure rehearsal databases; Kubernetes/database administrators with sufficient access can read them.
-- The script refuses unsupported extensions, databases above its size allowance, and existing destination names. It restores without source ownership/ACL and uses a single restore transaction. Failed or ambiguous runs retain the target for inspection; they must not be interpreted as accepted migration or automatically overwritten.
+- The schema-consolidation script refuses existing destinations, unsupported extensions, extra source schemas, custom functions, large objects and oversized databases. Each dump and its row/content validation use the same exported read-only source snapshot. Each restore is transactional; the complete two-schema operation is not one global transaction. Failed or ambiguous runs retain the target for inspection and must not be treated as accepted migration or automatically overwritten.
 
-After explicit approval, recreate the temporary exporter with `ops/portable/gcp-learn-export-client.yaml`, run `ops/portable/stream-learn-rehearsal.py` first without `--execute`, then with `--execute` for each named database, using the isolated Azure kubeconfig. Delete the exporter after the attempt. The script emits only metadata evidence and never prints the binary archive. PostgreSQL restore success still needs schema/data/role checks and isolated application acceptance; it is not a live cutover. A final migration needs a new consistent checkpoint after handling live writes.
+Executed with `ops/portable/stream-schema-rehearsal.py --kubeconfig <isolated-file> --execute` after metadata preview and authorization. The legacy separate-database script now refuses execution. Native `ALTER SCHEMA` moved objects; no SQL text or COPY payload was rewritten. Source audit confirmed no custom functions, additional schemas or large objects requiring special remapping. The temporary exporter was deleted after verification.
+
+## Verified schema-and-data snapshot
+
+Completed at `2026-11-13T22:23:11Z` (2026-11-14 in India):
+
+| Azure database | Schema | Tables | Total rows across tables | Validation |
+| --- | --- | --- | --- | --- |
+| aio_rehearsal | sarvaikam | 14 | 254 | Every table's count and content fingerprint matched its source snapshot |
+| aio_rehearsal | sarvaikam_reels | 2 | 1 | Every table's count and content fingerprint matched its source snapshot |
+
+Reels' one row is migration history; the `reels` table was empty in the source snapshot. Restored indexes and constraints are valid; neither application schema grants access to PUBLIC. No tables remain in `public`. The `uuid-ossp` extension moved into `sarvaikam`. The evidence file stores only table names, counts and comparison results, not row contents or content digests.
+
+Sources remain live and writable on GCP. These are independently consistent snapshots of two databases, not ongoing replication or a globally synchronized cutover checkpoint. Applications are not yet connected to these schemas. Before staging them, create schema-scoped application identities, configure main/reels search paths and Flyway default schemas (for example JDBC `currentSchema=sarvaikam` or `currentSchema=sarvaikam_reels`), mount the TLS trust certificate, resolve GCS dependencies, and run isolated application acceptance. A final migration needs a new consistent checkpoint after handling live writes.

@@ -21,7 +21,7 @@
                    "certManagerInstalled":  true,
                    "argoCdInstalled":  true,
                    "tektonInstalled":  true,
-                   "dataRehearsal":  false,
+                   "dataRehearsal":  true,
                    "trafficAdapter":  false,
                    "rollbackValidated":  false
                },
@@ -70,21 +70,36 @@
                                          }
                       },
     "databaseRehearsal":  {
-                              "applicationDataTransferred":  false,
+                              "applicationDataTransferred":  true,
                               "sourceReelsBytes":  8099519,
                               "persistenceAfterPodReplacement":  true,
                               "postgresVersion":  "18.7",
                               "sourceExporterDeleted":  true,
                               "unencryptedTcpRejected":  true,
                               "namespace":  "aio-validation",
-                              "observedAt":  "2026-11-13T22:07:44Z",
+                              "observedAt":  "2026-11-13T22:23:11.159615+00:00",
                               "statefulSet":  "postgres-rehearsal",
                               "tlsVerifyFullPassed":  true,
                               "syntheticRestorePassed":  true,
                               "storageGiB":  4,
-                              "transferApprovalRequired":  true,
+                              "transferApprovalRequired":  false,
                               "storageSku":  "StandardSSD_LRS",
                               "sourceLearnBytes":  9139903,
-                              "estimatedDiskUSDPerMonth":  0.3
+                              "estimatedDiskUSDPerMonth":  0.3,
+                              "targetDatabase":  "aio_rehearsal",
+                              "restoredSchemas":  [
+                                                      {
+                                                          "name":  "sarvaikam",
+                                                          "tables":  14,
+                                                          "rows":  254,
+                                                          "contentMatched":  true
+                                                      },
+                                                      {
+                                                          "name":  "sarvaikam_reels",
+                                                          "tables":  2,
+                                                          "rows":  1,
+                                                          "contentMatched":  true
+                                                      }
+                                                  ]
                           }
 }

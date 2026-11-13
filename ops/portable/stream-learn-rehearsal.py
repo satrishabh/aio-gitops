@@ -1,4 +1,4 @@
-"""Stream an authorized GCP Learn snapshot into a new isolated Azure database.
+"""Legacy separate-database preflight; execution superseded by schema consolidation.
 
 No dump file or source password is stored locally or transferred to Azure.
 Requires the source-only PG18 client and pre-provisioned rehearsal StatefulSet.
@@ -8,7 +8,6 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
 
 SOURCE_CONTEXT = 'gke_project-d28840cd-be2f-4901-85e_asia-south1_cluster-1'
 TARGET_CONTEXT = 'aio-azure-creative'
@@ -49,31 +48,7 @@ def main():
     if not args.execute:
         print(json.dumps(result, indent=2))
         return
-    subprocess.run(target + ['createdb', '-U', 'rehearsal_admin', destination], check=True)
-    # Pipes remain binary end-to-end, including on Windows. Never print the archive.
-    producer = subprocess.Popen(source + ['pg_dump', '-d', args.database, '-Fc', '--no-owner', '--no-acl'],
-                                stdout=subprocess.PIPE)
-    try:
-        consumer = subprocess.Popen(target[:-3] + ['exec', '-i', 'postgres-rehearsal-0', '--',
-                                    'pg_restore', '-U', 'rehearsal_admin', '-d', destination,
-                                    '--exit-on-error', '--single-transaction', '--no-owner', '--no-acl'],
-                                    stdin=producer.stdout)
-        producer.stdout.close()
-        restore_code = consumer.wait()
-        dump_code = producer.wait()
-    except BaseException:
-        producer.terminate()
-        producer.wait()
-        raise
-    if dump_code or restore_code:
-        raise RuntimeError(f'Stream failed (dump={dump_code}, restore={restore_code}); '
-                           'destination is not accepted and was retained for inspection')
-    result.update(executed=True, observedAt=datetime.now(timezone.utc).isoformat(),
-                  targetBytes=int(query(target, destination, 'SELECT pg_database_size(current_database())', True)),
-                  tableCount=int(query(target, destination,
-                      "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema')", True)),
-                  sourceRemainsWriteAuthority=True, applicationAcceptance=False)
-    print(json.dumps(result, indent=2))
+    raise RuntimeError('Separate-database transfer disabled: use stream-schema-rehearsal.py for the approved single-database schema layout')
 
 
 if __name__ == '__main__':

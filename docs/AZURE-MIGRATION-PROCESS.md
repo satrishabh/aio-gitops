@@ -30,11 +30,11 @@ The verified one-replica target state is recorded in `ops/portable/azure-home-st
 
 The earlier temporary GAR token test applies only to the AIO image and has been cleaned up. It is not a durable credential for GHCR or the AIO hub.
 
-## 3. Database and object-storage migration — inventoried, not transferred
+## 3. Database and object-storage migration — isolated target verified
 
 Source Cloud SQL `aio-002` runs PostgreSQL 18 in asia-south1. Application databases observed: `aio`, `profile_manager`, `sarvaika_blog`, `sarvaikam`, `sarvaikam_reels`. Fresh on-demand backup `1794605803842`, operation `fb518212-0838-41bb-9b78-cec10000002f`, completed SUCCESSFUL at `2026-11-13T21:38:15.120Z`. A backup is not a cross-cloud restore rehearsal.
 
-No Azure PostgreSQL Flexible Server was returned by the subscription inventory. A database destination and its capacity/cost/backup policy must be chosen before real data is copied. For each database, identify owners/extensions, capture a consistent logical backup with a compatible PostgreSQL client, restore into an isolated target, and verify schema, row counts, application reads/writes and roles. Keep dumps encrypted and outside Git. Do not copy the stopped historical `aio-postgres` PVC as if it were the active database.
+No Azure PostgreSQL Flexible Server was returned by the subscription inventory. The user requested the cheapest suitable alternative, so an isolated PostgreSQL 18.7 StatefulSet now uses existing AKS capacity with a retained 4Gi Standard SSD (observed disk retail price $0.30/month plus transactions). TLS verification, rejection of unencrypted TCP, synthetic backup/restore and persistence after pod replacement passed. Actual Learn/reels metadata preflight passed, but automatic approval review requires explicit authorization before those application databases are copied. No application data was transferred. See [cost comparison, evidence and concrete transfer](AZURE-DATABASE-REHEARSAL.md).
 
 Learn now has `EMBEDDED_DB=false`, uses `sarvaikam-cloudsql-proxy:5432` for its main and reels databases, and references GCS `cotent_bucket`. Database SSL is disabled only on the local proxy hop; this is not an appropriate direct Azure database setting. Use required TLS and the destination's trust configuration. The GCS object references/signing identity are a separate dependency: keeping GCS temporarily is cross-cloud operation, while a full move requires an object-store adapter and copying/verifying objects plus references. Do not silently substitute an Azure bucket URL into GCP-specific SDK code.
 

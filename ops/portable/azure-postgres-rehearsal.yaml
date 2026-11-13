@@ -1,0 +1,147 @@
+# Isolated PostgreSQL 18 restore target. No source credentials or data are embedded.
+# Single-instance rehearsal only; production HA/backup/restore remains a separate gate.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: aio-rehearsal-standard-ssd
+provisioner: disk.csi.azure.com
+parameters:
+  skuName: StandardSSD_LRS
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: postgres-rehearsal-selfsigned
+  namespace: aio-validation
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-rehearsal-server
+  namespace: aio-validation
+spec:
+  secretName: postgres-rehearsal-tls
+  duration: 720h
+  renewBefore: 168h
+  dnsNames:
+    - postgres-rehearsal
+    - postgres-rehearsal.aio-validation.svc
+    - postgres-rehearsal.aio-validation.svc.cluster.local
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: postgres-rehearsal-selfsigned
+    kind: Issuer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-rehearsal-auth
+  namespace: aio-validation
+data:
+  pg_hba.conf: |
+    local all all trust
+    hostnossl all all all reject
+    hostssl all all all scram-sha-256
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-rehearsal
+  namespace: aio-validation
+spec:
+  clusterIP: None
+  selector: {app: postgres-rehearsal}
+  ports:
+    - {name: postgres, port: 5432, targetPort: postgres}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-rehearsal
+  namespace: aio-validation
+spec:
+  serviceName: postgres-rehearsal
+  replicas: 1
+  selector:
+    matchLabels: {app: postgres-rehearsal}
+  template:
+    metadata:
+      labels: {app: postgres-rehearsal}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres@sha256:a197bcc7150b0a7e35796ef0c110693cba6edd41e92b564cc50b976f17532423
+          args:
+            - '-c'
+            - ssl=on
+            - '-c'
+            - ssl_cert_file=/etc/postgres-tls/tls.crt
+            - '-c'
+            - ssl_key_file=/etc/postgres-tls/tls.key
+            - '-c'
+            - hba_file=/etc/postgres-auth/pg_hba.conf
+            - '-c'
+            - shared_buffers=64MB
+            - '-c'
+            - max_connections=30
+          env:
+            - {name: PGDATA, value: /var/lib/postgresql/18/docker}
+            - {name: POSTGRES_USER, value: rehearsal_admin}
+            - {name: POSTGRES_DB, value: rehearsal}
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/postgres-password/password
+            - {name: POSTGRES_INITDB_ARGS, value: '--auth-host=scram-sha-256 --auth-local=trust'}
+          ports:
+            - {name: postgres, containerPort: 5432}
+          readinessProbe:
+            exec:
+              command: [pg_isready, '-U', rehearsal_admin, '-d', rehearsal]
+            initialDelaySeconds: 5
+          startupProbe:
+            exec:
+              command: [pg_isready, '-U', rehearsal_admin, '-d', rehearsal]
+            failureThreshold: 30
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql}
+            - {name: tls, mountPath: /etc/postgres-tls, readOnly: true}
+            - {name: password, mountPath: /etc/postgres-password, readOnly: true}
+            - {name: auth, mountPath: /etc/postgres-auth, readOnly: true}
+      volumes:
+        - name: tls
+          secret:
+            secretName: postgres-rehearsal-tls
+            defaultMode: 0440
+        - name: password
+          secret:
+            secretName: postgres-rehearsal-admin
+            defaultMode: 0440
+        - name: auth
+          configMap:
+            name: postgres-rehearsal-auth
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: aio-rehearsal-standard-ssd
+        resources:
+          requests: {storage: 4Gi}

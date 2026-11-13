@@ -1,0 +1,17 @@
+[
+    {
+        "name":  "sarvaika-blog-image-check",
+        "image":  "ghcr.io/satrishabh/sarvaika-blog@sha256:73cf1ee0fb242cbaad993bdf0459fae78232ce717a9f9eeab672189af9554de5",
+        "succeeded":  true
+    },
+    {
+        "name":  "sarvaikam-image-check",
+        "image":  "ghcr.io/satrishabh/sarvaikam@sha256:ee756c4a464be53fef173fb288b2a6065ebfaa9ff8266b80a8ed7d35b5bb80e4",
+        "succeeded":  true
+    },
+    {
+        "name":  "user-profile-manager-image-check",
+        "image":  "ghcr.io/satrishabh/user-profile-manager@sha256:558d957f7da43832af3cbaf519fe7efa87a28758b54791511846905785d59b36",
+        "succeeded":  true
+    }
+]

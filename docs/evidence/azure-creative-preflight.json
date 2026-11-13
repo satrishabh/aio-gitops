@@ -68,5 +68,23 @@
                                              "observedAt":  "2026-11-13T21:54:40Z",
                                              "ghcrPullSucceeded":  true
                                          }
-                      }
+                      },
+    "databaseRehearsal":  {
+                              "applicationDataTransferred":  false,
+                              "sourceReelsBytes":  8099519,
+                              "persistenceAfterPodReplacement":  true,
+                              "postgresVersion":  "18.7",
+                              "sourceExporterDeleted":  true,
+                              "unencryptedTcpRejected":  true,
+                              "namespace":  "aio-validation",
+                              "observedAt":  "2026-11-13T22:07:44Z",
+                              "statefulSet":  "postgres-rehearsal",
+                              "tlsVerifyFullPassed":  true,
+                              "syntheticRestorePassed":  true,
+                              "storageGiB":  4,
+                              "transferApprovalRequired":  true,
+                              "storageSku":  "StandardSSD_LRS",
+                              "sourceLearnBytes":  9139903,
+                              "estimatedDiskUSDPerMonth":  0.3
+                          }
 }

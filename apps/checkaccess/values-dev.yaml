@@ -3,7 +3,7 @@ image:
   repository: ghcr.io/satrishabh/checkaccess
   tag: "a0c83c1711fc"
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 1
+replicaCount: 0
 imagePullSecrets:
   - name: ghcr-pull
 pdb:
@@ -15,3 +15,4 @@ env: []
 resources:
   requests: {cpu: "50m", memory: "128Mi"}
   limits: {cpu: "100m", memory: "512Mi"}
+scaledDown: true

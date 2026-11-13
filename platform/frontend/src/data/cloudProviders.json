@@ -1,0 +1,12 @@
+[
+  {"id":"aws","name":"AWS","target":"Amazon EKS","kind":"kubernetes","status":"Acceptance pending","requirements":"EKS API access, CSI storage, ingress, ECR or another OCI registry; refresh short-lived registry credentials."},
+  {"id":"azure","name":"Azure","target":"Azure AKS","kind":"kubernetes","status":"Acceptance pending","requirements":"AKS API access, CSI storage, ingress, ACR or another OCI registry; validate Entra and image-pull identity."},
+  {"id":"alibaba","name":"Alibaba Cloud","target":"ACK","kind":"kubernetes","status":"Acceptance pending","requirements":"ACK API access, CSI storage, ingress, Container Registry or another OCI registry; validate regional egress and RAM identities."},
+  {"id":"gcp","name":"Google Cloud","target":"GKE","kind":"kubernetes","status":"Portable package acceptance pending","requirements":"Existing production runs on GKE. A fresh installation with the portable chart still needs acceptance testing."},
+  {"id":"oci","name":"Oracle Cloud","target":"OKE","kind":"kubernetes","status":"Acceptance pending","requirements":"OKE API access, CSI storage, ingress and separately provisioned OCI registry credentials."},
+  {"id":"digitalocean","name":"DigitalOcean","target":"DOKS","kind":"kubernetes","status":"Acceptance pending","requirements":"DOKS API access, storage, ingress and registry access."},
+  {"id":"onprem","name":"On-premises","target":"Conformant Kubernetes","kind":"kubernetes","status":"Acceptance pending","requirements":"Operator-provided load balancer or gateway, storage, DNS, TLS, registry, PostgreSQL and cluster API access."},
+  {"id":"generic","name":"Other providers","target":"Conformant Kubernetes","kind":"kubernetes","status":"Acceptance pending","requirements":"Use the same portable installation contract; validate networking, storage, identity and registry behavior on the selected distribution."},
+  {"id":"cloudflare-dns","name":"Cloudflare DNS / CDN","target":"DNS, proxy and TLS integration","kind":"integration","status":"Operator configuration required","requirements":"Use alongside a Kubernetes target. Configure DNS, origin routing, trusted origin TLS and challenge handling independently; provider API automation is not implemented."},
+  {"id":"cloudflare-edge","name":"Cloudflare Workers / Containers","target":"Cloudflare edge runtime","kind":"edge","status":"Deployment adapter not implemented","requirements":"Requires a separate Workers/Wrangler deployment adapter. The Kubernetes Helm installer cannot deploy the AIO control plane to this target."}
+]

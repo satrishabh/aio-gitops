@@ -4,3 +4,5 @@ target/
 .env
 *.log
 .cortex/
+__pycache__/
+private-generated/

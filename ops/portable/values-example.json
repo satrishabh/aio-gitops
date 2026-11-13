@@ -1,0 +1,17 @@
+{
+  "image": {"repository": "registry.example.com/platform/aio", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "existingSecret": "aio-platform-runtime",
+  "config": {
+    "APP_PUBLIC_URL": "https://aio.example.com",
+    "APP_REGISTRY": "ghcr.io/example",
+    "APP_REGISTRY_USER": "example",
+    "GITOPS_REPO_URL": "https://github.com/example/aio-gitops.git",
+    "GITOPS_OWNER": "example",
+    "GITOPS_REPO": "aio-gitops",
+    "OIDC_ISSUER_URI": "https://identity.example.com/realms/aio",
+    "OIDC_CLIENT_ID": "aio-platform",
+    "ARGOCD_URL": "https://argocd.example.com",
+    "ALLOWED_ROLES": "aio-admin,aio-business,aio-community"
+  },
+  "ingress": {"enabled": true, "className": "traefik", "host": "aio.example.com", "tlsSecretName": "aio-public-tls"}
+}

@@ -3,6 +3,7 @@ import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Empty, PageHead, Skeleton } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
+import CloudTargets from '../components/CloudTargets.jsx'
 
 const STATUS = { Successful: ['Healthy', 'Connected'], Failed: ['Degraded', 'Failed'], NotRegistered: ['Missing', 'Not registered'] }
 
@@ -52,6 +53,7 @@ export default function Clusters() {
         Changing which cluster an environment maps to moves its apps on the next platform start (dev, staging) — the old copy is
         deleted from the previous cluster. Prod only moves when an approver clicks <b>Repair environments</b> on a project.
       </p>
+      <CloudTargets />
     </>
   )
 }

@@ -9,3 +9,7 @@ The user explicitly authorized publication, build, and deployment after the init
 Autoscaling remains disabled by default; AIO remains at one replica. The cluster has CPU metrics but no custom-metrics API. No live HPA or mesh/metrics infrastructure is installed by this release. Independent delivery and tool SSO remain disabled pending their documented prerequisites. The previous platform digest is `sha256:db7d5b0304d29f36d81429823e4c4af5cc657f930ff45a47bcca6b1d3bcb6ffe`.
 
 Production rollout completed at GitOps revision `e60f069415957d90c22481c66bbca6c01923917c`. Pod `aio-platform-7c7dc59d5b-7kk65` became Ready with zero restarts and the exact published digest. Internal readiness returned `{"status":"UP"}`; Kubernetes reported the Deployment successfully rolled out. Public HTTPS login returned HTTP 200 during rollout. JVM startup took approximately 61 seconds; the previous pod remained available until readiness passed.
+
+## UI follow-up
+
+The public frontend bundle was verified to contain registry/delivery settings, the manual deploy checkbox, GitOps release retry, artifact trust, and the Helm values editor. Source `b18905df6ad4` adds visible autoscaling guidance under each environment's CD Config tab: CPU and hybrid examples, prerequisite checks, HPA replica ownership, Stop/Start, and fixed-count rollback. This is configuration guidance rather than a claim that live scaling is enabled. The frontend production build passed. Cloud Build `57aebb1f-0eda-4895-b2ce-195af17b03ea` builds the follow-up image `ui-b18905df6ad4`.

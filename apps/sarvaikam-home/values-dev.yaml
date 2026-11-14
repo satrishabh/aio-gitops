@@ -8,6 +8,7 @@ imagePullSecrets:
 ingress:
   className: aio-azure
   enabled: false
+  controller: traefik
 nameOverride: sarvaikam-home
 podSecurityContext:
   fsGroup: 10001
@@ -15,4 +16,13 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 replicaCount: 1
-routes: []
+routes:
+  - host: sarvaikam.com
+    path: "/"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: false
+    externalDns: false

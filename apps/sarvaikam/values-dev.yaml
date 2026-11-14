@@ -1,45 +1,89 @@
-# Managed by AIO platform - image.tag is updated by CI / promotions
+# Azure AKS 'creative' (dev). Managed by AIO platform - image.tag is updated by CI / promotions.
+# Mirrors the live Azure release adopted by Argo CD on 2026-11-14 (empty diff). Secret values live in-cluster only.
+env:
+- name: APP_ENV
+  value: staging
+- name: EMBEDDED_DB
+  value: "false"
+- name: DB_HOST
+  value: postgres-rehearsal.aio-validation.svc.cluster.local
+- name: DB_PORT
+  value: "5432"
+- name: DB_SSLMODE
+  value: verify-full
+- name: POSTGRES_DB
+  value: aio_rehearsal
+- name: POSTGRES_USER
+  value: learn_rehearsal
+- name: DB_SYNCHRONIZE
+  value: "false"
+- name: DB_POOL_SIZE
+  value: "3"
+- name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+  value: "3"
+- name: PGSSLROOTCERT
+  value: /etc/aio-db/ca.crt
+- name: NODE_EXTRA_CA_CERTS
+  value: /etc/aio-db/ca.crt
+- name: DB_URL
+  value: jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam
+- name: SPRING_FLYWAY_DEFAULT_SCHEMA
+  value: sarvaikam
+- name: SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA
+  value: sarvaikam
+- name: REELS_DB_URL
+  value: jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam_reels
+- name: REELS_DB_USER
+  value: reels_rehearsal
+- name: PROFILE_CLIENT_ID
+  value: sarvaikam-learn
+envFrom:
+- secretRef:
+    name: sarvaikam-profile-runtime
+- secretRef:
+    name: sarvaikam-db
+extraVolumeMounts:
+- mountPath: /etc/aio-db
+  name: db-trust
+  readOnly: true
+- mountPath: /etc/sarvaikam/proxy_headers
+  name: nginx-compat
+  readOnly: true
+  subPath: proxy_headers
+extraVolumes:
+- configMap:
+    name: rehearsal-db-trust
+  name: db-trust
+- configMap:
+    name: learn-nginx-proxy-compat
+  name: nginx-compat
 image:
   repository: ghcr.io/satrishabh/sarvaikam
-  tag: "86e08ad3dcac"
-replicaCount: 1
-# The combined Java/Node/Go image needs longer than the old 20s liveness delay.
-# Keep readiness gating traffic while allowing all services to finish startup.
+  tag: sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb
+imagePullSecrets:
+- name: ghcr-pull
+ingress:
+  className: aio-azure
+  enabled: false
+nameOverride: sarvaikam
+podSecurityContext:
+  fsGroup: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
 probes:
   liveness:
     initialDelaySeconds: 180
-pdb:
-  enabled: false
-ingress:
-  enabled: true
-  host: sarvaikam-dev.34.180.3.18.nip.io
-  tls: false
-  issuer: gts
-  forceHttps: true
-  externalDns: false
-imagePullSecrets:
-  - name: ghcr-pull
-# Persistent dev database: Cloud SQL aio-002 via the in-namespace proxy
-# (deploy/dev/cloudsql-proxy.yaml in the sarvaikam repo). Password: secret sarvaikam-db.
-env:
-  - {name: APP_ENV, value: dev}
-  - {name: EMBEDDED_DB, value: "false"}
-  - {name: DB_HOST, value: sarvaikam-cloudsql-proxy}
-  - {name: DB_PORT, value: "5432"}
-  - {name: DB_SSLMODE, value: disable}
-  - {name: POSTGRES_DB, value: sarvaikam}
-  - {name: POSTGRES_USER, value: sarvaikam_app}
-  - {name: REELS_DB_URL, value: "jdbc:postgresql://sarvaikam-cloudsql-proxy:5432/sarvaikam_reels?sslmode=disable"}
-  - {name: REELS_DB_USER, value: sarvaikam_app}
-  - {name: GCP_CONTENT_BUCKET, value: cotent_bucket}
-  - {name: GCP_SIGNING_SERVICE_ACCOUNT, value: sarvaikam-content@project-d28840cd-be2f-4901-85e.iam.gserviceaccount.com}
-envFrom:
-  - secretRef:
-      name: sarvaikam-profile-runtime
-  - secretRef:
-      name: sarvaikam-db
+    path: /health
+  readiness:
+    initialDelaySeconds: 5
+    path: /ready
+replicaCount: 1
 resources:
-  requests: {cpu: "50m", memory: "128Mi"}
-  limits: {cpu: "1000m", memory: "2048Mi"}
-# Managed by the AIO platform Domains tab - edit there, not here
+  limits:
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: 100m
+    memory: 768Mi
 routes: []

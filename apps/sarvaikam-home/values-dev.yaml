@@ -1,28 +1,18 @@
-# Managed by AIO platform - image.tag is updated by CI / promotions
+# Azure AKS 'creative' (dev). Managed by AIO platform - image.tag is updated by CI / promotions.
+# Mirrors the live Azure release adopted by Argo CD on 2026-11-14 (empty diff). Secret values live in-cluster only.
 image:
   repository: ghcr.io/satrishabh/sarvaikam-home
-  tag: "bfb0ae002791"
-# 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 1
+  tag: sha256:e3c2bdd31be308169d9cedfc8f33e1480597964056caa56dfff89eb8cfa01983
 imagePullSecrets:
-  - name: ghcr-pull
-pdb:
-  enabled: false
+- name: ghcr-pull
 ingress:
-  enabled: true
-  host: sarvaikam-home-dev.34.180.3.18.nip.io
-env: []
-resources:
-  requests: {cpu: "50m", memory: "128Mi"}
-  limits: {cpu: "500m", memory: "512Mi"}
-# Managed by the AIO platform Domains tab - edit there, not here
-routes:
-  - host: sarvaikam.com
-    path: "/"
-    tls: true
-    issuer: gts
-    certOwner: true
-    forceHttps: true
-    wwwRedirect: false
-    stripPrefix: false
-    externalDns: false
+  className: aio-azure
+  enabled: false
+nameOverride: sarvaikam-home
+podSecurityContext:
+  fsGroup: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+replicaCount: 1
+routes: []

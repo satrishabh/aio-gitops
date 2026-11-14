@@ -1,0 +1,50 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: homepage-letsencrypt
+  namespace: aio-validation
+spec:
+  acme:
+    email: i.mishra.rishabh@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: homepage-letsencrypt-account
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: aio-azure
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: homepage-public
+  namespace: aio-validation
+spec:
+  secretName: homepage-public-tls
+  dnsNames: [sarvaikam.com]
+  privateKey:
+    rotationPolicy: Always
+  issuerRef:
+    name: homepage-letsencrypt
+    kind: Issuer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: homepage-public
+  namespace: aio-validation
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - hosts: [sarvaikam.com]
+      secretName: homepage-public-tls
+  rules:
+    - host: sarvaikam.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sarvaikam-home
+                port: {number: 8080}

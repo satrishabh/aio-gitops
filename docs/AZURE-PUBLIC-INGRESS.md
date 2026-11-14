@@ -1,6 +1,6 @@
 # Public Azure ingress handoff
 
-Provisioned with explicit user approval on 2026-11-14. **No DNS record was changed.** The selected all-domain-after-readiness cutover gate remains in effect.
+Provisioned with explicit user approval on 2026-11-14. No DNS record was changed during endpoint provisioning. Subsequently the user selected homepage-first and changed the apex A record; [homepage HTTPS is now verified live](HOMEPAGE-AZURE-LIVE.md). Remaining domains still wait for their readiness gates.
 
 | Setting | Value |
 | --- | --- |
@@ -19,4 +19,4 @@ Apply both `ops/portable/azure-ingress-values.yaml` and `ops/portable/azure-ingr
 
 Public-IP tests passed with DNS overridden locally, not changed globally: Learn `/ready` and reels returned 200, homepage returned 200, and an unmapped host returned 404. These TLS tests explicitly trusted the existing self-signed test certificate. It is **not browser-trusted production TLS**. Structured evidence: `evidence/azure-public-ingress.json`.
 
-For eventual DNS, this IP is the A-record target. Do not change the live root, Learn, profile, blog or AIO records yet: the user selected a coordinated switch after all applications are ready, and publicly trusted certificates/identity/data-finalization checks are still pending. `app.sarvaikam.com` and the other unmapped hosts currently have no Azure application route and must not be pointed here prematurely. Authoritative DNS is at Hostinger; the observed GCP zone is not proven delegated.
+The user has now set the root A record to this IP, and the root homepage has a separate production certificate. Leave Learn/profile/blog/AIO records unchanged until their applications, identity and final data checkpoints are ready. `app.sarvaikam.com` and other unmapped hosts have no Azure route yet. Authoritative DNS is at Hostinger; the observed GCP zone is not proven delegated.

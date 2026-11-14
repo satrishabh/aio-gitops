@@ -1,6 +1,6 @@
 # All-domain Azure cutover contract
 
-User decision: move **all domains only after their Azure applications are ready**. No partial public cutover has been made. All public DNS remains on GCP-serving addresses.
+Latest user decision: **start with the homepage**. The user changed the apex A record; `https://sarvaikam.com` is now serving Azure with a trusted certificate. See [homepage repair and live verification](HOMEPAGE-AZURE-LIVE.md). Other domains remain on GCP until their Azure applications and final cutover checks are ready. The earlier all-at-once plan is superseded for the homepage only.
 
 ## Prepared routing foundation
 
@@ -34,4 +34,4 @@ This new payload needs explicit database-specific approval before export under t
 6. Agree a maintenance/write-freeze or tested replication procedure, take fresh data checkpoints (current copies are stale as source writes continue), rehearse final sync and data-safe rollback, then review exact old/new records and TTLs.
 7. Change approved DNS records, observe application health and propagation, retain source resources through the rollback window, and transfer AIO/GitOps worker authority exactly once. Do not use the current cascading single-environment destination replacement as a preview switch.
 
-Current outcome: public ingress IP allocated and routing tested; Learn/homepage staging exists; profile/blog/AIO are not yet ready on Azure and public TLS is not yet trusted. The all-domain cutover condition is not yet met, so no DNS records have been changed.
+Current outcome: the user moved the homepage A record first, and Azure homepage HTTPS is verified with a production Let's Encrypt certificate. Learn remains a rehearsal; profile/blog/AIO are not yet ready on Azure. The remaining-domain readiness gates still apply. DNS was not changed by the assistant.

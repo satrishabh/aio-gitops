@@ -1,0 +1,15 @@
+{
+    "observedAt":  "2026-11-14T05:50:46.3524072Z",
+    "hostname":  "sarvaikam.com",
+    "servingCloud":  "Azure",
+    "publicIP":  "52.140.55.184",
+    "normalDnsHttpsStatus":  200,
+    "directAzureHttpsStatus":  200,
+    "systemTlsValidationPassed":  true,
+    "certificateReady":  true,
+    "notAfter":  "2027-02-12T04:48:58Z",
+    "renewalTime":  "2027-01-13T04:48:58Z",
+    "dnsChangeActor":  "user",
+    "temporaryGcpChallengeBridgeRemoved":  true,
+    "wwwStillPointsToHostinger":  true
+}

@@ -43,6 +43,9 @@ service:
 ingress:
   enabled: false
   className: nginx
+  # Ingress controller flavour: nginx (ingress-nginx annotations) or traefik (Middleware CRDs for
+  # HTTPS redirect, www redirect and prefix stripping). Set per cluster by the platform.
+  controller: nginx
   host: app.example.com
   tls: false          # HTTPS for host; with issuer set cert-manager issues the certificate (secret <name>-tls)
   issuer: ""          # cert-manager ClusterIssuer, e.g. gts (set by the platform per cluster)

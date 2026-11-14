@@ -39,7 +39,8 @@ export default function Clusters() {
                     <td><Badge value={tone} label={label} />
                       {c.message && <div className="muted" style={{ fontSize: '0.75rem', maxWidth: 320 }}>{c.message}</div>}</td>
                     <td className="mono">{c.version || '—'}</td>
-                    <td>{c.baseDomain ? <code>{c.baseDomain}</code> : <span className="muted">none (no ingress)</span>}</td>
+                    <td>{c.baseDomain ? <code>{c.baseDomain}</code> : <span className="muted">none (no ingress)</span>}
+                      {c.ingressClass && <div className="muted mono" style={{ fontSize: '0.75rem' }}>class {c.ingressClass} · {c.ingressController}</div>}</td>
                     <td>{c.rollouts ? <span className="badge green quiet">Argo Rollouts</span> : <span className="muted">rolling update</span>}</td>
                     <td className="mono">{c.argoApps ?? '—'}</td>
                   </tr>

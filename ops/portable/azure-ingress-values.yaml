@@ -12,10 +12,10 @@ providers:
   kubernetesIngress:
     enabled: true
     ingressClass: aio-azure
-    namespaces: [aio-ingress, aio-validation, dev, aio-platform]
+    namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform]
   kubernetesCRD:
     enabled: true
-    namespaces: [aio-ingress, aio-validation, dev, aio-platform]
+    namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform]
   kubernetesGateway:
     enabled: false
 ingressRoute:

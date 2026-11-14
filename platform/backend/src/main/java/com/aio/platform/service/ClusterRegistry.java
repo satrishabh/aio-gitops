@@ -44,7 +44,8 @@ public class ClusterRegistry {
         List<Cluster> configured = props.clusters() == null ? List.of() : props.clusters().stream()
                 .filter(c -> c != null && c.name() != null && !c.name().isBlank())
                 .map(c -> new Cluster(c.name().trim(), c.server(), c.envs() == null ? List.of() : c.envs().stream().map(String::trim).toList(),
-                        c.baseDomain(), c.rollouts(), blankToNull(c.ingressIp()), blankToNull(c.issuer()), zone(c.dnsZone()), c.tls()))
+                        c.baseDomain(), c.rollouts(), blankToNull(c.ingressIp()), blankToNull(c.issuer()), zone(c.dnsZone()), c.tls(),
+                        blankToNull(c.ingressClass()), controller(c.name(), c.ingressController())))
                 .toList();
         if (configured.isEmpty()) {
             String server = props.argocd() == null || props.argocd().destinationServer() == null
@@ -57,6 +58,18 @@ public class ClusterRegistry {
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
     }
+
+    /** Ingress controller flavour understood by the app chart; fails fast on typos so routes never silently lose redirects. */
+    static String controller(String cluster, String value) {
+        String v = blankToNull(value);
+        if (v == null) return null;
+        v = v.toLowerCase(java.util.Locale.ROOT);
+        if (!INGRESS_CONTROLLERS.contains(v))
+            throw new IllegalStateException("cluster " + cluster + ": ingressController must be one of " + INGRESS_CONTROLLERS + ", got " + value);
+        return v;
+    }
+
+    public static final List<String> INGRESS_CONTROLLERS = List.of("nginx", "traefik");
 
     /** "Example.COM." -> "example.com" */
     static String zone(String z) {
@@ -128,6 +141,16 @@ public class ClusterRegistry {
     public String issuerFor(String env, String host) {
         String i = clusterFor(env).issuer();
         return i == null ? DEFAULT_ISSUER : i;
+    }
+
+    /** IngressClass for apps on this env's cluster; null keeps the chart default. */
+    public String ingressClassFor(String env) {
+        return clusterFor(env).ingressClass();
+    }
+
+    /** Ingress controller flavour (nginx | traefik) for this env's cluster; null keeps the chart default. */
+    public String ingressControllerFor(String env) {
+        return clusterFor(env).ingressController();
     }
 
     /** IP custom domains must resolve to (null when unknown - the UI then only says "point it at the cluster"). */

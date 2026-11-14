@@ -39,6 +39,9 @@ config:
   APP_CLUSTERS_0_INGRESSIP: 52.140.55.184
   APP_CLUSTERS_0_ISSUER: letsencrypt-azure
   APP_CLUSTERS_0_TLS: 'false'
+  # Apps on AKS are served by Traefik (IngressClass aio-azure); the app chart renders Traefik Middlewares
+  APP_CLUSTERS_0_INGRESSCLASS: aio-azure
+  APP_CLUSTERS_0_INGRESSCONTROLLER: traefik
 ingress:
   enabled: false
 resources:

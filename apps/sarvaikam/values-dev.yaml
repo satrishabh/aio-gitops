@@ -42,13 +42,4 @@ resources:
   requests: {cpu: "50m", memory: "128Mi"}
   limits: {cpu: "1000m", memory: "2048Mi"}
 # Managed by the AIO platform Domains tab - edit there, not here
-routes:
-  - host: learn.sarvaikam.com
-    path: "/"
-    tls: true
-    issuer: gts
-    certOwner: true
-    forceHttps: true
-    wwwRedirect: false
-    stripPrefix: false
-    externalDns: false
+routes: []

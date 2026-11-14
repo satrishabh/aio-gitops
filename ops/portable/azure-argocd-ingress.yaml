@@ -30,7 +30,8 @@ metadata:
   namespace: argocd
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-azure
-    traefik.ingress.kubernetes.io/router.middlewares: argocd-https-redirect@kubernetescrd
+    # sablier-aio: Argo CD sleeps with AIO and wakes on first visit (azure-hibernation.yaml)
+    traefik.ingress.kubernetes.io/router.middlewares: argocd-https-redirect@kubernetescrd,argocd-sablier-aio@kubernetescrd
 spec:
   ingressClassName: aio-azure
   tls:

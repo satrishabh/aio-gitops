@@ -42,7 +42,8 @@ metadata:
   namespace: aio-platform
   annotations:
     traefik.ingress.kubernetes.io/router.priority: '80'
-    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd
+    # sablier-aio: wake AIO/Argo/Tekton on first visit, sleep after 30 min idle (azure-hibernation.yaml)
+    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd,aio-platform-sablier-aio@kubernetescrd
 spec:
   ingressClassName: aio-azure
   tls:
@@ -51,3 +52,22 @@ spec:
     - host: app.sarvaikam.com
       http:
         paths: [{path: /, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}]
+---
+# GitHub webhooks bypass the sleep gate (the waiting page would answer 200 and drop the event).
+# While AIO sleeps Traefik answers 503 and GitHub keeps the delivery as failed / redeliverable.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: native-aio-webhooks
+  namespace: aio-platform
+  annotations:
+    traefik.ingress.kubernetes.io/router.priority: '90'
+    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - {hosts: [app.sarvaikam.com], secretName: aio-native-public-tls}
+  rules:
+    - host: app.sarvaikam.com
+      http:
+        paths: [{path: /api/webhooks, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}]

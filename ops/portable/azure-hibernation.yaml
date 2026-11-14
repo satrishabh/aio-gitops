@@ -1,0 +1,153 @@
+# Scale-to-zero for the AIO control plane (group "aio"): AIO, Argo CD and Tekton sleep when unused
+# and wake when someone opens https://app.sarvaikam.com or https://argocd.sarvaikam.com.
+#
+#   Sablier 1.19.1 (scaler) + Traefik plugin sablier-traefik-plugin v1.4.0 (azure-ingress-values.yaml).
+#   First request -> "waking up" page (~60 s) -> app. 30 min after the last request the group sleeps.
+#
+# Always on (NOT in the group): Traefik, cert-manager, PostgreSQL, the public sites, the backup CronJob,
+# Sablier itself, and tekton-pipelines-webhook (the API server calls it for Tekton CRD conversion, so
+# scaling it to zero would break discovery/garbage collection for Tekton types).
+#
+# Opt-in labels (kubectl label, see docs/AZURE-COST-HIBERNATION-2026-11-15.md):
+#   sablier.enable=true  sablier.group=aio
+# GitHub webhooks (/api/webhooks/github) use a separate route WITHOUT this gate: the plugin's blocking
+# strategy does not work on Kubernetes, and the waiting page would answer 200 and drop the event. While
+# AIO sleeps GitHub records a failed delivery (redeliverable) until the webhook buffer replaces this.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sablier
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: sablier, namespace: sablier}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: sablier}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets/scale"]
+    verbs: ["get", "update"]
+  # Sablier 1.19 lists CloudNativePG clusters on every scan and fails the whole scan if forbidden.
+  # None exist here; read-only, so it can never hibernate a database.
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: sablier}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: sablier}
+subjects: [{kind: ServiceAccount, name: sablier, namespace: sablier}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sablier, namespace: sablier}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: sablier}}
+  template:
+    metadata: {labels: {app: sablier}}
+    spec:
+      serviceAccountName: sablier
+      priorityClassName: aio-critical
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: sablier
+          image: sablierapp/sablier:1.19.1@sha256:c24b7198f6c552252db61d2e9daa5ac5d604d3fd0ccb852a76156be4b19d2114
+          args:
+            - start
+            - --provider.name=kubernetes
+            - --sessions.default-duration=30m
+            # a restart of Sablier (node swap, upgrade) must not cut an active session: keep running
+            # workloads for one default session instead of stopping them at boot
+            - --provider.auto-stop-on-startup=false
+            # anything scaled up outside Sablier (helm upgrade, kubectl scale) also sleeps after 30 min
+            - --provider.auto-warm-externally-started=true
+            - --strategy.dynamic.default-theme=ghost
+            - --logging.level=info
+          ports: [{name: http, containerPort: 10000}]
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 30, failureThreshold: 4}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: sablier, namespace: sablier}
+spec:
+  selector: {app: sablier}
+  ports: [{name: http, port: 10000, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: sablier}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-traefik-to-sablier, namespace: sablier}
+spec:
+  podSelector: {matchLabels: {app: sablier}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}}]
+      ports: [{port: 10000, protocol: TCP}]
+# ------------------------------------------------------------------ gate middlewares (one per namespace)
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: {name: sablier-aio, namespace: aio-platform}
+spec:
+  plugin:
+    sablier:
+      sablierUrl: http://sablier.sablier.svc.cluster.local:10000
+      group: aio
+      sessionDuration: 30m
+      # SSE/long-poll connections (run logs) keep the session alive while open
+      keepAliveInterval: 1m
+      dialTimeout: 2s
+      # if Sablier itself is down, pass through: an awake AIO keeps working, a sleeping one returns 503
+      failOpen: true
+      # crawlers and probes must not wake the stack (they get an empty 200)
+      ignoreUserAgent:
+        - "(?i)(bot|crawl|spider|slurp|uptime|monitor|curl|wget|python-requests|go-http-client|headless)"
+      dynamic:
+        displayName: AIO platform
+        showDetails: true
+        refreshFrequency: 5s
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: {name: sablier-aio, namespace: argocd}
+spec:
+  plugin:
+    sablier:
+      sablierUrl: http://sablier.sablier.svc.cluster.local:10000
+      group: aio
+      sessionDuration: 30m
+      keepAliveInterval: 1m
+      dialTimeout: 2s
+      failOpen: true
+      ignoreUserAgent:
+        - "(?i)(bot|crawl|spider|slurp|uptime|monitor|curl|wget|python-requests|go-http-client|headless)"
+      dynamic:
+        displayName: Argo CD (AIO platform)
+        showDetails: true
+        refreshFrequency: 5s

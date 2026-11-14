@@ -9,9 +9,10 @@
 #   re-reads TLS files on reload).
 # - Connects over TLS (verify-full) as the admin role; no credentials in this file.
 #
-# This protects against database corruption and accidental deletes. It does NOT
-# protect against losing the cluster/node resource group: an off-cluster copy
-# (Azure Blob in resource group `creative`) is still required.
+# Each run also uploads that night's dump + globals to Azure Blob (account
+# aiocreativebackups, container postgres-backups, GRS, 14-day soft delete, 30-day
+# lifecycle) with AKS workload identity id-aio-postgres-backup (no keys; the
+# identity can only write that container). This survives losing the cluster.
 #
 # Restore: see docs/AZURE-DATABASE-BACKUP.md.
 apiVersion: snapshot.storage.k8s.io/v1
@@ -56,10 +57,33 @@ data:
     pg_dumpall -d "$conn" --globals-only --no-role-passwords -f "$globals.partial"
     mv "$globals.partial" "$globals"
     echo "dump ok: $(du -h "$dump" | cut -f1) $dump"
+    printf '%s\n%s\n' "$(basename "$dump")" "$(basename "$globals")" > /backups/.latest
     find /backups -maxdepth 1 \( -name 'aio_rehearsal-*.dump' -o -name 'globals-*.sql' \) -mtime +14 -print -delete
     find /backups -maxdepth 1 -name '*.partial' -mmin +120 -print -delete
     psql -d "$conn" -Atc "select 'tls reload: ' || pg_reload_conf()"
     echo "backups kept: $(ls /backups | grep -c '^aio_rehearsal-')"
+  upload.sh: |
+    #!/bin/sh
+    # Off-cluster copy: upload this run's files to Azure Blob with workload identity.
+    set -eu
+    az login --service-principal -u "$AZURE_CLIENT_ID" -t "$AZURE_TENANT_ID"       --federated-token "$(cat "$AZURE_FEDERATED_TOKEN_FILE")" --allow-no-subscriptions -o none
+    while read -r f; do
+      [ -n "$f" ] || continue
+      sum=$(sha256sum "/backups/$f" | cut -d' ' -f1)
+      az storage blob upload --auth-mode login --account-name aiocreativebackups -c postgres-backups         -f "/backups/$f" -n "$f" --overwrite false --metadata sha256="$sum" --only-show-errors -o none
+      echo "uploaded $f sha256=$sum"
+    done < /backups/.latest
+    echo "blobs in container: $(az storage blob list --auth-mode login --account-name aiocreativebackups -c postgres-backups --query 'length(@)' -o tsv)"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-backup
+  namespace: aio-validation
+  labels: {app: postgres-backup}
+  annotations:
+    # Managed identity id-aio-postgres-backup (resource group creative); federated to this SA.
+    azure.workload.identity/client-id: eff4063b-973e-4af4-aa96-45613b41c93a
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -80,9 +104,10 @@ spec:
       activeDeadlineSeconds: 1800
       template:
         metadata:
-          labels: {app: postgres-backup}
+          labels: {app: postgres-backup, azure.workload.identity/use: "true"}
         spec:
           restartPolicy: Never
+          serviceAccountName: postgres-backup
           automountServiceAccountToken: false
           securityContext:
             runAsUser: 999
@@ -90,7 +115,7 @@ spec:
             fsGroup: 999
             runAsNonRoot: true
             seccompProfile: {type: RuntimeDefault}
-          containers:
+          initContainers:
             - name: backup
               # Same image as the server so pg_dump matches the server major version.
               image: postgres@sha256:a197bcc7150b0a7e35796ef0c110693cba6edd41e92b564cc50b976f17532423
@@ -108,6 +133,24 @@ spec:
                 - {name: password, mountPath: /etc/postgres-password, readOnly: true}
                 - {name: trust, mountPath: /etc/aio-db, readOnly: true}
                 - {name: tmp, mountPath: /tmp}
+          containers:
+            - name: upload
+              image: mcr.microsoft.com/azure-cli@sha256:0629e170db654e8234bed05df2c66250d6e92a293e0121f49529012d28365758   # 2.68.0
+              command: [sh, /scripts/upload.sh]
+              env:
+                - {name: HOME, value: /tmp}
+                - {name: AZURE_CONFIG_DIR, value: /tmp/.azure}
+              resources:
+                requests: {cpu: 50m, memory: 128Mi}
+                limits: {cpu: 500m, memory: 512Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: backups, mountPath: /backups, readOnly: true}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
           volumes:
             - name: backups
               persistentVolumeClaim: {claimName: postgres-backups}
@@ -118,4 +161,4 @@ spec:
             - name: trust
               configMap: {name: rehearsal-db-trust}
             - name: tmp
-              emptyDir: {sizeLimit: 64Mi}
+              emptyDir: {sizeLimit: 256Mi}

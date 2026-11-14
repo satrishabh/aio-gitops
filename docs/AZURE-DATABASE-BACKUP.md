@@ -21,9 +21,29 @@ Verified 14 Nov 2026: first dump `aio_rehearsal-20261114T101851Z.dump` (648 KB);
 restore test into scratch database `restore_check` returned 139/139 tables and
 5102/5102 rows identical to live; scratch database dropped.
 
-**Gap:** dumps and snapshots live inside the AKS node resource group. Losing the
-cluster or that resource group loses them. Add an off-cluster copy (Azure Blob in
-resource group `creative`, needs `az login`) as the next step.
+### Off-cluster copy (Azure Blob) — added 14 Nov 2026
+
+Each run uploads that night's dump and globals file to storage account
+**`aiocreativebackups`** (resource group `creative`, Standard_GRS, Cool tier),
+container **`postgres-backups`**:
+
+- No public access, **shared-key access disabled** (Entra ID only), HTTPS, TLS 1.2+.
+- 14-day soft delete for blobs and containers; lifecycle rule deletes blobs after 30 days.
+- Upload uses AKS workload identity: ServiceAccount `aio-validation/postgres-backup` →
+  managed identity `id-aio-postgres-backup` (federated credential
+  `aks-creative-postgres-backup`), role *Storage Blob Data Contributor* on **that
+  container only**. No keys exist anywhere.
+- Each blob carries its SHA-256 as metadata (`sha256`); uploads never overwrite.
+
+Verified 14 Nov 2026: dump `aio_rehearsal-20261114T145604Z.dump` downloaded back from
+Azure, checksum matched, restored into a scratch database: 139/139 tables; the only
+row differences were 2 Keycloak offline sessions that expired after the dump.
+
+Restore from Azure: run a pod as ServiceAccount `postgres-backup` with label
+`azure.workload.identity/use: "true"`, `az login --service-principal --federated-token`,
+`az storage blob download --auth-mode login --account-name aiocreativebackups -c
+postgres-backups -n <blob>`, check `sha256` metadata, then `pg_restore` as below.
+(Your own user needs a *Storage Blob Data Reader* role to download from a laptop.)
 
 ### Run a backup now
 

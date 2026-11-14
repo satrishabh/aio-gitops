@@ -1,0 +1,53 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: {name: native-https, namespace: dev}
+spec:
+  redirectScheme: {scheme: https, permanent: true}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: native-applications
+  namespace: dev
+  annotations:
+    traefik.ingress.kubernetes.io/router.priority: '80'
+    traefik.ingress.kubernetes.io/router.middlewares: dev-native-https@kubernetescrd
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - {hosts: [learn.sarvaikam.com], secretName: tls-learn-sarvaikam-com}
+    - {hosts: [profile.sarvaikam.com], secretName: tls-profile-sarvaikam-com}
+    - {hosts: [blog.sarvaikam.com], secretName: tls-blog-sarvaikam-com}
+  rules:
+    - host: learn.sarvaikam.com
+      http:
+        paths: [{path: /, pathType: Prefix, backend: {service: {name: sarvaikam, port: {number: 80}}}}]
+    - host: profile.sarvaikam.com
+      http:
+        paths: [{path: /, pathType: Prefix, backend: {service: {name: user-profile-manager, port: {number: 80}}}}]
+    - host: blog.sarvaikam.com
+      http:
+        paths: [{path: /, pathType: Prefix, backend: {service: {name: sarvaika-blog, port: {number: 80}}}}]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: {name: native-https, namespace: aio-platform}
+spec:
+  redirectScheme: {scheme: https, permanent: true}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: native-aio
+  namespace: aio-platform
+  annotations:
+    traefik.ingress.kubernetes.io/router.priority: '80'
+    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - {hosts: [app.sarvaikam.com], secretName: aio-native-public-tls}
+  rules:
+    - host: app.sarvaikam.com
+      http:
+        paths: [{path: /, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}]

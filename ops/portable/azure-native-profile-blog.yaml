@@ -28,6 +28,9 @@ spec:
             - {name: KC_PROXY_HEADERS, value: xforwarded}
             - {name: KC_HOSTNAME, value: 'https://profile.sarvaikam.com'}
             - {name: KC_CACHE, value: local}
+            - {name: KC_DB_POOL_INITIAL_SIZE, value: '1'}
+            - {name: KC_DB_POOL_MIN_SIZE, value: '1'}
+            - {name: KC_DB_POOL_MAX_SIZE, value: '5'}
             - {name: JAVA_OPTS_APPEND, value: '-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20'}
           startupProbe:
             httpGet: {path: /health/ready, port: http}

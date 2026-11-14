@@ -1,0 +1,38 @@
+# Azure AKS 'creative' (dev). scalesafe.co.in marketing site: static nginx on 8080.
+# Preview only: served on a nip.io test host. scalesafe.co.in DNS stays on Cloudflare until cutover.
+# Source: github.com/satrishabh/scalesafe @ 032d66c70ad9, built by ci/scalesafe-site-ci-zf9w6
+# (Trivy HIGH/CRITICAL gate: critical=0 high=0 medium=0 low=0).
+nameOverride: scalesafe-site
+replicaCount: 1
+image:
+  repository: ghcr.io/satrishabh/scalesafe-site
+  tag: sha256:707ed2ce5e58960f228ddad28fab6b6b082a37bd7278dedee0eb639adfcd853c
+imagePullSecrets:
+  - name: ghcr-pull
+containerPort: 8080
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+resources:
+  requests: { cpu: 25m, memory: 32Mi }
+  limits: { cpu: 250m, memory: 128Mi }
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 5
+  readiness:
+    path: /health
+    initialDelaySeconds: 2
+ingress:
+  enabled: true
+  className: aio-azure
+  controller: traefik
+  host: scalesafe-site-dev.52.140.55.184.nip.io
+  tls: true
+  issuer: letsencrypt-azure
+  forceHttps: false
+  externalDns: false
+routes: []

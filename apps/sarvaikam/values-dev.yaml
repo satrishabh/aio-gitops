@@ -59,7 +59,7 @@ extraVolumes:
     name: nginx-compat
 image:
   repository: ghcr.io/satrishabh/sarvaikam
-  tag: 0bee3f3507d0
+  tag: sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb
 imagePullSecrets:
   - name: ghcr-pull
 ingress:
@@ -77,7 +77,9 @@ probes:
     path: /health
   readiness:
     initialDelaySeconds: 5
-    path: /ready
+    # /ready only checks the Go progress service; this goes through nginx to the Java content
+    # service (slowest to start), so the pod gets traffic only once content requests succeed.
+    path: /api/content/categories
 replicaCount: 1
 resources:
   limits:

@@ -48,6 +48,9 @@ spec:
       imagePullSecrets: {{- toYaml . | nindent 8 }}
       {{- end }}
       securityContext: {runAsNonRoot: true, fsGroup: 10001}
+      {{- with .Values.extraVolumes }}
+      volumes: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: app
           image: {{ printf "%s@%s" $repository $digest | quote }}
@@ -67,6 +70,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}
           resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts: {{- toYaml . | nindent 12 }}
+          {{- end }}
           startupProbe:
             httpGet: {path: /actuator/health/liveness, port: http}
             periodSeconds: 5

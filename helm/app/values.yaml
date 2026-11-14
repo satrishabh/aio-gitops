@@ -7,6 +7,8 @@ image:
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []    # e.g. [{ name: ghcr-pull }] for private images
+extraVolumes: []
+extraVolumeMounts: []
 serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the AIO platform)
 
 containerPort: 8080

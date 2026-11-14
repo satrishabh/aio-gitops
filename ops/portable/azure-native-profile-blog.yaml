@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-profile-manager
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: user-profile-manager}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: user-profile-manager}
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: ghcr-pull}]
+      securityContext: {runAsNonRoot: true, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: app
+          image: ghcr.io/satrishabh/user-profile-manager@sha256:558d957f7da43832af3cbaf519fe7efa87a28758b54791511846905785d59b36
+          command: [/opt/keycloak/bin/kc.sh]
+          args: [start, --optimized]
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: profile-manager-runtime}}]
+          env:
+            - {name: KC_DB, value: postgres}
+            - {name: KC_DB_SCHEMA, value: profile_manager}
+            - {name: KC_HTTP_ENABLED, value: 'true'}
+            - {name: KC_PROXY_HEADERS, value: xforwarded}
+            - {name: KC_HOSTNAME, value: 'https://profile.sarvaikam.com'}
+            - {name: KC_CACHE, value: local}
+            - {name: JAVA_OPTS_APPEND, value: '-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20'}
+          startupProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 512Mi}
+            limits: {cpu: '1', memory: 1Gi}
+          volumeMounts: [{name: trust, mountPath: /etc/aio-db, readOnly: true}]
+      volumes:
+        - name: trust
+          configMap: {name: rehearsal-db-trust}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: user-profile-manager, namespace: dev}
+spec:
+  selector: {app.kubernetes.io/name: user-profile-manager}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: sarvaika-blog, namespace: dev}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: sarvaika-blog}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: sarvaika-blog}
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: ghcr-pull}]
+      securityContext: {runAsNonRoot: true, fsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: app
+          image: ghcr.io/satrishabh/sarvaika-blog@sha256:73cf1ee0fb242cbaad993bdf0459fae78232ce717a9f9eeab672189af9554de5
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: sarvaika-blog-runtime}}]
+          env:
+            - {name: JAVA_TOOL_OPTIONS, value: '-XX:ActiveProcessorCount=2 -XX:+UseSerialGC -Xss256k'}
+            - {name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE, value: '3'}
+            - {name: SPRING_FLYWAY_DEFAULT_SCHEMA, value: sarvaika_blog}
+            - {name: SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA, value: sarvaika_blog}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 448Mi}
+            limits: {cpu: '1', memory: 768Mi}
+          volumeMounts: [{name: trust, mountPath: /etc/aio-db, readOnly: true}]
+      volumes:
+        - name: trust
+          configMap: {name: rehearsal-db-trust}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: sarvaika-blog, namespace: dev}
+spec:
+  selector: {app.kubernetes.io/name: sarvaika-blog}
+  ports: [{name: http, port: 80, targetPort: http}]

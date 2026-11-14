@@ -47,6 +47,8 @@ management:
         enabled: true
 
 app:
+  runtime:
+    workers-enabled: ${AIO_WORKERS_ENABLED:true}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

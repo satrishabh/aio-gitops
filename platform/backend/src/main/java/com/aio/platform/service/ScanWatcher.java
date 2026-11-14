@@ -28,6 +28,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ScanWatcher {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(ScanWatcher.class);
     private static final ObjectMapper JSON = new ObjectMapper();
     /** Pipeline tasks that are scanners (each has scan / report / gate steps). */
@@ -50,6 +53,7 @@ public class ScanWatcher {
 
     @Scheduled(fixedDelayString = "${app.watch.scan-ms:4000}")
     public void poll() {
+        if (!workersEnabled) return;
         for (ScanRun s : scans.findByStatusIn(ScanRun.ACTIVE)) {
             try {
                 sync(s);
@@ -284,6 +288,7 @@ public class ScanWatcher {
     /** Keeps the newest KEEP_RUNS finished scan PipelineRuns; older ones are deleted after archiving step logs. */
     @Scheduled(fixedDelayString = "${app.watch.cleanup-ms:600000}", initialDelayString = "${app.watch.cleanup-initial-ms:120000}")
     public void prune() {
+        if (!workersEnabled) return;
         List<GenericKubernetesResource> all;
         try {
             all = new ArrayList<>(tekton.listScanRuns());

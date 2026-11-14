@@ -29,8 +29,11 @@ def source(database):
 
 
 def query(command, database, sql, admin=False):
+    command = command.copy()
+    if '-i' not in command:
+        command.insert(command.index('exec') + 1, '-i')
     return subprocess.check_output(command + ['psql', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1'] +
-        (['-U', 'rehearsal_admin'] if admin else []) + ['-d', database, '-c', sql], text=True).strip()
+        (['-U', 'rehearsal_admin'] if admin else []) + ['-d', database], input=sql, text=True).strip()
 
 
 def audit(database):
@@ -60,7 +63,8 @@ def fingerprint_sql(schema, tables):
     return 'SELECT coalesce(json_object_agg(name,detail),\'{}\') FROM (' + ' UNION ALL '.join(parts) + ') checks'
 
 
-def restore_schema(database, tables, target, target_interactive):
+def restore_schema(database, tables, target, target_interactive, target_schema=None):
+    destination_schema = target_schema or database
     # Keep a read-only transaction open so pg_dump and validation see the SAME snapshot.
     holder_command = source(database)
     holder_command.insert(holder_command.index('exec') + 1, '-i')
@@ -91,12 +95,12 @@ def restore_schema(database, tables, target, target_interactive):
         if dump_code or restore_code:
             raise RuntimeError(f'Restore failed (dump={dump_code}, restore={restore_code}); target retained, not accepted')
         # Rename database objects, never rewrite SQL text or COPY payloads.
-        query(target, TARGET_DATABASE, f'ALTER SCHEMA public RENAME TO {ident(database)};'
+        query(target, TARGET_DATABASE, f'ALTER SCHEMA public RENAME TO {ident(destination_schema)};'
               'CREATE SCHEMA public; REVOKE ALL ON SCHEMA public FROM PUBLIC;', True)
-        restored_checks = json.loads(query(target, TARGET_DATABASE, fingerprint_sql(database, tables), True))
+        restored_checks = json.loads(query(target, TARGET_DATABASE, fingerprint_sql(destination_schema, tables), True))
         if source_checks != restored_checks:
             raise RuntimeError('Snapshot row counts/content fingerprints differ for ' + database)
-        return {'sourceDatabase': database, 'targetSchema': database, 'snapshot': snapshot,
+        return {'sourceDatabase': database, 'targetSchema': destination_schema, 'snapshot': snapshot,
                 'tableCount': len(tables), 'rows': sum(x['rows'] for x in source_checks.values()),
                 'snapshotFingerprintsMatched': True,
                 'tables': {name: {'rows': value['rows'], 'contentMatched': True}

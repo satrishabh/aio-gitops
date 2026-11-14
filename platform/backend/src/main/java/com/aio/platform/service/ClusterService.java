@@ -41,6 +41,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class ClusterService {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(ClusterService.class);
     private static final int MAX_LOG_CHARS = 256 * 1024;
     private static final ResourceDefinitionContext PIPELINE_RUN = new ResourceDefinitionContext.Builder()
@@ -157,6 +160,7 @@ public class ClusterService {
     /** Runs in the background: moving apps between clusters waits on Argo CD and must not delay startup. */
     @EventListener(ApplicationReadyEvent.class)
     public void reconcileAll() {
+        if (!workersEnabled) return;
         Thread t = new Thread(() -> {
             for (Project p : projects.findAll()) {
                 try {
@@ -209,6 +213,7 @@ public class ClusterService {
 
     @Scheduled(fixedDelayString = "${app.watch.cleanup-ms:600000}", initialDelayString = "${app.watch.cleanup-initial-ms:120000}")
     public void prune() {
+        if (!workersEnabled) return;
         int keep = Math.max(1, props.cleanup().keepPerProject());
         Instant cutoff = Instant.now().minus(Duration.ofHours(Math.max(1, props.cleanup().maxAgeHours())));
         List<GenericKubernetesResource> all = k8s.genericKubernetesResources(PIPELINE_RUN)

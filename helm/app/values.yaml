@@ -9,6 +9,9 @@ image:
 imagePullSecrets: []    # e.g. [{ name: ghcr-pull }] for private images
 extraVolumes: []
 extraVolumeMounts: []
+# Seconds a terminating pod keeps serving before shutdown so the ingress controller can drop it
+# first (Kubernetes preStop sleep). 0 = off. Must stay well below terminationGracePeriodSeconds (30).
+terminationDrainSeconds: 0
 serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the AIO platform)
 
 containerPort: 8080

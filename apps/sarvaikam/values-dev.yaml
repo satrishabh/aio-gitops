@@ -81,6 +81,7 @@ probes:
     # service (slowest to start), so the pod gets traffic only once content requests succeed.
     path: /api/content/categories
 replicaCount: 1
+terminationDrainSeconds: 8
 resources:
   limits:
     cpu: "1"

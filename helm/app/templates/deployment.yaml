@@ -76,3 +76,9 @@ spec:
           volumeMounts: {{- toYaml . | nindent 12 }}
           {{- end }}
           securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          {{- with .Values.terminationDrainSeconds }}
+          # keep serving while the ingress controller removes this endpoint (no 502s on rollout)
+          lifecycle:
+            preStop:
+              sleep: { seconds: {{ int . }} }
+          {{- end }}

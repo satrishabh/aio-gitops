@@ -16,6 +16,7 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 replicaCount: 1
+terminationDrainSeconds: 8
 routes:
   - host: sarvaikam.com
     path: "/"

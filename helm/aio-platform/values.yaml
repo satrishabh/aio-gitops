@@ -46,3 +46,7 @@ resources:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Seconds a terminating pod keeps serving before shutdown so the ingress controller drops it first
+# (Kubernetes preStop sleep). 0 = off.
+terminationDrainSeconds: 0

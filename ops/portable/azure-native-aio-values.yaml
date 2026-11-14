@@ -1,0 +1,49 @@
+image:
+  repository: ghcr.io/satrishabh/aio-platform
+  digest: sha256:7a9c896b83cc7133078cc23b2b10c5cee3df4235347d99bd0ca23508d7de732a
+imagePullSecrets: [{name: ghcr-pull}]
+existingSecret: aio-platform-runtime
+serviceAccount:
+  name: aio-platform
+  create: false
+extraVolumes:
+  - name: db-trust
+    configMap: {name: rehearsal-db-trust}
+extraVolumeMounts:
+  - {name: db-trust, mountPath: /etc/aio-db, readOnly: true}
+config:
+  APP_PUBLIC_URL: https://app.sarvaikam.com
+  APP_REGISTRY: ghcr.io/satrishabh
+  APP_REGISTRY_USER: satrishabh
+  GITOPS_REPO_URL: https://github.com/satrishabh/aio-gitops.git
+  GITOPS_OWNER: satrishabh
+  GITOPS_REPO: aio-gitops
+  GITOPS_BRANCH: main
+  OIDC_ISSUER_URI: https://profile.sarvaikam.com/realms/aio
+  OIDC_CLIENT_ID: aio-platform
+  ARGOCD_URL: https://argocd-server.argocd.svc
+  ARGOCD_INSECURE: 'true'
+  TEKTON_NAMESPACE: ci
+  ALLOWED_USERS: ''
+  ALLOWED_ROLES: aio-admin,aio-business,aio-community
+  APPROVERS: ''
+  AIO_INDEPENDENT_DELIVERY: 'false'
+  AIO_WORKERS_ENABLED: 'false'
+  AIO_WORKLOAD_PULL_SECRET: ghcr-readonly
+  SPRING_FLYWAY_DEFAULT_SCHEMA: aio_platform
+  SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA: aio_platform
+  APP_CLUSTERS_0_NAME: azure
+  APP_CLUSTERS_0_SERVER: https://kubernetes.default.svc
+  APP_CLUSTERS_0_ENVS: dev,staging,prod
+  APP_CLUSTERS_0_BASEDOMAIN: 52.140.55.184.nip.io
+  APP_CLUSTERS_0_INGRESSIP: 52.140.55.184
+  APP_CLUSTERS_0_ISSUER: letsencrypt-azure
+  APP_CLUSTERS_0_TLS: 'false'
+  # Apps on AKS are served by Traefik (IngressClass aio-azure); the app chart renders Traefik Middlewares
+  APP_CLUSTERS_0_INGRESSCLASS: aio-azure
+  APP_CLUSTERS_0_INGRESSCONTROLLER: traefik
+ingress:
+  enabled: false
+resources:
+  requests: {cpu: 100m, memory: 512Mi}
+  limits: {cpu: '1', memory: 1Gi}

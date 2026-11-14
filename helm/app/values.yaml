@@ -7,6 +7,8 @@ image:
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []    # e.g. [{ name: ghcr-pull }] for private images
+extraVolumes: []
+extraVolumeMounts: []
 serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the AIO platform)
 
 containerPort: 8080
@@ -41,6 +43,9 @@ service:
 ingress:
   enabled: false
   className: nginx
+  # Ingress controller flavour: nginx (ingress-nginx annotations) or traefik (Middleware CRDs for
+  # HTTPS redirect, www redirect and prefix stripping). Set per cluster by the platform.
+  controller: nginx
   host: app.example.com
   tls: false          # HTTPS for host; with issuer set cert-manager issues the certificate (secret <name>-tls)
   issuer: ""          # cert-manager ClusterIssuer, e.g. gts (set by the platform per cluster)

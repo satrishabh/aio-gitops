@@ -1,6 +1,6 @@
 # Azure portability test process
 
-Status: drafted on 2026-11-14. No Azure connection, provisioning or acceptance test has run. The local environment currently has only the existing GCP kubeconfig context and no Azure CLI. Target subscription/resource group/cluster and authenticated access are required.
+Status: updated on 2026-11-14. AKS `creative` is connected; infrastructure/controller/image checks passed. Homepage and isolated Learn now run on Azure. Learn/reels snapshots occupy two schemas of one rehearsal database; backend readiness, UI assets, content/reels APIs, encrypted database sessions and schema isolation passed. Learn requires the recorded Nginx compatibility override; real identity/browser/object-storage and full delivery acceptance remain pending. Public traffic stays on GCP. See [pod tests and mapping](AZURE-POD-TEST-AND-MAPPING.md), [preflight results](AZURE-PREFLIGHT-2026-11-14.md) and [migration process](AZURE-MIGRATION-PROCESS.md).
 
 ## 1. Record the target
 

@@ -1,0 +1,121 @@
+# Nightly logical backups of the live Azure PostgreSQL (aio-validation/postgres-rehearsal).
+#
+# - pg_dump (custom format) of database aio_rehearsal, every live schema, plus role
+#   definitions (pg_dumpall --globals-only), to a dedicated retained Azure Disk.
+#   The *_before_20261114073054 rollback copies are excluded (static, pre-cutover).
+# - Each dump is validated with pg_restore --list before it is kept; 14-day retention.
+# - After the dump the job runs pg_reload_conf() so PostgreSQL picks up a renewed
+#   server certificate (cert-manager rotates the mounted secret; Postgres only
+#   re-reads TLS files on reload).
+# - Connects over TLS (verify-full) as the admin role; no credentials in this file.
+#
+# This protects against database corruption and accidental deletes. It does NOT
+# protect against losing the cluster/node resource group: an off-cluster copy
+# (Azure Blob in resource group `creative`) is still required.
+#
+# Restore: see docs/AZURE-DATABASE-BACKUP.md.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: azure-disk-retain
+driver: disk.csi.azure.com
+deletionPolicy: Retain
+parameters:
+  incremental: "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: aio-validation
+  labels: {app: postgres-backup}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: aio-rehearsal-standard-ssd
+  resources:
+    requests: {storage: 8Gi}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-backup-script
+  namespace: aio-validation
+data:
+  backup.sh: |
+    #!/bin/sh
+    set -eu
+    ts=$(date -u +%Y%m%dT%H%M%SZ)
+    export PGPASSWORD="$(cat /etc/postgres-password/password)"
+    conn="host=postgres-rehearsal.aio-validation.svc.cluster.local dbname=aio_rehearsal user=rehearsal_admin sslmode=verify-full sslrootcert=/etc/aio-db/ca.crt"
+    dump=/backups/aio_rehearsal-$ts.dump
+    globals=/backups/globals-$ts.sql
+    echo "backup start $ts"
+    pg_dump -d "$conn" -Fc -Z 6 --exclude-schema='*_before_20261114073054' -f "$dump.partial"
+    pg_restore --list "$dump.partial" > /dev/null
+    mv "$dump.partial" "$dump"
+    pg_dumpall -d "$conn" --globals-only --no-role-passwords -f "$globals.partial"
+    mv "$globals.partial" "$globals"
+    echo "dump ok: $(du -h "$dump" | cut -f1) $dump"
+    find /backups -maxdepth 1 \( -name 'aio_rehearsal-*.dump' -o -name 'globals-*.sql' \) -mtime +14 -print -delete
+    find /backups -maxdepth 1 -name '*.partial' -mmin +120 -print -delete
+    psql -d "$conn" -Atc "select 'tls reload: ' || pg_reload_conf()"
+    echo "backups kept: $(ls /backups | grep -c '^aio_rehearsal-')"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: aio-validation
+  labels: {app: postgres-backup}
+spec:
+  schedule: "30 2 * * *"
+  timeZone: Asia/Kolkata
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels: {app: postgres-backup}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            runAsNonRoot: true
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: backup
+              # Same image as the server so pg_dump matches the server major version.
+              image: postgres@sha256:a197bcc7150b0a7e35796ef0c110693cba6edd41e92b564cc50b976f17532423
+              command: [sh, /scripts/backup.sh]
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {cpu: 500m, memory: 256Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts:
+                - {name: backups, mountPath: /backups}
+                - {name: scripts, mountPath: /scripts, readOnly: true}
+                - {name: password, mountPath: /etc/postgres-password, readOnly: true}
+                - {name: trust, mountPath: /etc/aio-db, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: backups
+              persistentVolumeClaim: {claimName: postgres-backups}
+            - name: scripts
+              configMap: {name: postgres-backup-script}
+            - name: password
+              secret: {secretName: postgres-rehearsal-admin, defaultMode: 0440}
+            - name: trust
+              configMap: {name: rehearsal-db-trust}
+            - name: tmp
+              emptyDir: {sizeLimit: 64Mi}

@@ -58,6 +58,11 @@ Renders nothing when no annotation applies, so default values produce the same m
 {{- if and .tls .issuer .certOwner }}
 cert-manager.io/cluster-issuer: {{ .issuer | quote }}
 {{- end }}
+{{- if eq (include "app.ingressController" .controller) "traefik" }}
+{{- with (include "app.traefikMiddlewareRefs" .) }}
+traefik.ingress.kubernetes.io/router.middlewares: {{ . | quote }}
+{{- end }}
+{{- else }}
 {{- if and .tls .forceHttps }}
 nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 {{- end }}
@@ -68,10 +73,79 @@ nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
 nginx.ingress.kubernetes.io/use-regex: "true"
 nginx.ingress.kubernetes.io/rewrite-target: /$2
 {{- end }}
+{{- end }}
 {{- if and .externalDns .host }}
 external-dns.alpha.kubernetes.io/hostname: {{ if .wwwRedirect }}{{ printf "%s,www.%s" .host .host | quote }}{{ else }}{{ .host | quote }}{{ end }}
 {{- end }}
 {{- range $k, $v := .extra }}
 {{ $k }}: {{ $v | quote }}
+{{- end }}
+{{- end -}}
+
+{{- /*
+Ingress controller flavour: "nginx" (default, ingress-nginx annotations) or "traefik" (Traefik
+Middleware CRDs). Redirects and prefix stripping are controller-specific; Traefik ignores nginx
+annotations silently, so a cluster running Traefik must set ingress.controller: traefik.
+*/ -}}
+{{- define "app.ingressController" -}}
+{{- $c := default "nginx" . | lower -}}
+{{- if not (has $c (list "nginx" "traefik")) -}}
+{{- fail (printf "ingress.controller must be nginx or traefik, got %q" $c) -}}
+{{- end -}}
+{{- $c -}}
+{{- end -}}
+
+{{- /* Traefik middleware names for one Ingress (dict: name tls forceHttps wwwRedirect strip). */ -}}
+{{- define "app.traefikMiddlewareNames" -}}
+{{- $names := list -}}
+{{- if and .tls .forceHttps }}{{ $names = append $names (printf "%s-https" .name) }}{{ end -}}
+{{- if .wwwRedirect }}{{ $names = append $names (printf "%s-www" .name) }}{{ end -}}
+{{- if .strip }}{{ $names = append $names (printf "%s-strip" .name) }}{{ end -}}
+{{- join "," $names -}}
+{{- end -}}
+
+{{- /* router.middlewares annotation value: <namespace>-<middleware>@kubernetescrd, comma-separated. */ -}}
+{{- define "app.traefikMiddlewareRefs" -}}
+{{- $ns := .namespace -}}
+{{- $refs := list -}}
+{{- range (splitList "," (include "app.traefikMiddlewareNames" .)) }}{{ if . }}{{ $refs = append $refs (printf "%s-%s@kubernetescrd" $ns .) }}{{ end }}{{ end -}}
+{{- join "," $refs -}}
+{{- end -}}
+
+{{- /* Traefik Middleware objects for one Ingress (dict: name namespace labels tls forceHttps wwwRedirect host strip path). */ -}}
+{{- define "app.traefikMiddlewares" -}}
+{{- if and .tls .forceHttps }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .name }}-https
+  labels: {{- .labels | nindent 4 }}
+spec:
+  redirectScheme: { scheme: https, permanent: true }
+---
+{{- end }}
+{{- if .wwwRedirect }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .name }}-www
+  labels: {{- .labels | nindent 4 }}
+spec:
+  redirectRegex:
+    regex: {{ printf `^https?://www\.%s/(.*)` (.host | replace "." `\.`) | quote }}
+    replacement: {{ printf "https://%s/${1}" .host | quote }}
+    permanent: true
+---
+{{- end }}
+{{- if .strip }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .name }}-strip
+  labels: {{- .labels | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes: [{{ trimSuffix "/" .path | quote }}]
+---
 {{- end }}
 {{- end -}}

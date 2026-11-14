@@ -1,0 +1,50 @@
+nameOverride: sarvaikam
+replicaCount: 1
+image:
+  repository: ghcr.io/satrishabh/sarvaikam
+  tag: sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb
+imagePullSecrets: [{name: ghcr-pull}]
+envFrom:
+  - secretRef: {name: sarvaikam-profile-runtime}
+  - secretRef: {name: sarvaikam-db}
+env:
+  - {name: APP_ENV, value: staging}
+  - {name: EMBEDDED_DB, value: 'false'}
+  - {name: DB_HOST, value: postgres-rehearsal.aio-validation.svc.cluster.local}
+  - {name: DB_PORT, value: '5432'}
+  - {name: DB_SSLMODE, value: verify-full}
+  - {name: POSTGRES_DB, value: aio_rehearsal}
+  - {name: POSTGRES_USER, value: learn_rehearsal}
+  - {name: DB_SYNCHRONIZE, value: 'false'}
+  - {name: DB_POOL_SIZE, value: '3'}
+  - {name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE, value: '3'}
+  - {name: PGSSLROOTCERT, value: /etc/aio-db/ca.crt}
+  - {name: NODE_EXTRA_CA_CERTS, value: /etc/aio-db/ca.crt}
+  - {name: DB_URL, value: 'jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam'}
+  - {name: SPRING_FLYWAY_DEFAULT_SCHEMA, value: sarvaikam}
+  - {name: SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA, value: sarvaikam}
+  - {name: REELS_DB_URL, value: 'jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam_reels'}
+  - {name: REELS_DB_USER, value: reels_rehearsal}
+  - {name: PROFILE_CLIENT_ID, value: sarvaikam-learn}
+probes:
+  liveness: {path: /health, initialDelaySeconds: 180}
+  readiness: {path: /ready, initialDelaySeconds: 5}
+extraVolumes:
+  - name: db-trust
+    configMap: {name: rehearsal-db-trust}
+  - name: nginx-compat
+    configMap: {name: learn-nginx-proxy-compat}
+extraVolumeMounts:
+  - {name: db-trust, mountPath: /etc/aio-db, readOnly: true}
+  - {name: nginx-compat, mountPath: /etc/sarvaikam/proxy_headers, subPath: proxy_headers, readOnly: true}
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+resources:
+  requests: {cpu: 100m, memory: 768Mi}
+  limits: {cpu: '1', memory: 2Gi}
+ingress:
+  enabled: false
+  className: aio-azure
+routes: []

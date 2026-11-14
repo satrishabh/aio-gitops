@@ -1,4 +1,9 @@
+{{- $controller := include "app.ingressController" .Values.ingress.controller }}
 {{- if .Values.ingress.enabled }}
+{{- if eq $controller "traefik" }}
+{{- include "app.traefikMiddlewares" (dict "name" (include "app.name" .) "labels" (include "app.labels" .)
+      "tls" .Values.ingress.tls "forceHttps" .Values.ingress.forceHttps) }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -6,7 +11,8 @@ metadata:
   labels: {{- include "app.labels" . | nindent 4 }}
   {{- with (include "app.ingressAnnotations" (dict "tls" .Values.ingress.tls "issuer" .Values.ingress.issuer "certOwner" true
         "forceHttps" .Values.ingress.forceHttps "externalDns" .Values.ingress.externalDns "host" .Values.ingress.host
-        "extra" .Values.ingress.annotations)) }}
+        "extra" .Values.ingress.annotations "controller" $controller "name" (include "app.name" .)
+        "namespace" .Release.Namespace)) }}
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:
@@ -35,14 +41,20 @@ spec:
 {{- range .Values.routes }}
 {{- $path := default "/" .path }}
 {{- $strip := and .stripPrefix (ne $path "/") }}
+{{- $ing := printf "%s-r-%s" (include "app.name" $ | trunc 50 | trimSuffix "-") (printf "%s%s" .host $path | sha1sum | trunc 8) }}
+{{- if eq $controller "traefik" }}
+{{- include "app.traefikMiddlewares" (dict "name" $ing "labels" (include "app.labels" $) "tls" .tls "forceHttps" .forceHttps
+      "wwwRedirect" .wwwRedirect "host" .host "strip" $strip "path" $path) }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "app.name" $ | trunc 50 | trimSuffix "-" }}-r-{{ printf "%s%s" .host $path | sha1sum | trunc 8 }}
+  name: {{ $ing }}
   labels: {{- include "app.labels" $ | nindent 4 }}
     aio.platform/route-host: {{ .host | replace "." "-" | trunc 63 | trimSuffix "-" | quote }}
   {{- with (include "app.ingressAnnotations" (dict "tls" .tls "issuer" .issuer "certOwner" .certOwner "forceHttps" .forceHttps
-        "externalDns" .externalDns "host" .host "wwwRedirect" .wwwRedirect "strip" $strip)) }}
+        "externalDns" .externalDns "host" .host "wwwRedirect" .wwwRedirect "strip" $strip
+        "controller" $controller "name" $ing "namespace" $.Release.Namespace)) }}
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:
@@ -57,10 +69,22 @@ spec:
       secretName: {{ printf "tls-%s" (.host | replace "." "-") | trunc 63 | trimSuffix "-" }}
   {{- end }}
   rules:
+    {{- if and (eq $controller "traefik") .wwwRedirect }}
+    # Traefik: the www host needs its own rule; the -www middleware redirects it to the apex host
+    - host: {{ printf "www.%s" .host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "app.name" $ }}
+                port: { name: http }
+    {{- end }}
     - host: {{ .host | quote }}
       http:
         paths:
-          {{- if and .wwwRedirect .tls }}
+          {{- if and .wwwRedirect .tls (ne $controller "traefik") }}
           - path: /
             pathType: Prefix
             backend:
@@ -68,7 +92,14 @@ spec:
                 name: {{ include "app.name" $ }}
                 port: { name: http }
           {{- end }}
-          {{- if $strip }}
+          {{- if and $strip (eq $controller "traefik") }}
+          - path: {{ trimSuffix "/" $path | quote }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "app.name" $ }}
+                port: { name: http }
+          {{- else if $strip }}
           - path: {{ printf "%s(/|$)(.*)" (trimSuffix "/" $path) | quote }}
             pathType: ImplementationSpecific
             backend:
@@ -93,7 +124,8 @@ metadata:
   name: {{ include "app.name" . }}-preview
   labels: {{- include "app.labels" . | nindent 4 }}
   {{- with (include "app.ingressAnnotations" (dict "tls" .Values.ingress.tls "issuer" .Values.ingress.issuer "certOwner" true
-        "externalDns" .Values.ingress.externalDns "host" .Values.blueGreen.previewHost)) }}
+        "externalDns" .Values.ingress.externalDns "host" .Values.blueGreen.previewHost
+        "controller" $controller "name" (printf "%s-preview" (include "app.name" .)) "namespace" .Release.Namespace)) }}
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:

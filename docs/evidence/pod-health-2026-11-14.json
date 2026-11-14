@@ -1,0 +1,27 @@
+[
+    {
+        "cluster":  "Azure creative",
+        "total":  45,
+        "running":  40,
+        "completed":  5,
+        "failed":  [
+
+                   ],
+        "runningNotReady":  [
+
+                            ]
+    },
+    {
+        "cluster":  "GCP source",
+        "total":  78,
+        "running":  55,
+        "completed":  21,
+        "failed":  [
+                       "ci/sarvaikam-home-ci-fsc2z-scan-pod",
+                       "ci/sarvaikam-home-ci-ll22c-scan-pod"
+                   ],
+        "runningNotReady":  [
+
+                            ]
+    }
+]

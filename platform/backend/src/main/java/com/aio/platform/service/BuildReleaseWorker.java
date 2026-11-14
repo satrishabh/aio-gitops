@@ -15,6 +15,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Durable run rows are the release queue. Project row locks serialize environment writes across workers. */
 @Component
 public class BuildReleaseWorker {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+
     private final CiRunRepo runs;
     private final EntityManager entities;
     private final TransactionTemplate transactions;
@@ -27,6 +30,7 @@ public class BuildReleaseWorker {
 
     @Scheduled(fixedDelayString = "${app.delivery.poll-ms:5000}")
     public void poll() {
+        if (!workersEnabled) return;
         for (Long id : runs.dueReleases(Instant.now(), PageRequest.of(0, 20))) {
             try { transactions.executeWithoutResult(tx -> apply(id)); }
             catch (RuntimeException ignored) {

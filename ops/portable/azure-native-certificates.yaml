@@ -1,0 +1,43 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata: {name: letsencrypt-azure}
+spec:
+  acme:
+    email: i.mishra.rishabh@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef: {name: letsencrypt-azure-account}
+    solvers:
+      - http01:
+          ingress: {ingressClassName: aio-azure}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: tls-profile-sarvaikam-com, namespace: dev}
+spec:
+  secretName: tls-profile-sarvaikam-com
+  dnsNames: [profile.sarvaikam.com]
+  issuerRef: {name: letsencrypt-azure, kind: ClusterIssuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: tls-blog-sarvaikam-com, namespace: dev}
+spec:
+  secretName: tls-blog-sarvaikam-com
+  dnsNames: [blog.sarvaikam.com]
+  issuerRef: {name: letsencrypt-azure, kind: ClusterIssuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: tls-learn-sarvaikam-com, namespace: dev}
+spec:
+  secretName: tls-learn-sarvaikam-com
+  dnsNames: [learn.sarvaikam.com]
+  issuerRef: {name: letsencrypt-azure, kind: ClusterIssuer}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: aio-native-public, namespace: aio-platform}
+spec:
+  secretName: aio-native-public-tls
+  dnsNames: [app.sarvaikam.com]
+  issuerRef: {name: letsencrypt-azure, kind: ClusterIssuer}

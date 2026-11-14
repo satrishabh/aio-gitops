@@ -47,6 +47,9 @@ spec:
       serviceAccountName: {{ . }}
       {{- end }}
       securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.extraVolumes }}
+      volumes: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: app
           image: {{ include "app.image" . | quote }}
@@ -69,4 +72,7 @@ spec:
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: 5
           resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.extraVolumeMounts }}
+          volumeMounts: {{- toYaml . | nindent 12 }}
+          {{- end }}
           securityContext: {{- toYaml .Values.securityContext | nindent 12 }}

@@ -1,0 +1,14 @@
+# The 0bee3f3507d0 image repeats proxy_read_timeout inside the asset location.
+# Nginx defaults to the same 60s timeout for normal routes without this directive;
+# the asset location retains its explicit 300s timeout. No source code is patched.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: learn-nginx-proxy-compat
+  namespace: aio-validation
+data:
+  proxy_headers: |
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;

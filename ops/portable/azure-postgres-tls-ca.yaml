@@ -1,0 +1,71 @@
+# Stable internal CA for the Azure PostgreSQL server certificate.
+#
+# Problem fixed: postgres-rehearsal-server was a self-signed leaf, and every client
+# (rehearsal-db-trust ConfigMaps in dev, aio-platform, aio-validation) trusts exactly
+# that leaf. Each renewal produces a different self-signed leaf, so the first renewal
+# (due 2026-12-06, expiry 2026-12-13) breaks verify-full connections from every app.
+#
+# After this change clients trust a 10-year CA; the server leaf is signed by it and
+# can renew freely. The nightly postgres-backup job runs pg_reload_conf() so Postgres
+# serves each renewed leaf (see azure-postgres-backup.yaml).
+#
+# Apply order (zero downtime) - see docs/AZURE-DATABASE-BACKUP.md "TLS CA rollover":
+#   1. apply the CA objects below (Issuer/Certificate postgres-internal-ca, Issuer postgres-ca)
+#   2. rewrite rehearsal-db-trust ca.crt in all three namespaces = old leaf + new CA
+#   3. rolling-restart Learn (its Node runtime reads NODE_EXTRA_CA_CERTS only at start)
+#   4. patch postgres-rehearsal-server issuerRef -> postgres-ca (the server-cert section
+#      below), wait Ready, then SELECT pg_reload_conf()
+#   5. verify new connections, later drop the old leaf from the trust bundles
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-internal-ca
+  namespace: aio-validation
+spec:
+  isCA: true
+  secretName: postgres-internal-ca
+  commonName: AIO PostgreSQL internal CA
+  subject:
+    organizations: [AIO]
+  duration: 87600h      # 10 years
+  renewBefore: 8760h    # renew in year 9; trust bundle must be updated then
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  issuerRef:
+    name: postgres-rehearsal-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: postgres-ca
+  namespace: aio-validation
+spec:
+  ca:
+    secretName: postgres-internal-ca
+---
+# Step 4 only: server leaf signed by the CA (replaces the self-signed issuerRef).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgres-rehearsal-server
+  namespace: aio-validation
+spec:
+  secretName: postgres-rehearsal-tls
+  commonName: postgres-rehearsal.aio-validation.svc.cluster.local
+  subject:
+    organizations: [AIO rehearsal]
+  duration: 2160h       # 90 days
+  renewBefore: 720h     # renew 30 days early; nightly reload picks it up
+  dnsNames:
+    - postgres-rehearsal
+    - postgres-rehearsal.aio-validation.svc
+    - postgres-rehearsal.aio-validation.svc.cluster.local
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: postgres-ca
+    kind: Issuer

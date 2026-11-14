@@ -17,6 +17,9 @@ import org.springframework.stereotype.Component;
 /** Polls Argo CD for every project environment: live sync/health, running image and deployment history. */
 @Component
 public class DeploymentPoller {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(DeploymentPoller.class);
 
     private final ProjectRepo projects;
@@ -38,6 +41,7 @@ public class DeploymentPoller {
 
     @Scheduled(fixedDelayString = "${app.watch.argocd-ms:15000}")
     public void poll() {
+        if (!workersEnabled) return;
         for (Project p : projects.findAll()) {
             for (String env : GitOpsService.ENVS) {
                 try {

@@ -16,6 +16,9 @@ import org.springframework.stereotype.Component;
 /** Polls active PipelineRuns and mirrors their status, steps and results into the database. */
 @Component
 public class PipelineWatcher {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.ci-workers-enabled:${app.runtime.workers-enabled:true}}")
+    boolean workersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(PipelineWatcher.class);
 
     private final CiRunRepo runs;
@@ -32,6 +35,7 @@ public class PipelineWatcher {
 
     @Scheduled(fixedDelayString = "${app.watch.pipeline-ms:4000}")
     public void poll() {
+        if (!workersEnabled) return;
         for (CiRun run : runs.findByStatusIn(CiRun.ACTIVE)) {
             try {
                 sync(run);

@@ -1,0 +1,153 @@
+{
+    "targetDatabase":  "aio_rehearsal",
+    "sourceMetadata":  {
+                           "sarvaikam":  {
+                                             "schemas":  [
+                                                             "public"
+                                                         ],
+                                             "tables":  [
+                                                            "access_audit",
+                                                            "categories",
+                                                            "content_documents",
+                                                            "content_flyway_history",
+                                                            "learning_path_outcomes",
+                                                            "learning_path_topics",
+                                                            "learning_paths",
+                                                            "lesson_assets",
+                                                            "lesson_bookmarks",
+                                                            "lesson_progress",
+                                                            "lessons",
+                                                            "role_policies",
+                                                            "topics",
+                                                            "users"
+                                                        ],
+                                             "userFunctions":  0,
+                                             "largeObjects":  0,
+                                             "extensions":  [
+                                                                "plpgsql",
+                                                                "uuid-ossp"
+                                                            ],
+                                             "bytes":  9139903
+                                         },
+                           "sarvaikam_reels":  {
+                                                   "schemas":  [
+                                                                   "public"
+                                                               ],
+                                                   "tables":  [
+                                                                  "flyway_schema_history",
+                                                                  "reels"
+                                                              ],
+                                                   "userFunctions":  0,
+                                                   "largeObjects":  0,
+                                                   "extensions":  [
+                                                                      "plpgsql"
+                                                                  ],
+                                                   "bytes":  8099519
+                                               }
+                       },
+    "executed":  true,
+    "schemas":  [
+                    {
+                        "sourceDatabase":  "sarvaikam",
+                        "targetSchema":  "sarvaikam",
+                        "snapshot":  "00000193-0000AEFA-1",
+                        "tableCount":  14,
+                        "rows":  254,
+                        "snapshotFingerprintsMatched":  true,
+                        "tables":  {
+                                       "access_audit":  {
+                                                            "rows":  0,
+                                                            "contentMatched":  true
+                                                        },
+                                       "categories":  {
+                                                          "rows":  10,
+                                                          "contentMatched":  true
+                                                      },
+                                       "content_documents":  {
+                                                                 "rows":  0,
+                                                                 "contentMatched":  true
+                                                             },
+                                       "content_flyway_history":  {
+                                                                      "rows":  7,
+                                                                      "contentMatched":  true
+                                                                  },
+                                       "learning_path_outcomes":  {
+                                                                      "rows":  0,
+                                                                      "contentMatched":  true
+                                                                  },
+                                       "learning_path_topics":  {
+                                                                    "rows":  0,
+                                                                    "contentMatched":  true
+                                                                },
+                                       "learning_paths":  {
+                                                              "rows":  0,
+                                                              "contentMatched":  true
+                                                          },
+                                       "lesson_assets":  {
+                                                             "rows":  0,
+                                                             "contentMatched":  true
+                                                         },
+                                       "lesson_bookmarks":  {
+                                                                "rows":  0,
+                                                                "contentMatched":  true
+                                                            },
+                                       "lesson_progress":  {
+                                                               "rows":  0,
+                                                               "contentMatched":  true
+                                                           },
+                                       "lessons":  {
+                                                       "rows":  202,
+                                                       "contentMatched":  true
+                                                   },
+                                       "role_policies":  {
+                                                             "rows":  0,
+                                                             "contentMatched":  true
+                                                         },
+                                       "topics":  {
+                                                      "rows":  34,
+                                                      "contentMatched":  true
+                                                  },
+                                       "users":  {
+                                                     "rows":  1,
+                                                     "contentMatched":  true
+                                                 }
+                                   }
+                    },
+                    {
+                        "sourceDatabase":  "sarvaikam_reels",
+                        "targetSchema":  "sarvaikam_reels",
+                        "snapshot":  "00000038-00008E58-1",
+                        "tableCount":  2,
+                        "rows":  1,
+                        "snapshotFingerprintsMatched":  true,
+                        "tables":  {
+                                       "flyway_schema_history":  {
+                                                                     "rows":  1,
+                                                                     "contentMatched":  true
+                                                                 },
+                                       "reels":  {
+                                                     "rows":  0,
+                                                     "contentMatched":  true
+                                                 }
+                                   }
+                    }
+                ],
+    "observedAt":  "2026-11-13T22:23:11.159615+00:00",
+    "sourceRemainsWriteAuthority":  true,
+    "applicationAcceptance":  false,
+    "postRestoreChecks":  {
+                              "schemaTables":  {
+                                                   "sarvaikam_reels":  2,
+                                                   "sarvaikam":  14
+                                               },
+                              "invalidConstraints":  0,
+                              "invalidIndexes":  0,
+                              "publicSchemaGrants":  0,
+                              "extensionSchemas":  {
+                                                       "plpgsql":  "pg_catalog",
+                                                       "uuid-ossp":  "sarvaikam"
+                                                   },
+                              "publicTables":  0
+                          },
+    "sourceExporterDeleted":  true
+}

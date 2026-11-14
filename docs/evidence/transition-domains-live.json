@@ -1,0 +1,43 @@
+{
+    "observedAt":  "2026-11-14T06:03:31.1978582Z",
+    "certificateReady":  true,
+    "certificateNotAfter":  "2027-02-12T04:59:23Z",
+    "checks":  [
+                   {
+                       "host":  "learn.sarvaikam.com",
+                       "path":  "/ready",
+                       "status":  200,
+                       "edge":  "Azure",
+                       "applicationBackend":  "GCP",
+                       "systemTlsValidated":  true
+                   },
+                   {
+                       "host":  "profile.sarvaikam.com",
+                       "path":  "/realms/sarvaikam/.well-known/openid-configuration",
+                       "status":  200,
+                       "edge":  "Azure",
+                       "applicationBackend":  "GCP",
+                       "systemTlsValidated":  true
+                   },
+                   {
+                       "host":  "blog.sarvaikam.com",
+                       "path":  "/",
+                       "status":  200,
+                       "edge":  "Azure",
+                       "applicationBackend":  "GCP",
+                       "systemTlsValidated":  true
+                   },
+                   {
+                       "host":  "app.sarvaikam.com",
+                       "path":  "/login",
+                       "status":  200,
+                       "edge":  "Azure",
+                       "applicationBackend":  "GCP",
+                       "systemTlsValidated":  true
+                   }
+               ],
+    "databaseDataCopied":  false,
+    "liveDatabaseAuthority":  "GCP",
+    "upstreamTlsVerified":  true,
+    "upstreamTlsSessionReuse":  false
+}

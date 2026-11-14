@@ -4,6 +4,8 @@ image:
   digest: ""
   pullPolicy: IfNotPresent
 imagePullSecrets: []
+extraVolumes: []
+extraVolumeMounts: []
 existingSecret: aio-platform-runtime
 serviceAccount:
   name: aio-platform
@@ -26,6 +28,7 @@ config:
   ALLOWED_ROLES: aio-admin,aio-business,aio-community
   APPROVERS: ""
   AIO_INDEPENDENT_DELIVERY: "false"
+  AIO_WORKERS_ENABLED: "true"
   # Existing dockerconfigjson Secret in CI for managed workload image reads.
   # Empty retains only the legacy GHCR fallback. No tokens belong here.
   AIO_WORKLOAD_PULL_SECRET: ""

@@ -49,6 +49,9 @@ management:
 app:
   runtime:
     workers-enabled: ${AIO_WORKERS_ENABLED:true}
+    # CI tracking only (Tekton run/scan status, step logs, CI PipelineRun pruning in the CI namespace).
+    # Defaults to workers-enabled; lets CI be observed while delivery reconcilers stay off.
+    ci-workers-enabled: ${AIO_CI_WORKERS_ENABLED:${AIO_WORKERS_ENABLED:true}}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

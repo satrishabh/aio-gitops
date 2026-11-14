@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class ScanWatcher {
-    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.ci-workers-enabled:${app.runtime.workers-enabled:true}}")
     boolean workersEnabled = true;
 
     private static final Logger log = LoggerFactory.getLogger(ScanWatcher.class);

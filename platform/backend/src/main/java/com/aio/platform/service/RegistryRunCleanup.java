@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class RegistryRunCleanup {
-    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.ci-workers-enabled:${app.runtime.workers-enabled:true}}")
     boolean workersEnabled = true;
 
     private final CiRunRepo runs;

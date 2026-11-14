@@ -6,13 +6,17 @@ import json
 from pathlib import Path
 import subprocess
 
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('--kubeconfig',required=True);a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--kubeconfig',required=True)
+p.add_argument('--gcp-hibernated',action='store_true',help='Validate Azure directly; old-IP and cached DNS are intentionally unavailable')
+a=p.parse_args()
 now=datetime.now(timezone.utc).isoformat()
 checks=[]
 for host,path in [('sarvaikam.com','/'),('learn.sarvaikam.com','/ready'),
                    ('profile.sarvaikam.com','/realms/sarvaikam/.well-known/openid-configuration'),
                    ('blog.sarvaikam.com','/'),('app.sarvaikam.com','/login')]:
-    for route,ip in [('Azure direct','52.140.55.184'),('GCP cached DNS forwarder','34.180.3.18'),('Normal DNS',None)]:
+    routes=[('Azure direct','52.140.55.184')]
+    if not a.gcp_hibernated:routes += [('GCP cached DNS forwarder','34.180.3.18'),('Normal DNS',None)]
+    for route,ip in routes:
         command=['curl.exe','--silent','--show-error','--max-time','15','-o','NUL','-w','%{http_code}']
         if ip:command+=['--resolve',host+':443:'+ip]
         status=subprocess.check_output(command+['https://'+host+path],text=True)
@@ -26,6 +30,8 @@ not_ready=[x['metadata']['namespace']+'/'+x['metadata']['name'] for x in running
 proof={'observedAt':now,'nativeAzureRouting':True,'writeAuthority':'Azure','azureToGcpForwardingRemoved':True,
        'sourceApplicationWritersPaused':True,'sourceArgoReconciliationPaused':True,'aioWorkersEnabled':False,
        'authenticatedBrowserAcceptanceRun':False,'checks':checks,'azureRunningPodsNotReady':not_ready}
+proof['gcpCachedDnsForwardingActive']=not a.gcp_hibernated
+proof['normalDnsMayUseRetiredGcpIp']=a.gcp_hibernated
 Path('docs/evidence/native-public-cutover.json').write_text(json.dumps(proof,indent=2))
 status_path=Path('.deploy/tracker/status.json')
 snapshot=json.loads(status_path.read_text(encoding='utf-8-sig'))
@@ -35,6 +41,11 @@ e=snapshot['azure']['evidence'];e['observedAt']=now;e['nativeCutover']=proof
 r=e['routing'];r.pop('transition',None)
 r.update(nativeAzure=True,allApplicationsReady=True,scope='NATIVE_AZURE_APPLICATIONS_AND_DATABASE',observedAt=now,
          publicTlsTrusted=True,publicDNSChanged=True)
+r['sourceHibernated']=a.gcp_hibernated
+if a.gcp_hibernated:
+    snapshot['sourceCapacity']={'gkeNodes':0,'cloudSqlState':'STOPPED','publicLoadBalancerRetired':True,
+        'tracker':'e2-micro retained','dataDisksAndBackupsRetained':True,'controlPlaneRetained':True}
+    snapshot['summary']='Applications and write authority are on Azure. GCP worker nodes are zero; source database compute is stopped and old ingress retired. The e2-micro tracker and source data/backups remain.'
 sync=json.loads(Path('docs/evidence/native-final-schema-sync.json').read_text(encoding='utf-8-sig'))
 db=e['databaseRehearsal'];db.update(observedAt=now,writeAuthority='Azure',applicationDataTransferred=True,
     sourceRemainsServing=False,restoredSchemas=[{'name':x['targetSchema'],'tables':x['tableCount'],

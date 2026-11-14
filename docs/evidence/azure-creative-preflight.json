@@ -17,7 +17,7 @@
                    "diskWrite":  true,
                    "diskPersistenceAfterPodReplacement":  true,
                    "privateAioImagePull":  true,
-                   "ingressInstalled":  false,
+                   "ingressInstalled":  true,
                    "certManagerInstalled":  true,
                    "argoCdInstalled":  true,
                    "tektonInstalled":  true,
@@ -115,5 +115,18 @@
                              "categories":  10,
                              "encryptedDatabaseConnections":  4,
                              "observedAt":  "2026-11-13T22:51:55.2634333Z"
-                         }
+                         },
+    "routing":  {
+                    "publicDNSChanged":  false,
+                    "controller":  "Traefik v3.7.18",
+                    "chartVersion":  "42.4.0",
+                    "dnsAuthority":  "Hostinger",
+                    "serviceType":  "ClusterIP",
+                    "unmappedHostRejected":  true,
+                    "allApplicationsReady":  false,
+                    "canonicalHostTlsTestsPassed":  true,
+                    "scope":  "ALL_DOMAINS_AFTER_ALL_APPLICATIONS_READY",
+                    "dnsAccessConnected":  false,
+                    "observedAt":  "2026-11-14T05:22:30.7684628Z"
+                }
 }

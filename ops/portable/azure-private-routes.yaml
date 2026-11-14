@@ -1,0 +1,48 @@
+# Canonical-host routing tests through a PRIVATE ingress Service. DNS stays on GCP.
+# This self-signed test certificate is NOT suitable for a public cutover.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: azure-private-route-test
+  namespace: aio-validation
+spec:
+  secretName: azure-private-route-test-tls
+  commonName: learn.sarvaikam.com
+  subject:
+    organizations: [AIO private route test]
+  dnsNames: [learn.sarvaikam.com, sarvaikam.com]
+  duration: 168h
+  renewBefore: 24h
+  issuerRef:
+    name: validation-selfsigned
+    kind: Issuer
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: azure-private-routes
+  namespace: aio-validation
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - hosts: [learn.sarvaikam.com, sarvaikam.com]
+      secretName: azure-private-route-test-tls
+  rules:
+    - host: learn.sarvaikam.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sarvaikam-learn
+                port: {number: 8080}
+    - host: sarvaikam.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sarvaikam-home
+                port: {number: 8080}

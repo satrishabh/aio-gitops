@@ -71,6 +71,9 @@ spec:
             httpGet: { path: {{ .Values.probes.readiness.path }}, port: http }
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: 5
+            {{- with .Values.probes.readiness.successThreshold }}
+            successThreshold: {{ int . }}
+            {{- end }}
           resources: {{- toYaml .Values.resources | nindent 12 }}
           {{- with .Values.extraVolumeMounts }}
           volumeMounts: {{- toYaml . | nindent 12 }}

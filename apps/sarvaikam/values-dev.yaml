@@ -80,6 +80,8 @@ probes:
     # /ready only checks the Go progress service; this goes through nginx to the Java content
     # service (slowest to start), so the pod gets traffic only once content requests succeed.
     path: /api/content/categories
+    # two consecutive successes (5s apart): the Java service answers once before it is settled
+    successThreshold: 2
 replicaCount: 1
 terminationDrainSeconds: 8
 resources:

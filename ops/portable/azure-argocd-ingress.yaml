@@ -1,0 +1,48 @@
+# Public Argo CD UI at https://argocd.sarvaikam.com (needed for GitHub SSO callbacks).
+# Requires: DNS A record argocd.sarvaikam.com -> 52.140.55.184, Traefik watching namespace argocd.
+# argocd-server keeps serving its own (self-signed) TLS, so the in-cluster AIO client
+# (https://argocd-server.argocd.svc) is unchanged; Traefik re-encrypts to it.
+#
+# Also annotate the Service (kubectl annotate, see docs/ARGOCD-GITHUB-SSO.md):
+#   traefik.ingress.kubernetes.io/service.serversscheme: https
+#   traefik.ingress.kubernetes.io/service.serverstransport: argocd-argocd-server-tls@kubernetescrd
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: argocd-server-tls
+  namespace: argocd
+spec:
+  # argocd-server presents its own self-signed certificate (argocd-secret); traffic stays in-cluster.
+  insecureSkipVerify: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: argocd
+spec:
+  redirectScheme: { scheme: https, permanent: true }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-azure
+    traefik.ingress.kubernetes.io/router.middlewares: argocd-https-redirect@kubernetescrd
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - hosts: [argocd.sarvaikam.com]
+      secretName: argocd-sarvaikam-com-tls
+  rules:
+    - host: argocd.sarvaikam.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port: { name: https }

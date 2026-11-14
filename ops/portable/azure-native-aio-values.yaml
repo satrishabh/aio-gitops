@@ -42,8 +42,12 @@ config:
   # Apps on AKS are served by Traefik (IngressClass aio-azure); the app chart renders Traefik Middlewares
   APP_CLUSTERS_0_INGRESSCLASS: aio-azure
   APP_CLUSTERS_0_INGRESSCONTROLLER: traefik
+  # Argo CD UI (GitHub SSO) linked from AIO
+  TOOLS_ARGOCD_URL: https://argocd.sarvaikam.com
 ingress:
   enabled: false
 resources:
   requests: {cpu: 100m, memory: 512Mi}
   limits: {cpu: '1', memory: 1Gi}
+# preStop drain: keep serving while Traefik removes the endpoint (no 502s on rollout)
+terminationDrainSeconds: 8

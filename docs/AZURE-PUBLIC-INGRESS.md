@@ -20,3 +20,5 @@ Apply both `ops/portable/azure-ingress-values.yaml` and `ops/portable/azure-ingr
 Public-IP tests passed with DNS overridden locally, not changed globally: Learn `/ready` and reels returned 200, homepage returned 200, and an unmapped host returned 404. These TLS tests explicitly trusted the existing self-signed test certificate. It is **not browser-trusted production TLS**. Structured evidence: `evidence/azure-public-ingress.json`.
 
 The user has now set the root A record to this IP, and the root homepage has a separate production certificate. Leave Learn/profile/blog/AIO records unchanged until their applications, identity and final data checkpoints are ready. `app.sarvaikam.com` and other unmapped hosts have no Azure route yet. Authoritative DNS is at Hostinger; the observed GCP zone is not proven delegated.
+
+Later user DNS edits moved additional hostnames. Trusted transition routes now exist for Learn/profile/blog/AIO, backed by retained GCP services; see [current serving topology](TRANSITION-DOMAINS-LIVE.md). These routes avoid exposing stale rehearsal data and do not complete the pending native migration.

@@ -1,5 +1,5 @@
-# Learn rehearsal route; root homepage has a separate production route/certificate.
-# This Learn self-signed test certificate is NOT suitable for its public cutover.
+# Historical rehearsal test certificate only; no route on the public controller.
+# Reach the isolated Learn service through Kubernetes port-forward, not public DNS.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -7,33 +7,12 @@ metadata:
   namespace: aio-validation
 spec:
   secretName: azure-private-route-test-tls
-  commonName: learn.sarvaikam.com
+  commonName: azure-learn.validation.invalid
   subject:
     organizations: [AIO private route test]
-  dnsNames: [learn.sarvaikam.com]
+  dnsNames: [azure-learn.validation.invalid]
   duration: 168h
   renewBefore: 24h
   issuerRef:
     name: validation-selfsigned
     kind: Issuer
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: azure-private-routes
-  namespace: aio-validation
-spec:
-  ingressClassName: aio-azure
-  tls:
-    - hosts: [learn.sarvaikam.com]
-      secretName: azure-private-route-test-tls
-  rules:
-    - host: learn.sarvaikam.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: sarvaikam-learn
-                port: {number: 8080}

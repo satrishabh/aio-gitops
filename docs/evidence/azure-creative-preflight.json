@@ -125,11 +125,11 @@
                     "unmappedHostRejected":  true,
                     "allApplicationsReady":  false,
                     "canonicalHostTlsTestsPassed":  true,
-                    "scope":  "HOMEPAGE_LIVE_REMAINING_DOMAINS_AFTER_READINESS",
+                    "scope":  "HOMEPAGE_NATIVE_AZURE_TRANSITION_EDGE_GCP_BACKENDS",
                     "dnsAccessConnected":  false,
                     "observedAt":  "2026-11-14T05:33:20.4013921Z",
                     "publicIP":  "52.140.55.184",
-                    "publicTlsTrusted":  false,
+                    "publicTlsTrusted":  true,
                     "homepageLive":  {
                                          "observedAt":  "2026-11-14T05:50:46.3524072Z",
                                          "hostname":  "sarvaikam.com",
@@ -144,6 +144,49 @@
                                          "dnsChangeActor":  "user",
                                          "temporaryGcpChallengeBridgeRemoved":  true,
                                          "wwwStillPointsToHostinger":  true
-                                     }
+                                     },
+                    "transition":  {
+                                       "observedAt":  "2026-11-14T06:03:31.1978582Z",
+                                       "certificateReady":  true,
+                                       "certificateNotAfter":  "2027-02-12T04:59:23Z",
+                                       "checks":  [
+                                                      {
+                                                          "host":  "learn.sarvaikam.com",
+                                                          "path":  "/ready",
+                                                          "status":  200,
+                                                          "edge":  "Azure",
+                                                          "applicationBackend":  "GCP",
+                                                          "systemTlsValidated":  true
+                                                      },
+                                                      {
+                                                          "host":  "profile.sarvaikam.com",
+                                                          "path":  "/realms/sarvaikam/.well-known/openid-configuration",
+                                                          "status":  200,
+                                                          "edge":  "Azure",
+                                                          "applicationBackend":  "GCP",
+                                                          "systemTlsValidated":  true
+                                                      },
+                                                      {
+                                                          "host":  "blog.sarvaikam.com",
+                                                          "path":  "/",
+                                                          "status":  200,
+                                                          "edge":  "Azure",
+                                                          "applicationBackend":  "GCP",
+                                                          "systemTlsValidated":  true
+                                                      },
+                                                      {
+                                                          "host":  "app.sarvaikam.com",
+                                                          "path":  "/login",
+                                                          "status":  200,
+                                                          "edge":  "Azure",
+                                                          "applicationBackend":  "GCP",
+                                                          "systemTlsValidated":  true
+                                                      }
+                                                  ],
+                                       "databaseDataCopied":  false,
+                                       "liveDatabaseAuthority":  "GCP",
+                                       "upstreamTlsVerified":  true,
+                                       "upstreamTlsSessionReuse":  false
+                                   }
                 }
 }

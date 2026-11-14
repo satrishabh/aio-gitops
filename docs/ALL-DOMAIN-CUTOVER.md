@@ -2,6 +2,8 @@
 
 Latest user decision: **start with the homepage**. The user changed the apex A record; `https://sarvaikam.com` is now serving Azure with a trusted certificate. See [homepage repair and live verification](HOMEPAGE-AZURE-LIVE.md). Other domains remain on GCP until their Azure applications and final cutover checks are ready. The earlier all-at-once plan is superseded for the homepage only.
 
+Subsequent update: the user changed more domain records before native backends were ready. Those hosts now have trusted Azure edge routes forwarding to the existing verified GCP applications, preserving live identity/data authority. This is a transition proxy, not a backend migration; [current topology and tests](TRANSITION-DOMAINS-LIVE.md) take precedence over the earlier planned order. No remaining application databases were copied.
+
 ## Prepared routing foundation
 
 Azure ingress: Helm release `aio-azure-ingress`, namespace `aio-ingress`, chart Traefik 42.4.0 / application v3.7.18. Initially tested privately, it was subsequently made public with explicit user approval, using static IP `52.140.55.184` on ports 80/443. Public-IP host-routing checks passed; DNS is unchanged and the certificate is still a self-signed test certificate. See [public ingress handoff](AZURE-PUBLIC-INGRESS.md). The private base values and separately approved public overlay are both tracked. IngressClass `aio-azure` is not the cluster default and exposes no dashboard.

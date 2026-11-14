@@ -1,5 +1,10 @@
 # Multi-cloud product configuration and acceptance
 
+For the complete reusable migration procedure, see
+[Cloud migration runbook](CLOUD-MIGRATION-RUNBOOK.md). This document describes
+provider configuration foundations and earlier acceptance status; Azure was
+subsequently migrated as recorded in the linked runbook and dated event records.
+
 Updated 2026-11-14. The implementation provides one portable Kubernetes chart, provider profiles, generated read-only preflight plans, and an operator-facing target catalog. It does not provision provider infrastructure or claim tested installations outside the existing GCP environment. The new package still needs fresh-cluster acceptance on every target.
 
 ## Target matrix

@@ -1,5 +1,10 @@
 # Azure migration execution record
 
+For the reusable procedure, see [Cloud migration runbook](CLOUD-MIGRATION-RUNBOOK.md).
+This staged execution record contains historical observations. The later
+[native cutover](NATIVE-AZURE-CUTOVER-2026-11-14.md) and
+[GCP hibernation](GCP-DOWNSIZE-2026-11-14.md) records describe subsequent outcomes.
+
 ## 1. Independent controller foundation — installed
 
 Installed on existing AKS `creative` using explicit kubeconfig/context, from official version-pinned manifests:

@@ -1,5 +1,10 @@
 # All-workload migration and switch plan
 
+Historical design draft. For future execution, use the
+[Cloud migration runbook](CLOUD-MIGRATION-RUNBOOK.md). Native Azure cutover and
+GCP hibernation subsequently occurred; the initial status below is historical.
+The proposed automated migration switch remains separate implementation work.
+
 Draft: 2026-11-14. Destination is existing Azure AKS `creative` in resource group `creative`, South India. Authenticated access and isolated infrastructure smoke tests passed; see `AZURE-PREFLIGHT-2026-11-14.md`. No application, data, cluster mapping or traffic has been moved.
 
 ## Observed source inventory

@@ -1,4 +1,4 @@
-# Shared ingress foundation. Keep private until all applications/cutover checks pass.
+# Shared private baseline. Add the separately approved public overlay when required.
 deployment:
   replicas: 1
 service:

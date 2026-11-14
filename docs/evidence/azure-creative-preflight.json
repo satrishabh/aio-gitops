@@ -121,12 +121,14 @@
                     "controller":  "Traefik v3.7.18",
                     "chartVersion":  "42.4.0",
                     "dnsAuthority":  "Hostinger",
-                    "serviceType":  "ClusterIP",
+                    "serviceType":  "LoadBalancer",
                     "unmappedHostRejected":  true,
                     "allApplicationsReady":  false,
                     "canonicalHostTlsTestsPassed":  true,
                     "scope":  "ALL_DOMAINS_AFTER_ALL_APPLICATIONS_READY",
                     "dnsAccessConnected":  false,
-                    "observedAt":  "2026-11-14T05:22:30.7684628Z"
+                    "observedAt":  "2026-11-14T05:33:20.4013921Z",
+                    "publicIP":  "52.140.55.184",
+                    "publicTlsTrusted":  false
                 }
 }

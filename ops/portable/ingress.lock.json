@@ -6,5 +6,7 @@
   "chartArchiveSha256": "eebfaff03c0f210b6424898ccf7583c9d40291cb9b14644ef3e369be6caeb0f0",
   "release": "aio-azure-ingress",
   "namespace": "aio-ingress",
-  "serviceType": "ClusterIP"
+  "baseServiceType": "ClusterIP",
+  "currentServiceType": "LoadBalancer",
+  "staticPublicIPv4": "52.140.55.184"
 }

@@ -1,0 +1,30 @@
+{
+    "observedAt":  "2026-11-14T05:32:23.5996979Z",
+    "publicIP":  "52.140.55.184",
+    "static":  true,
+    "ports":  [
+                  80,
+                  443
+              ],
+    "testCertificateExplicitlyTrusted":  true,
+    "publiclyTrustedCertificateReady":  false,
+    "productionDNSChanged":  false,
+    "unknownHostStatus":  404,
+    "checks":  [
+                   {
+                       "host":  "learn.sarvaikam.com",
+                       "path":  "/ready",
+                       "status":  200
+                   },
+                   {
+                       "host":  "learn.sarvaikam.com",
+                       "path":  "/api/content/reels",
+                       "status":  200
+                   },
+                   {
+                       "host":  "sarvaikam.com",
+                       "path":  "/",
+                       "status":  200
+                   }
+               ]
+}

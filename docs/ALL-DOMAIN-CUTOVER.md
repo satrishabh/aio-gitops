@@ -4,7 +4,7 @@ User decision: move **all domains only after their Azure applications are ready*
 
 ## Prepared routing foundation
 
-Private Azure ingress: Helm release `aio-azure-ingress`, namespace `aio-ingress`, chart Traefik 42.4.0 / application v3.7.18. Archive SHA-256 and source are recorded in `ops/portable/ingress.lock.json`. `azure-ingress-values.yaml` pins a ClusterIP service; it does not allocate a public load balancer, public IP or additional node. IngressClass `aio-azure` is not the cluster default, watches validation routes and exposes no dashboard.
+Azure ingress: Helm release `aio-azure-ingress`, namespace `aio-ingress`, chart Traefik 42.4.0 / application v3.7.18. Initially tested privately, it was subsequently made public with explicit user approval, using static IP `52.140.55.184` on ports 80/443. Public-IP host-routing checks passed; DNS is unchanged and the certificate is still a self-signed test certificate. See [public ingress handoff](AZURE-PUBLIC-INGRESS.md). The private base values and separately approved public overlay are both tracked. IngressClass `aio-azure` is not the cluster default and exposes no dashboard.
 
 `azure-private-routes.yaml` maps canonical Learn/homepage hosts internally. TLS routing tests passed for Learn `/ready`, Learn reels and homepage. An unmapped hostname returned 404. The self-signed test certificate was trusted explicitly for these tests only; this is not evidence of trusted public certificates. Test results: `evidence/azure-private-ingress.json`.
 
@@ -34,4 +34,4 @@ This new payload needs explicit database-specific approval before export under t
 6. Agree a maintenance/write-freeze or tested replication procedure, take fresh data checkpoints (current copies are stale as source writes continue), rehearse final sync and data-safe rollback, then review exact old/new records and TTLs.
 7. Change approved DNS records, observe application health and propagation, retain source resources through the rollback window, and transfer AIO/GitOps worker authority exactly once. Do not use the current cascading single-environment destination replacement as a preview switch.
 
-Current outcome: private routing ready; Learn/homepage staging exists; profile/blog/AIO are not yet ready on Azure. The all-domain cutover condition is not yet met, so no DNS records have been changed.
+Current outcome: public ingress IP allocated and routing tested; Learn/homepage staging exists; profile/blog/AIO are not yet ready on Azure and public TLS is not yet trusted. The all-domain cutover condition is not yet met, so no DNS records have been changed.

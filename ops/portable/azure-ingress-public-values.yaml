@@ -1,0 +1,8 @@
+# Apply with azure-ingress-values.yaml after the operator approves public LB/IP charges.
+# DNS cutover and production certificate issuance are separate operations.
+service:
+  annotations:
+    service.beta.kubernetes.io/azure-pip-name: aio-ingress-public-ip
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: MC_creative_creative_southindia
+  spec:
+    type: LoadBalancer

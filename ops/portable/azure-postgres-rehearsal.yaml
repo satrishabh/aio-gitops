@@ -79,6 +79,7 @@ spec:
       labels: {app: postgres-rehearsal}
     spec:
       automountServiceAccountToken: false
+      priorityClassName: aio-critical
       securityContext:
         runAsUser: 999
         runAsGroup: 999

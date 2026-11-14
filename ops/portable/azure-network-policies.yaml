@@ -1,0 +1,107 @@
+# Ingress isolation for AIO workload namespaces (enforced by Azure CNI powered by Cilium).
+# Egress stays open (GitHub, registries, Let's Encrypt, Azure Blob). System namespaces
+# (kube-system, cert-manager, tekton-pipelines) are not restricted: the API server calls
+# their webhooks. Argo CD ships its own policies in namespace argocd.
+#
+# Rule of thumb: every namespace denies ingress by default; Traefik (namespace aio-ingress)
+# may reach web workloads; only app namespaces and backup jobs may reach PostgreSQL.
+# ------------------------------------------------------------------ dev / staging / prod
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: dev}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ingress-controller-and-same-namespace, namespace: dev}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: staging}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ingress-controller-and-same-namespace, namespace: staging}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: prod}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ingress-controller-and-same-namespace, namespace: prod}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}
+        - podSelector: {}
+# ------------------------------------------------------------------ aio-platform
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: aio-platform}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ingress-controller-to-aio, namespace: aio-platform}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/instance: aio-platform}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}
+      ports: [{port: 8080, protocol: TCP}]
+# ------------------------------------------------------------------ aio-validation (PostgreSQL)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: aio-validation}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-postgres-clients, namespace: aio-validation}
+spec:
+  podSelector: {matchLabels: {app: postgres-rehearsal}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: dev}}
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-platform}}
+        - podSelector: {matchLabels: {app: postgres-backup}}
+      ports: [{port: 5432, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-ingress-controller-to-web, namespace: aio-validation}
+spec:
+  podSelector: {matchExpressions: [{key: app, operator: In, values: [sarvaikam-home, sarvaikam-learn, transition-edge]}]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}
+# ------------------------------------------------------------------ ci (build pods receive no traffic)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: ci}
+spec: {podSelector: {}, policyTypes: [Ingress]}

@@ -1,14 +1,14 @@
 export const COLORS = {
   SUCCEEDED: 'green', Synced: 'green', Healthy: 'green', DONE: 'green',
   READY: 'green', ISSUING: 'blue', PENDING_DNS: 'amber',
-  RUNNING: 'blue', APPLYING: 'blue', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber', Suspended: 'amber',
+  RUNNING: 'blue', APPLYING: 'blue', PAUSED: 'amber', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber', Suspended: 'amber',
   FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
   CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray', 'RISK ACCEPTED': 'orange', 'NOT DEPLOYED': 'gray',
 }
 export const colorOf = v => COLORS[v] || 'gray'
 
 const LABELS = { SUCCEEDED: 'Succeeded', RUNNING: 'Running', PENDING: 'Pending', FAILED: 'Failed', CANCELLED: 'Cancelled',
-  WAITING: 'Waiting', SKIPPED: 'Skipped', DONE: 'Done', APPLYING: 'Applying', REJECTED: 'Rejected', OutOfSync: 'Out of sync',
+  WAITING: 'Waiting', SKIPPED: 'Skipped', DONE: 'Done', APPLYING: 'Applying', PAUSED: 'Needs decision', REJECTED: 'Rejected', OutOfSync: 'Out of sync',
   'RISK ACCEPTED': 'Risk accepted', 'NOT DEPLOYED': 'Not deployed' }
 
 // The dot is decoration; the text label carries the meaning, so colour is never the only signal.

@@ -668,3 +668,17 @@ select option { background: var(--panel-solid); color: var(--text); }
   .row > * { min-width: min(180px, 100%); max-width: 100%; }
   .tpl-actions { flex-wrap: wrap; }
 }
+
+/* ---- deployment execution timeline (Approvals) ---- */
+.execution { margin-top: 10px; display: grid; gap: 10px; }
+.exec-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.exec-step { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--fill-2); }
+.exec-step .exec-index { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; background: var(--fill-3, var(--fill-2)); border: 1px solid var(--border, rgba(127,127,127,.3)); }
+.exec-step .exec-name { flex: 1; }
+.exec-step.running .exec-index { border-color: var(--accent); }
+.exec-step.paused, .exec-step.failed { outline: 1px solid currentColor; outline-color: rgba(220, 120, 0, .45); }
+.exec-decision { padding: 12px; border-radius: 10px; border: 1px solid rgba(220, 120, 0, .45); }
+.exec-error { display: block; white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; }
+.exec-log summary { cursor: pointer; }
+.exec-log ul { margin: 8px 0 0; padding-left: 18px; font-size: 0.82rem; display: grid; gap: 4px; }
+.freeze-banner { border-left: 4px solid #d97706; }

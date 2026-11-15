@@ -29,4 +29,7 @@ public interface CiRunRepo extends JpaRepository<CiRun, Long> {
     List<CiRun> findByCreatedAtAfterOrderByIdAsc(java.time.Instant after);
 
     List<CiRun> findAllByOrderByIdDesc(Pageable page);
+
+    /** Same-commit dedup for webhooks: a build of this exact ref (commit SHA) already running or done. */
+    boolean existsByProjectIdAndGitRefAndDeployAndStatusIn(Long projectId, String gitRef, boolean deploy, Collection<String> statuses);
 }

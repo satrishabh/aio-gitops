@@ -204,7 +204,154 @@ class SagaEngineTest {
         assertThat(SagaEngine.backoff(30)).isEqualTo(Duration.ofMinutes(5));
     }
 
+    // ------------------------------------------------- failure strategy: manual intervention
+
+    @Test
+    void manualInterventionPausesInsteadOfCompensatingAndDoesNotKeepAwake() {
+        SagaEngine engine = engine(manual(def("mi", 8, Duration.ofHours(1), ok("a"), step("verify", c -> Result.fail("error rate 12%")))));
+        SagaInstance s = engine.start("mi", "m1", Map.of());
+        drain(engine);
+        SagaInstance p = reload(s);
+        assertThat(p.status).isEqualTo(SagaInstance.PAUSED);
+        assertThat(p.lastError).isEqualTo("error rate 12%");
+        assertThat(p.nextAttemptAt).isEqualTo(clock.instant().plus(Duration.ofMinutes(30)));
+        assertThat(trace).containsExactly("a");                 // nothing undone yet
+        assertThat(engine.anyActive()).isFalse();               // a paused saga lets the platform sleep
+        assertThat(engine.nextDue()).isEqualTo(p.nextAttemptAt); // ... but the worker still wakes for the timeout
+        assertThat(finished).containsExactly("mi:PAUSED");
+    }
+
+    @Test
+    void retryRunsTheFailedStepAgainWithAFreshDeadline() {
+        int[] runs = {0};
+        SagaEngine engine = engine(manual(def("mr", 8, Duration.ofMinutes(10), ok("a"),
+                step("verify", c -> ++runs[0] == 1 ? Result.fail("smoke 502") : Result.done()))));
+        SagaInstance s = engine.start("mr", "m2", Map.of());
+        drain(engine);
+        clock.advance(Duration.ofMinutes(20));                  // well past the original deadline
+        engine.intervene(s.id, Saga.Action.RETRY, "alice");
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.SUCCEEDED);
+        assertThat(outcomes(s)).containsSubsequence("FAIL", "PAUSED", "RETRY_REQUESTED", "DONE", "SUCCEEDED");
+        assertThat(finished).containsExactly("mr:PAUSED", "mr:resumed RETRY by alice", "mr:SUCCEEDED");
+    }
+
+    @Test
+    void skipMarksTheStepDoneAndContinues() {
+        SagaEngine engine = engine(manual(def("ms", 8, Duration.ofHours(1), step("verify", c -> Result.fail("flaky")), ok("b"))));
+        SagaInstance s = engine.start("ms", "m3", Map.of());
+        drain(engine);
+        engine.intervene(s.id, Saga.Action.SKIP, "bob");
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.SUCCEEDED);
+        assertThat(trace).containsExactly("b");
+        assertThat(events.findBySagaIdOrderByIdAsc(s.id)).anyMatch(e -> "SKIPPED".equals(e.outcome) && e.message.contains("by bob"));
+    }
+
+    @Test
+    void skippingTheLastStepFinishesTheSaga() {
+        SagaEngine engine = engine(manual(def("ml", 8, Duration.ofHours(1), ok("a"), step("verify", c -> Result.fail("x")))));
+        SagaInstance s = engine.start("ml", "m4", Map.of());
+        drain(engine);
+        assertThat(engine.intervene(s.id, Saga.Action.SKIP, "bob").status).isEqualTo(SagaInstance.SUCCEEDED);
+        assertThat(finished).containsExactly("ml:PAUSED", "ml:SUCCEEDED");
+    }
+
+    @Test
+    void rollbackCompensatesNow() {
+        SagaEngine engine = engine(manual(def("mb", 8, Duration.ofHours(1), ok("a"), ok("b"), step("verify", c -> Result.fail("bad")))));
+        SagaInstance s = engine.start("mb", "m5", Map.of());
+        drain(engine);
+        engine.intervene(s.id, Saga.Action.ROLLBACK, "carol");
+        drain(engine);
+        SagaInstance end = reload(s);
+        assertThat(end.status).isEqualTo(SagaInstance.COMPENSATED);
+        assertThat(end.lastError).contains("bad").contains("rolled back by carol");
+        assertThat(trace).containsExactly("a", "b", "undo b", "undo a");
+    }
+
+    @Test
+    void nobodyDecidingRollsBackAfterTheInterventionTimeout() {
+        SagaEngine engine = engine(manual(def("mt", 8, Duration.ofHours(1), ok("a"), step("verify", c -> Result.fail("bad")))));
+        SagaInstance s = engine.start("mt", "m6", Map.of());
+        drain(engine);
+        clock.advance(Duration.ofMinutes(29));
+        assertThat(engine.runDue(10)).isZero();
+        clock.advance(Duration.ofMinutes(2));
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.COMPENSATED);
+        assertThat(outcomes(s)).contains("INTERVENTION_TIMEOUT");
+        assertThat(trace).containsExactly("a", "undo a");
+    }
+
+    @Test
+    void timeoutsFollowTheFailureStrategyToo() {
+        SagaEngine engine = engine(manual(def("mdl", 8, Duration.ofMinutes(10),
+                step("healthy", c -> Result.waitUntil(c.now().plusSeconds(60), "Progressing")))));
+        SagaInstance s = engine.start("mdl", "m7", Map.of());
+        drain(engine);
+        clock.advance(Duration.ofMinutes(11));
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.PAUSED);
+        assertThat(reload(s).lastError).startsWith("timed out in step healthy");
+    }
+
+    @Test
+    void failedUndoCanBeRetriedOrResolvedByAPerson() {
+        boolean[] gitBroken = {true};
+        Saga.Step undoable = new Saga.Step() {
+            public String name() { return "commit"; }
+            public Result execute(Context c) { return Result.done(); }
+            public void compensate(Context c) { if (gitBroken[0]) throw new IllegalStateException("push rejected"); trace.add("undo commit"); }
+        };
+        SagaEngine engine = engine(def("fu", 1, Duration.ofHours(1), undoable, step("b", c -> Result.fail("no"))));
+        SagaInstance s = engine.start("fu", "u1", Map.of());
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.FAILED);
+
+        gitBroken[0] = false;
+        engine.intervene(s.id, Saga.Action.RETRY, "dave");
+        drain(engine);
+        assertThat(reload(s).status).isEqualTo(SagaInstance.COMPENSATED);
+        assertThat(trace).containsExactly("undo commit");
+
+        SagaInstance t = engine.start("fu", "u2", Map.of());
+        gitBroken[0] = true;
+        drain(engine);
+        SagaInstance resolved = engine.intervene(t.id, Saga.Action.RESOLVE, "dave");
+        assertThat(resolved.status).isEqualTo(SagaInstance.COMPENSATED);
+        assertThat(resolved.lastError).startsWith("resolved manually by dave");
+    }
+
+    @Test
+    void decisionsOnlyApplyToSagasThatNeedOne() {
+        SagaEngine engine = engine(manual(def("md", 8, Duration.ofHours(1), step("verify", c -> Result.fail("x")))),
+                def("busy", 8, Duration.ofHours(1), step("w", c -> Result.waitUntil(c.now().plusSeconds(60), "x"))));
+        SagaInstance paused = engine.start("md", "d1", Map.of());
+        SagaInstance running = engine.start("busy", "d2", Map.of());
+        drain(engine);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> engine.intervene(running.id, Saga.Action.RETRY, "x"))
+                .isInstanceOf(IllegalStateException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> engine.intervene(paused.id, Saga.Action.RESOLVE, "x"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    /** Wraps a definition with the MANUAL_INTERVENTION failure strategy and a 30 min decision window. */
+    private Saga.Definition manual(Saga.Definition d) {
+        return new Saga.Definition() {
+            public String type() { return d.type(); }
+            public List<Saga.Step> steps() { return d.steps(); }
+            public Duration timeout() { return d.timeout(); }
+            public int maxAttempts() { return d.maxAttempts(); }
+            public void onFinished(Context c, String status) { d.onFinished(c, status); }
+            public Saga.OnFailure onFailure(Context c) { return Saga.OnFailure.MANUAL_INTERVENTION; }
+            public Duration interventionTimeout() { return Duration.ofMinutes(30); }
+            public void onPaused(Context c, String reason) { finished.add(d.type() + ":PAUSED"); }
+            public void onResumed(Context c, String action, String actor) { finished.add(d.type() + ":resumed " + action + " by " + actor); }
+        };
+    }
 
     private SagaEngine engine(Saga.Definition... defs) {
         var beans = new StaticListableBeanFactory(Map.of("clock", clock));

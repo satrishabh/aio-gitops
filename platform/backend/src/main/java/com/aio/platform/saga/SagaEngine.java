@@ -95,6 +95,96 @@ public class SagaEngine {
         return events.findBySagaIdOrderByIdAsc(sagaId);
     }
 
+    /** Step names of a saga type, in order (for progress displays). */
+    public List<String> stepNames(String type) {
+        return definition(type).steps().stream().map(Saga.Step::name).toList();
+    }
+
+    /**
+     * Applies a person's decision to a PAUSED or FAILED saga (see {@link Saga.Action}). Atomic under optimistic
+     * locking: of two people clicking at once, one wins and the other gets a conflict. Returns the updated saga.
+     */
+    public SagaInstance intervene(Long id, Saga.Action action, String actor) {
+        Instant now = clock.instant();
+        SagaInstance s = tx.execute(st -> {
+            SagaInstance x = instances.findById(id).orElseThrow();
+            if (x.lockedUntil != null && x.lockedUntil.isAfter(now)) throw new IllegalStateException("saga is being advanced; try again");
+            Definition d = definition(x.type);
+            List<Saga.Step> steps = d.steps();
+            List<SagaEvent> history = new ArrayList<>();
+            String who = "by " + actor;
+            if (SagaInstance.PAUSED.equals(x.status)) {
+                switch (action) {
+                    case RETRY -> {
+                        x.status = SagaInstance.RUNNING;
+                        x.attempts = 0;
+                        x.nextAttemptAt = now;
+                        x.deadlineAt = now.plus(d.timeout());
+                        history.add(SagaEvent.of(x.id, name(steps, x.step), "RETRY_REQUESTED", who, now));
+                    }
+                    case SKIP -> {
+                        history.add(SagaEvent.of(x.id, name(steps, x.step), "SKIPPED", who + " (was: " + x.lastError + ")", now));
+                        x.status = SagaInstance.RUNNING;
+                        x.step++;
+                        x.attempts = 0;
+                        x.lastError = null;
+                        x.nextAttemptAt = now;
+                        x.deadlineAt = now.plus(d.timeout());
+                        if (x.step >= steps.size()) {
+                            x.status = SagaInstance.SUCCEEDED;
+                            x.nextAttemptAt = null;
+                            history.add(SagaEvent.of(x.id, null, "SUCCEEDED", null, now));
+                        }
+                    }
+                    case ROLLBACK -> {
+                        history.add(SagaEvent.of(x.id, name(steps, x.step), "ROLLBACK_REQUESTED", who, now));
+                        beginCompensation(x, x.lastError + " (rolled back " + who + ")", now, history, steps);
+                    }
+                    default -> throw new IllegalArgumentException("a paused saga can be retried, skipped or rolled back");
+                }
+            } else if (SagaInstance.FAILED.equals(x.status)) {
+                switch (action) {
+                    case RETRY -> {
+                        x.status = SagaInstance.COMPENSATING;
+                        x.attempts = 0;
+                        x.nextAttemptAt = now;
+                        history.add(SagaEvent.of(x.id, name(steps, x.step), "RETRY_REQUESTED", who + " (undo)", now));
+                    }
+                    case RESOLVE -> {
+                        x.status = SagaInstance.COMPENSATED;
+                        x.nextAttemptAt = null;
+                        x.lastError = "resolved manually " + who + ": " + x.lastError;
+                        history.add(SagaEvent.of(x.id, name(steps, x.step), "RESOLVED", who, now));
+                    }
+                    default -> throw new IllegalArgumentException("a failed saga can only have its undo retried or be marked resolved");
+                }
+            } else {
+                throw new IllegalStateException("saga is " + x.status + "; nothing to decide");
+            }
+            x.data = withoutWait(x.data);
+            x.updatedAt = now;
+            SagaInstance saved = instances.saveAndFlush(x);
+            events.saveAll(history);
+            return saved;
+        });
+        Definition d = definition(s.type);
+        Context ctx = new Context(s, now);
+        try {
+            if (!s.open()) d.onFinished(ctx, s.status);
+            else d.onResumed(ctx, action.name(), actor);
+        } catch (Exception e) {
+            log.warn("saga {} ({}) hook after {} failed: {}", s.id, s.type, action, e.toString());
+        }
+        wakeListener.run();
+        return s;
+    }
+
+    private static String withoutWait(String json) {
+        var m = Context.parse(json);
+        m.remove("_wait");
+        return Context.write(m);
+    }
+
     /** True while any saga is running or compensating (used by the keep-awake lease). */
     public boolean anyActive() {
         return instances.countByStatusIn(List.of(SagaInstance.RUNNING, SagaInstance.COMPENSATING)) > 0;
@@ -141,7 +231,7 @@ public class SagaEngine {
         try {
             s = tx.execute(st -> {
                 SagaInstance x = instances.findById(id).orElse(null);
-                if (x == null || !x.active()) return null;
+                if (x == null || !x.open()) return null;
                 if (x.nextAttemptAt != null && x.nextAttemptAt.isAfter(now)) return null;
                 if (x.lockedUntil != null && x.lockedUntil.isAfter(now)) return null;
                 x.lockedUntil = now.plus(LEASE);
@@ -155,8 +245,16 @@ public class SagaEngine {
         Definition d = definition(s.type);
         Context ctx = new Context(s, now);
         List<SagaEvent> history = new ArrayList<>();
-        if (SagaInstance.RUNNING.equals(s.status)) runStep(d, s, ctx, now, history);
-        else compensateStep(d, s, ctx, now, history);
+        boolean wasRunning = SagaInstance.RUNNING.equals(s.status);
+        if (SagaInstance.PAUSED.equals(s.status)) {          // nobody decided in time: fall back to rollback
+            history.add(SagaEvent.of(s.id, name(d.steps(), s.step), "INTERVENTION_TIMEOUT",
+                    "no decision within " + d.interventionTimeout() + "; rolling back", now));
+            beginCompensation(s, s.lastError + " (no decision within " + d.interventionTimeout() + ")", now, history, d.steps());
+        } else if (wasRunning) {
+            runStep(d, s, ctx, now, history);
+        } else {
+            compensateStep(d, s, ctx, now, history);
+        }
 
         s.data = ctx.json();
         s.lockedUntil = null;
@@ -170,12 +268,11 @@ public class SagaEngine {
             log.warn("saga {} changed while step ran; outcome discarded, step will run again", id);
             return false;
         }
-        if (!s.active()) {
-            try {
-                d.onFinished(ctx, s.status);
-            } catch (Exception e) {
-                log.warn("saga {} ({}) onFinished hook failed: {}", id, s.type, e.toString());
-            }
+        try {
+            if (!s.open()) d.onFinished(ctx, s.status);
+            else if (wasRunning && SagaInstance.PAUSED.equals(s.status)) d.onPaused(ctx, s.lastError);
+        } catch (Exception e) {
+            log.warn("saga {} ({}) hook failed: {}", id, s.type, e.toString());
         }
         return true;
     }
@@ -184,8 +281,8 @@ public class SagaEngine {
         List<Saga.Step> steps = d.steps();
         if (s.deadlineAt != null && now.isAfter(s.deadlineAt)) {
             history.add(SagaEvent.of(s.id, name(steps, s.step), "TIMEOUT", "deadline " + s.deadlineAt + " exceeded", now));
-            beginCompensation(s, "timed out in step " + name(steps, s.step)
-                    + (s.lastError == null ? "" : " (last error: " + s.lastError + ")"), now, history, steps);
+            onStepFailed(d, s, ctx, "timed out in step " + name(steps, s.step)
+                    + (s.lastError == null ? "" : " (last error: " + s.lastError + ")"), now, history);
             return;
         }
         Saga.Step step = steps.get(s.step);
@@ -223,7 +320,7 @@ public class SagaEngine {
                 s.lastError = retry.error();
                 if (s.attempts >= d.maxAttempts()) {
                     history.add(SagaEvent.of(s.id, step.name(), "FAIL", "gave up after " + s.attempts + " attempts: " + retry.error(), now));
-                    beginCompensation(s, retry.error(), now, history, steps);
+                    onStepFailed(d, s, ctx, retry.error(), now, history);
                 } else {
                     history.add(SagaEvent.of(s.id, step.name(), "RETRY", retry.error(), now));
                     s.nextAttemptAt = now.plus(backoff(s.attempts));
@@ -231,8 +328,29 @@ public class SagaEngine {
             }
             case Result.Fail fail -> {
                 history.add(SagaEvent.of(s.id, step.name(), "FAIL", fail.error(), now));
-                beginCompensation(s, fail.error(), now, history, steps);
+                onStepFailed(d, s, ctx, fail.error(), now, history);
             }
+        }
+    }
+
+    /** Applies the definition's failure strategy: pause for a person, or compensate right away. */
+    private void onStepFailed(Definition d, SagaInstance s, Context ctx, String error, Instant now, List<SagaEvent> history) {
+        Saga.OnFailure strategy;
+        try {
+            strategy = d.onFailure(ctx);
+        } catch (Exception e) {
+            strategy = Saga.OnFailure.ROLLBACK;
+        }
+        if (strategy == Saga.OnFailure.MANUAL_INTERVENTION) {
+            s.status = SagaInstance.PAUSED;
+            s.lastError = error;
+            s.attempts = 0;
+            s.nextAttemptAt = now.plus(d.interventionTimeout());   // auto-rollback if nobody decides
+            ctx.put("_wait", null);
+            history.add(SagaEvent.of(s.id, name(d.steps(), s.step), "PAUSED",
+                    "waiting for a decision until " + s.nextAttemptAt + ": " + error, now));
+        } else {
+            beginCompensation(s, error, now, history, d.steps());
         }
     }
 

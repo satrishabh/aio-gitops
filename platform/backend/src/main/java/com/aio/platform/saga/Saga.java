@@ -26,7 +26,38 @@ public final class Saga {
 
         /** Called once when the saga reaches SUCCEEDED, COMPENSATED or FAILED (after the state is saved). */
         default void onFinished(Context ctx, String status) {}
+
+        /**
+         * Failure strategy, decided per saga when a step fails for good (like Harness "failure strategies"):
+         * {@link OnFailure#ROLLBACK} compensates at once (the default); {@link OnFailure#MANUAL_INTERVENTION}
+         * pauses the saga so a person can retry the step, skip it, or roll back. A paused saga costs nothing:
+         * it holds no lease and does not keep the platform awake.
+         */
+        default OnFailure onFailure(Context ctx) { return OnFailure.ROLLBACK; }
+
+        /** How long a paused saga waits for a person before it rolls back on its own. */
+        default Duration interventionTimeout() { return Duration.ofHours(2); }
+
+        /** Called after the saga pauses for intervention ({@code reason} = the failure). */
+        default void onPaused(Context ctx, String reason) {}
+
+        /** Called after a person resumed a paused or failed saga that is still open (RETRY, SKIP, ROLLBACK). */
+        default void onResumed(Context ctx, String action, String actor) {}
     }
+
+    /** What happens when a step fails permanently or runs out of attempts. */
+    public enum OnFailure { ROLLBACK, MANUAL_INTERVENTION }
+
+    /**
+     * A person's decision on a saga that needs one.
+     * <ul>
+     *   <li>PAUSED: {@code RETRY} runs the failed step again (fresh attempts and deadline); {@code SKIP} marks it done
+     *       and continues (e.g. a flaky verification the person checked by hand); {@code ROLLBACK} compensates now.</li>
+     *   <li>FAILED (an undo failed): {@code RETRY} retries the compensation; {@code RESOLVE} records that the person
+     *       fixed it by hand and closes the saga as COMPENSATED.</li>
+     * </ul>
+     */
+    public enum Action { RETRY, SKIP, ROLLBACK, RESOLVE }
 
     /**
      * One idempotent step. {@link #execute} must be safe to run again after a crash ("ensure X", compare before

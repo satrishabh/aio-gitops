@@ -15,8 +15,8 @@ CREATE TABLE saga_instances (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
--- the worker's only query: active sagas by due time
-CREATE INDEX ix_saga_due ON saga_instances(next_attempt_at) WHERE status IN ('RUNNING', 'COMPENSATING');
+-- the worker's only query: open sagas by due time (PAUSED ones are due when their intervention window ends)
+CREATE INDEX ix_saga_due ON saga_instances(next_attempt_at) WHERE status IN ('RUNNING', 'COMPENSATING', 'PAUSED');
 
 CREATE TABLE saga_events (
     id      BIGSERIAL PRIMARY KEY,

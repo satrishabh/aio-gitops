@@ -12,7 +12,9 @@ import java.time.Instant;
 @Table(name = "saga_instances")
 public class SagaInstance {
     public static final String RUNNING = "RUNNING", COMPENSATING = "COMPENSATING", SUCCEEDED = "SUCCEEDED",
-            COMPENSATED = "COMPENSATED", FAILED = "FAILED";
+            COMPENSATED = "COMPENSATED", FAILED = "FAILED",
+            /** A step failed and the definition asked for manual intervention: waits for a human (or the timeout). */
+            PAUSED = "PAUSED";
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) public Long id;
     public String type;
@@ -32,7 +34,13 @@ public class SagaInstance {
     public Instant createdAt;
     public Instant updatedAt;
 
+    /** Doing work right now (keeps the platform awake). PAUSED is not active: it waits for a person, at no cost. */
     public boolean active() {
         return RUNNING.equals(status) || COMPENSATING.equals(status);
+    }
+
+    /** Not finished yet: active, or paused for intervention. */
+    public boolean open() {
+        return active() || PAUSED.equals(status);
     }
 }

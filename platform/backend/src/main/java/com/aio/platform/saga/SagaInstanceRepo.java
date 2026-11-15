@@ -12,14 +12,14 @@ import org.springframework.data.repository.query.Param;
 public interface SagaInstanceRepo extends JpaRepository<SagaInstance, Long> {
     Optional<SagaInstance> findByBusinessKey(String businessKey);
 
-    /** Active sagas that are due and not leased, oldest due first. */
-    @Query("select s.id from SagaInstance s where s.status in ('RUNNING','COMPENSATING') "
+    /** Open sagas (active, or paused with an intervention deadline) that are due and not leased, oldest due first. */
+    @Query("select s.id from SagaInstance s where s.status in ('RUNNING','COMPENSATING','PAUSED') "
             + "and (s.nextAttemptAt is null or s.nextAttemptAt <= :now) "
             + "and (s.lockedUntil is null or s.lockedUntil <= :now) order by s.nextAttemptAt")
     List<Long> due(@Param("now") Instant now, Pageable page);
 
-    /** Earliest moment any active saga needs the worker; null when nothing is active. */
-    @Query("select min(s.nextAttemptAt) from SagaInstance s where s.status in ('RUNNING','COMPENSATING')")
+    /** Earliest moment any open saga needs the worker; null when nothing is open. */
+    @Query("select min(s.nextAttemptAt) from SagaInstance s where s.status in ('RUNNING','COMPENSATING','PAUSED')")
     Instant nextDue();
 
     long countByStatusIn(Collection<String> statuses);

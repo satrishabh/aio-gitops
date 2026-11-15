@@ -4,7 +4,7 @@ nameOverride: scalesafe-verification
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-verification
-  tag: "8b081793ddb2"
+  tag: "73a5118c1b16"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

@@ -1,19 +1,52 @@
-# Managed by AIO platform - image.tag is updated by CI / promotions
+# AIO dev values for scalesafe-investors (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-investors/values-dev.yaml in
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
+nameOverride: scalesafe-investors
+replicaCount: 0   # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-investors
   tag: "0.0.0"
-# 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 0
 imagePullSecrets:
   - name: ghcr-pull
-pdb:
-  enabled: false
+containerPort: 8080
+envFrom:
+  - secretRef:
+      name: scalesafe-investors-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
+env:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+  - name: SCALESAFE_SAGA_ORCHESTRATOR_URL
+    value: "http://scalesafe-orchestrator"
+  - name: SCALESAFE_SAGA_SERVICE_NAME
+    value: "investor-service"
+  - name: SCALESAFE_SAGA_BASE_URL
+    value: "http://scalesafe-investors"
+  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+    value: "https://scalesafe-app-dev.52.140.55.184.nip.io,https://scalesafe-admin-dev.52.140.55.184.nip.io"
+  - name: SCALESAFE_INVESTOR_PUBLIC_APP_URL
+    value: "https://scalesafe-app-dev.52.140.55.184.nip.io"
+  - name: SCALESAFE_INVESTOR_VERIFICATION_URL
+    value: "http://scalesafe-verification"
+resources:
+  requests: { cpu: 25m, memory: 256Mi }
+  limits: { cpu: 500m, memory: 512Mi }
+probes:
+  liveness:
+    path: /health/liveness
+    initialDelaySeconds: 180
+  readiness:
+    path: /health/readiness
+    initialDelaySeconds: 20
 ingress:
-  enabled: true
-  host: scalesafe-investors-dev.52.140.55.184.nip.io
   className: aio-azure
   controller: traefik
-env: []
-resources:
-  requests: { cpu: "25m", memory: "256Mi" }
-  limits: { cpu: "500m", memory: "512Mi" }
+  enabled: false
+routes:
+  - host: scalesafe-api-dev.52.140.55.184.nip.io
+    path: "/investors"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: false   # the orchestrator's route owns the api host certificate
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: true
+    externalDns: false

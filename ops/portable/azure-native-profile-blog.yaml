@@ -43,7 +43,7 @@ spec:
             httpGet: {path: /health/live, port: http}
             timeoutSeconds: 3
           resources:
-            requests: {cpu: 100m, memory: 512Mi}
+            requests: {cpu: 40m, memory: 512Mi}  # idles at ~2m; single-node sizing
             limits: {cpu: '1', memory: 1Gi}
           volumeMounts: [{name: trust, mountPath: /etc/aio-db, readOnly: true}]
       volumes:
@@ -92,7 +92,7 @@ spec:
             httpGet: {path: /health, port: http}
             timeoutSeconds: 3
           resources:
-            requests: {cpu: 100m, memory: 448Mi}
+            requests: {cpu: 30m, memory: 448Mi}  # idles at ~1m; single-node sizing
             limits: {cpu: '1', memory: 768Mi}
           volumeMounts: [{name: trust, mountPath: /etc/aio-db, readOnly: true}]
       volumes:

@@ -47,7 +47,7 @@ config:
 ingress:
   enabled: false
 resources:
-  requests: {cpu: 100m, memory: 512Mi}
+  requests: {cpu: 40m, memory: 512Mi}  # idles at ~3m; single-node sizing
   limits: {cpu: '1', memory: 1Gi}
 # preStop drain: keep serving while Traefik removes the endpoint (no 502s on rollout)
 terminationDrainSeconds: 8

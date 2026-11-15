@@ -183,7 +183,7 @@ Below that, the only bigger lever is leaving AKS for a single VM running k3s (â‰
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **1 (branch, tonight)** | Saga engine + tables; Promotion as a saga (fixes the FAILED-but-committed bug and the approval race); webhook inbox with delivery dedup + same-commit dedup; keep-awake lease; UI hidden-tab pause; stuck-PENDING fix; scheduler pool | All tests green; PR opened; nothing deployed |
+| **1 (done on branch, see AIO-V2-PHASE1.md)** | Saga engine + tables; Promotion as a saga (fixes the FAILED-but-committed bug and the approval race); webhook inbox with delivery dedup + same-commit dedup; keep-awake lease; UI hidden-tab pause; stuck-PENDING fix; scheduler pool | All tests green (136 backend + 5 UI); PR ready; nothing deployed |
 | 2 | Release saga replaces PipelineWatcher + BuildReleaseWorker; Tekton CloudEvents; enable workers on Azure; retire `update-gitops` | One writer per values file; a dev release in â‰¤ 1 event hop |
 | 3 | `CiPort` with a GitHub Actions adapter (`workflow_dispatch` + `workflow_run`); Tekton optional | Builds without Tekton awake; no per-run disks |
 | 4 | ProvisionProject / CreateFromTemplate / DeleteProject / Domain sagas; Argo notifications; drop DeploymentPoller | No fixed-rate pollers left |

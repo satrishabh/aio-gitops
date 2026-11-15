@@ -4,7 +4,7 @@ nameOverride: scalesafe-investors
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-investors
-  tag: "448b982624f1"
+  tag: "d0126f19b20d"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

@@ -32,3 +32,20 @@ archive bucket and VM.
 Only `aio-migration-tracker` (e2-micro, us-central1-a, no public IP) and its 10 GB
 pd-standard disk — within the GCP free tier. Expected saving: roughly US$80–90/month
 (list-price estimate; confirm in GCP Billing).
+
+## Projects shut down (15 Nov 2026, later the same day)
+
+At the owner's request, all five GCP projects on the account were shut down with `gcloud projects delete`.
+Billing was unlinked from the two billed projects first.
+
+| Project | Contents at shutdown |
+|---|---|
+| `project-d28840cd-be2f-4901-85e` (old AIO) | `aio-migration-tracker` e2-micro VM + 10 GB disk (everything else already archived/deleted above) |
+| `aio-cicd` | empty |
+| `gen-lang-client-0764328710` (Default Gemini Project) | one Gemini API key, which **no longer works** |
+| `project-e29669bf-0e31-4b49-b7b` | Gemini API enabled, no keys |
+| `gleaming-tube-488807-h0` | empty |
+
+- **State:** all five are `DELETE_REQUESTED`. They can be restored with `gcloud projects undelete <id>` until about **15 Dec 2026**; after that Google deletes them permanently.
+- **Billing account** `011955-D869B6-4B8BE8` has no linked projects. The owner closes it in the Cloud Console under Billing → Manage billing accounts → Close; the CLI has no close command. A final invoice may still arrive for usage up to today.
+- **Recovery:** the data archive in Azure Blob (`aiocreativebackups/gcp-archive/...`, above) is now the only copy of the GCP-era data.

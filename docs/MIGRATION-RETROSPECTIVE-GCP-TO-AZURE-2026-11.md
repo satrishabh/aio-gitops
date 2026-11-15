@@ -148,6 +148,7 @@ Each entry gives: **symptom → cause → fix → lesson**.
 - [ ] Write the retrospective (this file) while the details are fresh.
 
 ## 6. Still open (15 Nov)
+- GCP: all projects shut down 15 Nov (recoverable until ~15 Dec); close billing account 011955-… in the console.
 - Upgrade the subscription from Free Trial to Pay-As-You-Go before the trial ends.
 - Optional: move the cluster to Central India and buy a 1-year reservation (≈ US$60/month total).
 - Have AIO renew its own sleep session while a build is running.

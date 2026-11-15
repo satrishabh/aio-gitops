@@ -27,7 +27,7 @@ probes:
     path: /health
     initialDelaySeconds: 2
 ingress:
-  enabled: true
+  enabled: false   # served by the AIO domain route below (indiescale.in + www, own certificate)
   className: aio-azure
   controller: traefik
   host: indiescale.in

@@ -4,7 +4,7 @@ nameOverride: scalesafe-admin
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-admin
-  tag: "0458e5a675a9"
+  tag: "73a5118c1b16"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

@@ -1,0 +1,19 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
+image:
+  repository: ghcr.io/satrishabh/scalesafe-investors
+  tag: "0.0.0"
+# 0 until a real image is deployed (avoids pulling the placeholder tag)
+replicaCount: 0
+imagePullSecrets:
+  - name: ghcr-pull
+pdb:
+  enabled: false
+ingress:
+  enabled: true
+  host: scalesafe-investors-staging.52.140.55.184.nip.io
+  className: aio-azure
+  controller: traefik
+env: []
+resources:
+  requests: { cpu: "25m", memory: "256Mi" }
+  limits: { cpu: "500m", memory: "512Mi" }

@@ -1,16 +1,16 @@
 # AIO dev values for scalesafe-verification (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-verification/values-dev.yaml in
 # satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
 nameOverride: scalesafe-verification
-replicaCount: 0   # AIO scales to 1 when it deploys the first scanned image
+replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-verification
-  tag: "0.0.0"
+  tag: "26b16f8b3321"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
 envFrom:
   - secretRef:
-      name: scalesafe-verification-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
+      name: scalesafe-verification-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
 env:
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
@@ -25,8 +25,8 @@ env:
   - name: SCALESAFE_PROVIDERS_MODE
     value: "sandbox"
 resources:
-  requests: { cpu: 25m, memory: 256Mi }
-  limits: { cpu: 500m, memory: 512Mi }
+  requests: {cpu: 25m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
 probes:
   liveness:
     path: /health/liveness
@@ -43,7 +43,7 @@ routes:
     path: "/verification"
     tls: true
     issuer: letsencrypt-azure
-    certOwner: false   # the orchestrator's route owns the api host certificate
+    certOwner: false # the orchestrator's route owns the api host certificate
     forceHttps: true
     wwwRedirect: false
     stripPrefix: true

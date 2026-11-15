@@ -1,12 +1,12 @@
 # ScaleSafe dev/preview night shutdown: scale everything ScaleSafe runs in `dev` to 0 at 23:00 IST and back
 # to 1 at 08:00 IST, so the shared AKS node has room for other work. The data stays: Postgres keeps its volume.
-# The corporate site preview (scalesafe-site) is tiny and stays up.
+# The corporate site preview (scalesafe-site) is included.
 #
 # Order matters on the way up: Postgres, then Keycloak, then the services and web apps.
 # If an AIO app in Argo CD has auto-sync with self-heal, it would scale the app straight back up. The job then
 # pauses auto-sync at night and restores it in the morning (same as the toggle on AIO's CD page). That needs
-# get/patch on those Applications in namespace argocd, which is NOT granted here (the Argo project only allows
-# resources in dev). Without it, the job reports "no permission" and carries on.
+# get/patch on those Applications in namespace argocd. The Argo project only allows resources in dev, so that
+# permission is in argocd-night-scaler-rbac.yaml, applied once by hand.
 #
 # Run by hand:  kubectl -n dev create job --from=cronjob/scalesafe-night-down scalesafe-down-now   (or -up)
 # Pause:        kubectl -n dev patch cronjob scalesafe-night-down -p '{"spec":{"suspend":true}}'
@@ -29,7 +29,7 @@ rules:
     resources: [deployments, deployments/scale]
     verbs: [get, patch]
     resourceNames: [scalesafe-keycloak, scalesafe-orchestrator, scalesafe-clients, scalesafe-kyc, scalesafe-investors,
-                    scalesafe-verification, scalesafe-esign, scalesafe-app, scalesafe-admin]
+                    scalesafe-verification, scalesafe-esign, scalesafe-app, scalesafe-admin, scalesafe-site]
   - apiGroups: [apps]
     resources: [statefulsets, statefulsets/scale]
     verbs: [get, patch]
@@ -61,7 +61,7 @@ data:
     NS = "dev"
     SAVED = "scalesafe.co.in/night-saved-autosync"
     APPS = ["scalesafe-orchestrator", "scalesafe-clients", "scalesafe-kyc", "scalesafe-investors",
-            "scalesafe-verification", "scalesafe-esign", "scalesafe-app", "scalesafe-admin"]
+            "scalesafe-verification", "scalesafe-esign", "scalesafe-app", "scalesafe-admin", "scalesafe-site"]
     TOKEN = open(SA + "/token").read().strip()
     CTX = ssl.create_default_context(cafile=SA + "/ca.crt")
 

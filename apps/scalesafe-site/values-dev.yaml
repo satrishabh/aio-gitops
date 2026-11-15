@@ -30,7 +30,7 @@ ingress:
   enabled: true
   className: aio-azure
   controller: traefik
-  host: scalesafe-site-dev.52.140.55.184.nip.io
+  host: indiescale.in
   tls: true
   issuer: letsencrypt-azure
   forceHttps: false

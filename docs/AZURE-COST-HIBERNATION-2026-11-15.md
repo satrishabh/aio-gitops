@@ -52,6 +52,21 @@ The planned Azure Function webhook buffer will replace this. It will answer GitH
 build is still running. The build pods keep running, but Tekton stops advancing the pipeline until the next wake.
 Keep a tab open during long builds. A follow-up will have AIO renew its own session while a run is active.
 
+## Nightly hard stop (23:00 IST)
+
+CronJob `sablier/hibernate-aio-nightly` (`ops/portable/azure-hibernation-nightly.yaml`, `timeZone: Asia/Kolkata`)
+scales group `aio` to zero every night at 23:00 IST, even with an active session. The group stays asleep until someone opens
+app.sarvaikam.com or argocd.sarvaikam.com.
+
+Tested on 2026-11-14: all 11 workloads went to 0, stayed at 0, and a visit woke AIO after 48 s. A browser tab left open
+on AIO keeps polling and will wake it again.
+
+```bash
+# run it now / pause it
+$K -n sablier create job hibernate-now --from=cronjob/hibernate-aio-nightly
+$K -n sablier patch cronjob hibernate-aio-nightly -p '{"spec":{"suspend":true}}'
+```
+
 ## Operations
 
 ```bash

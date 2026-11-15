@@ -1,0 +1,53 @@
+# GitHub webhook buffer routing (function source: ops/azure/webhook-buffer, docs/AZURE-WEBHOOK-BUFFER.md).
+#
+#   GitHub -> https://app.sarvaikam.com/api/webhooks/github/{id}
+#          -> IngressRoute aio-webhooks-to-buffer (priority 100)
+#          -> Azure Function aio-webhook-buffer.azurewebsites.net (same path)
+#   Function -> https://app.sarvaikam.com/buffered/{api/webhooks/..., actuator/health}
+#          -> Ingress native-aio-webhooks (ungated, stripPrefix /buffered) -> AIO
+#
+# Rollback: delete the IngressRoute. /api/webhooks then falls back to native-aio-webhooks (straight to AIO, 503
+# while asleep), exactly as before the buffer existed.
+# Requires Traefik --providers.kubernetescrd.allowExternalNameServices=true (azure-ingress-values.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: aio-webhook-buffer
+  namespace: aio-platform
+spec:
+  type: ExternalName
+  externalName: aio-webhook-buffer.azurewebsites.net
+  ports: [{name: https, port: 443}]
+---
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata: {name: aio-webhook-buffer, namespace: aio-platform}
+spec:
+  serverName: aio-webhook-buffer.azurewebsites.net
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: {name: aio-webhooks-to-buffer, namespace: aio-platform}
+spec:
+  entryPoints: [websecure]
+  routes:
+    - kind: Rule
+      match: Host(`app.sarvaikam.com`) && PathPrefix(`/api/webhooks/github/`)
+      priority: 100
+      services:
+        - kind: Service
+          name: aio-webhook-buffer
+          port: 443
+          scheme: https
+          passHostHeader: false
+          serversTransport: aio-webhook-buffer
+  tls:
+    secretName: aio-native-public-tls
+---
+# Ungated path the buffer uses to reach AIO. Only the webhook and health endpoints are exposed, and both were
+# already public (webhooks are HMAC-verified by AIO; health is permitAll).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: {name: strip-buffered, namespace: aio-platform}
+spec:
+  stripPrefix: {prefixes: [/buffered]}

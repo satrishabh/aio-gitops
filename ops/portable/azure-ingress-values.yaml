@@ -19,6 +19,8 @@ providers:
     namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform, argocd]
   kubernetesCRD:
     enabled: true
+    # GitHub webhooks are routed to the Azure Function webhook buffer (azure-webhook-buffer.yaml)
+    allowExternalNameServices: true
     namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform, argocd]
   kubernetesGateway:
     enabled: false

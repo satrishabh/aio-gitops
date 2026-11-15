@@ -53,8 +53,10 @@ spec:
       http:
         paths: [{path: /, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}]
 ---
-# GitHub webhooks bypass the sleep gate (the waiting page would answer 200 and drop the event).
-# While AIO sleeps Traefik answers 503 and GitHub keeps the delivery as failed / redeliverable.
+# Ungated routes to AIO (no sleep gate; the waiting page would answer 200 and drop webhook events):
+#  - /buffered/api/webhooks, /buffered/actuator/health: used by the Azure Function webhook buffer
+#    (azure-webhook-buffer.yaml; strip-buffered removes the /buffered prefix)
+#  - /api/webhooks: fallback if the buffer's IngressRoute (priority 100) is removed; 503 while AIO sleeps
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -62,7 +64,7 @@ metadata:
   namespace: aio-platform
   annotations:
     traefik.ingress.kubernetes.io/router.priority: '90'
-    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: aio-platform-native-https@kubernetescrd,aio-platform-strip-buffered@kubernetescrd
 spec:
   ingressClassName: aio-azure
   tls:
@@ -70,4 +72,7 @@ spec:
   rules:
     - host: app.sarvaikam.com
       http:
-        paths: [{path: /api/webhooks, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}]
+        paths:
+          - {path: /api/webhooks, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}
+          - {path: /buffered/api/webhooks, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}
+          - {path: /buffered/actuator/health, pathType: Prefix, backend: {service: {name: aio-platform, port: {number: 80}}}}

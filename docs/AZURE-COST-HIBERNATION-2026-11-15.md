@@ -43,6 +43,8 @@ Sablier 1.19.1 (namespace sablier) scales group "aio" to 0 when the session expi
 `/api/webhooks/*` has its own Ingress (`native-aio-webhooks`, priority 90) **without** the gate. The Traefik plugin's
 blocking strategy does not work on Kubernetes, and the waiting page would answer `200` and silently drop the event.
 
+**Update 2026-11-15:** superseded by the Azure Function webhook buffer (docs/AZURE-WEBHOOK-BUFFER.md): pushes made while AIO sleeps are now caught, AIO is woken and the delivery is replayed (~97 s).
+
 While AIO sleeps, Traefik answers `503`, so GitHub records a **failed delivery**. To recover it, open AIO, then either
 redeliver it from the repository's *Settings → Webhooks → Recent deliveries*, or click **Run** on the project.
 

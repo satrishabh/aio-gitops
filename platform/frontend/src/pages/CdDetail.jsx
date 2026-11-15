@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
+import { activity } from '../activity.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Skeleton, Tabs, ago } from '../components/ui.jsx'
@@ -235,7 +236,7 @@ function PodLogs({ base, pods, pod, setPod, name }) {
     const load = () => api(`${base}/pods/${encodeURIComponent(pod)}/logs?previous=${previous}`, { text: true })
       .then(t => { if (!stop) setLogs(t) }).catch(e => { if (!stop) setLogs(`(logs unavailable: ${e.message})`) })
     load()
-    const t = previous ? null : setInterval(load, 3000)
+    const t = previous ? null : setInterval(() => activity.paused() || load(), 3000)
     return () => { stop = true; if (t) clearInterval(t) }
   }, [base, pod, previous])
 

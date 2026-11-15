@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
+import { activity } from '../activity.js'
 import Badge, { Vulns } from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Skeleton, ago } from '../components/ui.jsx'
@@ -83,7 +84,7 @@ export default function RunDetail({ me }) {
     if (!pendingRelease) return
     let closed = false, loading = false
     const timer = setInterval(async () => {
-      if (loading) return
+      if (loading || activity.paused()) return
       loading = true
       try { const update = await api(`/api/runs/${id}`); if (!closed) setData(update) } catch (e) { if (!closed) setError(e.message) }
       finally { loading = false }
@@ -97,7 +98,7 @@ export default function RunDetail({ me }) {
     const load = () => api(`/api/runs/${id}/steps/${selected}/logs`, { text: true })
       .then(t => { if (!stop) setLogs(t) }).catch(e => { if (!stop) setLogs(`(logs unavailable: ${e.message})`) })
     load()
-    const t = ['RUNNING', 'WAITING'].includes(selStatus) ? setInterval(load, 3000) : null
+    const t = ['RUNNING', 'WAITING'].includes(selStatus) ? setInterval(() => activity.paused() || load(), 3000) : null
     return () => { stop = true; if (t) clearInterval(t) }
   }, [id, selected, selStatus])
 

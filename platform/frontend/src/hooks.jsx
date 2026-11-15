@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from './components/Toast.jsx'
+import { activity } from './activity.js'
 
 /**
  * Polls fn() every `interval` ms. On failure it keeps the last good data, reports `stale`,
  * and backs off (x2 up to 60s) until the server answers again.
+ * Pauses while the tab is hidden or the user has been idle 15 min (see activity.js), so a forgotten tab does
+ * not keep the scale-to-zero backend awake; resumes immediately on return.
  */
 export function usePoll(fn, interval, deps = []) {
   const [data, setData] = useState(null)
@@ -12,10 +15,13 @@ export function usePoll(fn, interval, deps = []) {
   const timer = useRef(null)
   const delay = useRef(interval)
   const fnRef = useRef(fn)
+  const paused = useRef(false)
   fnRef.current = fn
 
   const tick = useCallback(async () => {
     clearTimeout(timer.current)
+    if (activity.paused()) { paused.current = true; return }   // onResume below restarts it
+    paused.current = false
     try {
       setData(await fnRef.current())
       setError(''); setStale(false)
@@ -30,7 +36,8 @@ export function usePoll(fn, interval, deps = []) {
   useEffect(() => {
     setData(null); delay.current = interval
     tick()
-    return () => clearTimeout(timer.current)
+    const off = activity.onResume(() => { if (paused.current) tick() })
+    return () => { clearTimeout(timer.current); off() }
   }, [tick, ...deps])
 
   return { data, error, stale, refresh: tick }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
+import { activity } from '../activity.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Skeleton, ago } from '../components/ui.jsx'
@@ -81,7 +82,7 @@ export default function ScanDetail() {
     const load = () => api(`/api/scans/${id}/steps/${selected}/logs`, { text: true })
       .then(t => { if (!stop) setLogs(t) }).catch(e => { if (!stop) setLogs(`(logs unavailable: ${e.message})`) })
     load()
-    const t = ['RUNNING', 'WAITING'].includes(selStatus) ? setInterval(load, 3000) : null
+    const t = ['RUNNING', 'WAITING'].includes(selStatus) ? setInterval(() => activity.paused() || load(), 3000) : null
     return () => { stop = true; if (t) clearInterval(t) }
   }, [id, selected, selStatus])
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [logs])

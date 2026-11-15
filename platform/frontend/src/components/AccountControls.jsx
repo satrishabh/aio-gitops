@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api, fmtTime, logout } from '../api.js'
+import { activity } from '../activity.js'
 import { useTheme } from '../theme.js'
 import Icon from './Icon.jsx'
 import { ago } from './ui.jsx'
@@ -78,7 +79,7 @@ function AuditActivity() {
       if (active) { setEvents(data.slice(0, 8)); setError('') }
     }).catch(failure => { if (active) setError(failure.message) })
     load()
-    const timer = setInterval(load, 15000)
+    const timer = setInterval(() => activity.paused() || load(), 15000)
     return () => { active = false; clearInterval(timer) }
   }, [retry])
   return <>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { api, logout } from './api.js'
+import { activity } from './activity.js'
 import { ToastProvider } from './components/Toast.jsx'
 import Icon from './components/Icon.jsx'
 import AccountControls from './components/AccountControls.jsx'
@@ -78,7 +79,7 @@ export default function App() {
     if (me.accessTier === 'community') { setPending(0); return }
     const load = () => api('/api/promotions?status=PENDING').then(x => setPending(x.length)).catch(() => {})
     load()
-    const t = setInterval(load, 15000)
+    const t = setInterval(() => activity.paused() || load(), 15000)
     return () => clearInterval(t)
   }, [me, location.pathname])
 

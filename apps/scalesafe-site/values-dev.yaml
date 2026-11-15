@@ -35,4 +35,14 @@ ingress:
   issuer: letsencrypt-azure
   forceHttps: true
   externalDns: false
-routes: []
+# Managed by the AIO platform Domains tab - edit there, not here
+routes:
+  - host: indiescale.in
+    path: "/"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: true
+    stripPrefix: false
+    externalDns: false

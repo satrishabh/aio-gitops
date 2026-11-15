@@ -1,7 +1,7 @@
 # AIO dev values for scalesafe-orchestrator (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-orchestrator/values-dev.yaml in
 # satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
 nameOverride: scalesafe-orchestrator
-replicaCount: 1
+replicaCount: 0   # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-orchestrator
   tag: "0.0.0"

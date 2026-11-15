@@ -1,10 +1,10 @@
 # AIO dev values for scalesafe-app (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-app/values-dev.yaml in
 # satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
 nameOverride: scalesafe-app
-replicaCount: 0   # AIO scales to 1 when it deploys the first scanned image
+replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-app
-  tag: "0.0.0"
+  tag: "4dcbffcc2c78"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -24,14 +24,14 @@ env:
   - name: SCALESAFE_API_ESIGN
     value: "https://scalesafe-api-dev.52.140.55.184.nip.io/esign"
   - name: SCALESAFE_OIDC_AUTHORITY
-    value: "https://scalesafe-id-dev.52.140.55.184.nip.io/realms/scalesafe"   # open decision: see docs/ARCHITECTURE.md section 9
+    value: "https://scalesafe-id-dev.52.140.55.184.nip.io/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 101
   fsGroup: 101
 resources:
-  requests: { cpu: 10m, memory: 16Mi }
-  limits: { cpu: 100m, memory: 64Mi }
+  requests: {cpu: 10m, memory: 16Mi}
+  limits: {cpu: 100m, memory: 64Mi}
 probes:
   liveness:
     path: /health

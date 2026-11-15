@@ -1,5 +1,5 @@
 # AIO dev values for scalesafe-verification (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-verification/values-dev.yaml in
-# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on indiescale.in.
 nameOverride: scalesafe-verification
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
@@ -21,7 +21,7 @@ env:
   - name: SCALESAFE_SAGA_BASE_URL
     value: "http://scalesafe-verification"
   - name: SCALESAFE_CORS_ALLOWED_ORIGINS
-    value: "https://scalesafe-app-dev.52.140.55.184.nip.io,https://scalesafe-admin-dev.52.140.55.184.nip.io"
+    value: "https://app.indiescale.in,https://admin.indiescale.in"
   - name: SCALESAFE_PROVIDERS_MODE
     value: "sandbox"
 resources:
@@ -39,7 +39,7 @@ ingress:
   controller: traefik
   enabled: false
 routes:
-  - host: scalesafe-api-dev.52.140.55.184.nip.io
+  - host: api.indiescale.in
     path: "/verification"
     tls: true
     issuer: letsencrypt-azure

@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,12 +20,17 @@ import org.springframework.stereotype.Component;
  * Promotion / rollback of an image tag into an environment, as an orchestrated saga.
  *
  * <pre>
- * capture-current-tag → commit-tag (↺ restore previous tag) → sync → verify-healthy
+ * capture-current-tag → commit-tag (↺ restore previous tag) → sync → verify-healthy → smoke-test
  * </pre>
  *
  * Fixes two problems of the old synchronous apply: (1) a failure after the Git commit left the promotion FAILED
  * while the new tag stayed in GitOps; now the commit is compensated (previous tag restored and, for prod, synced);
  * (2) DONE meant "commit pushed"; now it means Argo CD reports the app Synced, Healthy and running the new image.
+ *
+ * <p>Verification is two-stage, like Argo Rollouts analysis / Harness continuous verification: Argo CD must report
+ * the new image Synced and Healthy, then the app's public URL must answer a few HTTP samples without a 5xx.
+ * A verification failure follows the environment's failure strategy: automatic rollback (default), or a pause for
+ * an approver to retry, skip or roll back ({@code AIO_PROMOTION_MANUAL_ENVS}).
  *
  * <p>Data: promotionId, projectId, toEnv, tag, kind, actor; previousTag is captured by the first step.
  */
@@ -40,20 +46,60 @@ public class PromotionSaga implements Saga.Definition {
     private final GitOpsService gitops;
     private final ArgoCdService argo;
     private final AuditService audit;
-    private final boolean verify;
-    private final Duration timeout;
+    private final SmokeProbe probe;
+    private final Policy policy;
+
+    /**
+     * How promotions are verified and what happens when verification fails.
+     *
+     * @param manualEnvs environments whose failures pause for a decision instead of rolling back at once
+     * @param smokeSamples successful HTTP samples needed; {@code smokeFailureLimit} failed samples fail the step
+     */
+    public record Policy(boolean verifyHealth, Duration timeout, Set<String> manualEnvs, Duration interventionTimeout,
+                         boolean smoke, String smokePath, int smokeSamples, int smokeFailureLimit, Duration smokeInterval) {
+        public static Policy defaults(boolean verifyHealth, Duration timeout) {
+            return new Policy(verifyHealth, timeout, Set.of(), Duration.ofHours(2), false, "/", 4, 2, Duration.ofSeconds(15));
+        }
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PromotionSaga(ProjectRepo projects, PromotionRepo promotions, GitOpsService gitops, ArgoCdService argo,
+                         AuditService audit, SmokeProbe probe,
+                         @Value("${app.promotion.verify-health:true}") boolean verify,
+                         @Value("${app.promotion.timeout:PT20M}") Duration timeout,
+                         @Value("${app.promotion.manual-intervention-envs:}") String manualEnvs,
+                         @Value("${app.promotion.intervention-timeout:PT2H}") Duration interventionTimeout,
+                         @Value("${app.promotion.smoke.enabled:true}") boolean smoke,
+                         @Value("${app.promotion.smoke.path:/}") String smokePath,
+                         @Value("${app.promotion.smoke.samples:4}") int smokeSamples,
+                         @Value("${app.promotion.smoke.failure-limit:2}") int smokeFailureLimit,
+                         @Value("${app.promotion.smoke.interval:PT15S}") Duration smokeInterval) {
+        this(projects, promotions, gitops, argo, audit, probe, new Policy(verify, timeout, envs(manualEnvs), interventionTimeout,
+                smoke, smokePath, Math.max(1, smokeSamples), Math.max(1, smokeFailureLimit), smokeInterval));
+    }
 
     public PromotionSaga(ProjectRepo projects, PromotionRepo promotions, GitOpsService gitops, ArgoCdService argo,
-                         AuditService audit,
-                         @Value("${app.promotion.verify-health:true}") boolean verify,
-                         @Value("${app.promotion.timeout:PT20M}") Duration timeout) {
+                         AuditService audit, SmokeProbe probe, Policy policy) {
         this.projects = projects;
         this.promotions = promotions;
         this.gitops = gitops;
         this.argo = argo;
         this.audit = audit;
-        this.verify = verify;
-        this.timeout = timeout;
+        this.probe = probe;
+        this.policy = policy;
+    }
+
+    /** Health verification only, rollback on failure (unit tests). */
+    public PromotionSaga(ProjectRepo projects, PromotionRepo promotions, GitOpsService gitops, ArgoCdService argo,
+                         AuditService audit, boolean verify, Duration timeout) {
+        this(projects, promotions, gitops, argo, audit, null, Policy.defaults(verify, timeout));
+    }
+
+    static Set<String> envs(String csv) {
+        if (csv == null || csv.isBlank()) return Set.of();
+        Set<String> out = new java.util.HashSet<>();
+        for (String e : csv.split(",")) if (!e.isBlank()) out.add(e.trim().toLowerCase());
+        return Set.copyOf(out);
     }
 
     public static String key(Promotion pr) {
@@ -66,13 +112,21 @@ public class PromotionSaga implements Saga.Definition {
     }
 
     @Override public String type() { return TYPE; }
-    @Override public Duration timeout() { return timeout; }
+    @Override public Duration timeout() { return policy.timeout(); }
     @Override public int maxAttempts() { return 6; }
+    @Override public Duration interventionTimeout() { return policy.interventionTimeout(); }
+
+    /** Harness-style failure strategy per environment: pause for a decision, or roll back at once. */
+    @Override
+    public Saga.OnFailure onFailure(Context c) {
+        return policy.manualEnvs().contains(c.str("toEnv")) ? Saga.OnFailure.MANUAL_INTERVENTION : Saga.OnFailure.ROLLBACK;
+    }
 
     @Override
     public List<Saga.Step> steps() {
         List<Saga.Step> steps = new ArrayList<>(List.of(captureCurrent(), commitTag(), sync()));
-        if (verify) steps.add(verifyHealthy());
+        if (policy.verifyHealth()) steps.add(verifyHealthy());
+        if (policy.smoke() && probe != null) steps.add(smokeTest());
         return steps;
     }
 
@@ -143,6 +197,46 @@ public class PromotionSaga implements Saga.Definition {
         };
     }
 
+    /**
+     * Samples the app's public URL until {@code smokeSamples} answers without a 5xx, failing after
+     * {@code smokeFailureLimit} bad samples (5xx, timeout, connection refused). One sample per execution, so the
+     * saga sleeps between samples instead of holding a thread. Skipped when the environment has no public URL.
+     */
+    Saga.Step smokeTest() {
+        return new Saga.Step() {
+            public String name() { return "smoke-test"; }
+            public Result execute(Context c) {
+                if (!c.has("smokeUrl")) {
+                    String base = gitops.readValuesCached(project(c), c.str("toEnv")).appUrl();
+                    if (base == null || base.isBlank()) {
+                        c.put("smoke", "skipped: no public URL for " + c.str("toEnv"));
+                        return Result.done();
+                    }
+                    String path = policy.smokePath().startsWith("/") ? policy.smokePath() : "/" + policy.smokePath();
+                    c.put("smokeUrl", base.replaceAll("/+$", "") + path);
+                }
+                return sample(c, probe.status(c.str("smokeUrl")), policy);
+            }
+        };
+    }
+
+    static Result sample(Context c, int code, Policy policy) {
+        boolean ok = code >= 200 && code < 500;
+        long good = (c.has("smokeOk") ? c.num("smokeOk") : 0) + (ok ? 1 : 0);
+        long bad = (c.has("smokeFailed") ? c.num("smokeFailed") : 0) + (ok ? 0 : 1);
+        c.put("smokeOk", good);
+        c.put("smokeFailed", bad);
+        String last = code < 0 ? "unreachable" : "HTTP " + code;
+        c.put("smokeLast", last);
+        if (bad >= policy.smokeFailureLimit())
+            return Result.fail("smoke test failed: " + bad + " bad sample(s), last " + last + " from " + c.str("smokeUrl"));
+        if (good >= policy.smokeSamples()) {
+            c.put("smoke", good + "/" + (good + bad) + " samples ok");
+            return Result.done();
+        }
+        return Result.waitUntil(c.now().plus(policy.smokeInterval()), "smoke test " + good + "/" + policy.smokeSamples() + " ok");
+    }
+
     /** Decides from an Argo Application's status whether the rollout is done, still going, or failed. */
     static Result evaluate(Map<String, Object> app, String imageRepo, String tag, Context c) {
         Object status = app.get("status");
@@ -172,6 +266,30 @@ public class PromotionSaga implements Saga.Definition {
     }
 
     // ------------------------------------------------------------------ outcome
+
+    @Override
+    public void onPaused(Context c, String reason) {
+        promotions.findById(c.num("promotionId")).ifPresent(pr -> {
+            pr.status = Promotion.PAUSED;
+            pr.message = "needs a decision (retry, skip or roll back; rolls back by itself after "
+                    + policy.interventionTimeout().toMinutes() + " min): " + reason;
+            promotions.save(pr);
+            audit.record("platform", c.str("kind").toLowerCase() + ".paused", target(c), reason);
+        });
+    }
+
+    @Override
+    public void onResumed(Context c, String action, String actor) {
+        promotions.findById(c.num("promotionId")).ifPresent(pr -> {
+            pr.status = Promotion.APPLYING;
+            pr.message = action.toLowerCase() + " by " + actor;
+            promotions.save(pr);
+        });
+    }
+
+    private String target(Context c) {
+        return projects.findById(c.num("projectId")).map(p -> p.name).orElse("?") + "/" + c.str("toEnv");
+    }
 
     @Override
     public void onFinished(Context c, String status) {

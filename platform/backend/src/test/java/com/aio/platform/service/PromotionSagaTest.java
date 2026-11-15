@@ -148,6 +148,105 @@ class PromotionSagaTest {
 
     // ---------------------------------------------------------------- helpers
 
+    // ------------------------------------------------- continuous verification + failure strategy
+
+    final SmokeProbe probe = mock(SmokeProbe.class);
+
+    private void withPolicy(java.util.Set<String> manualEnvs) {
+        var policy = new PromotionSaga.Policy(true, Duration.ofMinutes(20), manualEnvs, Duration.ofHours(2),
+                true, "/healthz", 4, 2, Duration.ofSeconds(15));
+        engine = new SagaEngine(instances, events,
+                List.of(new PromotionSaga(projects, promotions, gitops, argo, audit, probe, policy)), transactions,
+                new StaticListableBeanFactory(Map.of("clock", clock)).getBeanProvider(Clock.class));
+        when(argo.getApp(eq("shop-prod"), anyBoolean())).thenReturn(app("Synced", "Healthy", "v2"));
+        when(gitops.readValuesCached(any(), eq("prod"))).thenReturn(new GitOpsService.EnvValues("v2", 1, "https://shop.example.com/"));
+    }
+
+    private void sampleUntilSettled() {
+        drain();
+        for (int i = 0; i < 6; i++) {
+            clock.advance(Duration.ofSeconds(15));
+            drain();
+        }
+    }
+
+    @Test
+    void smokeTestNeedsEnoughGoodSamplesAfterHealthy() {
+        withPolicy(java.util.Set.of());
+        when(probe.status("https://shop.example.com/healthz")).thenReturn(200, 302, 404, 200);
+        Promotion pr = start(pending("v2"));
+        sampleUntilSettled();
+        verify(probe, times(4)).status("https://shop.example.com/healthz");   // 4 samples, then stops
+        assertThat(promotions.findById(pr.id).orElseThrow().status).isEqualTo(Promotion.DONE);
+    }
+
+    @Test
+    void failingSmokeTestRollsBackByDefault() {
+        withPolicy(java.util.Set.of());
+        when(probe.status(anyString())).thenReturn(200, 502, -1);
+        Promotion pr = start(pending("v2"));
+        sampleUntilSettled();
+        verify(gitops).setTag(isShop(), eq("prod"), eq("v1"), contains("revert"));
+        Promotion failed = promotions.findById(pr.id).orElseThrow();
+        assertThat(failed.status).isEqualTo(Promotion.FAILED);
+        assertThat(failed.message).startsWith("rolled back to v1").contains("smoke test failed").contains("unreachable");
+    }
+
+    @Test
+    void environmentWithoutPublicUrlSkipsTheSmokeTest() {
+        withPolicy(java.util.Set.of());
+        when(gitops.readValuesCached(any(), eq("prod"))).thenReturn(new GitOpsService.EnvValues("v2", 1, null));
+        Promotion pr = start(pending("v2"));
+        drain();
+        verifyNoInteractions(probe);
+        assertThat(promotions.findById(pr.id).orElseThrow().status).isEqualTo(Promotion.DONE);
+    }
+
+    @Test
+    void manualInterventionEnvPausesForADecisionThenRollsBackOnRequest() {
+        withPolicy(java.util.Set.of("prod"));
+        when(probe.status(anyString())).thenReturn(502);
+        Promotion pr = start(pending("v2"));
+        sampleUntilSettled();
+        Promotion paused = promotions.findById(pr.id).orElseThrow();
+        assertThat(paused.status).isEqualTo(Promotion.PAUSED);
+        assertThat(paused.message).startsWith("needs a decision").contains("HTTP 502");
+        verify(gitops, never()).setTag(any(), any(), eq("v1"), any());    // nothing reverted while waiting
+        assertThat(engine.anyActive()).isFalse();                          // and nothing kept awake
+
+        engine.intervene(paused.sagaId, Saga.Action.ROLLBACK, "carol");
+        drain();
+        verify(gitops).setTag(isShop(), eq("prod"), eq("v1"), contains("revert"));
+        Promotion end = promotions.findById(pr.id).orElseThrow();
+        assertThat(end.status).isEqualTo(Promotion.FAILED);
+        assertThat(end.message).startsWith("rolled back to v1").contains("rolled back by carol");
+    }
+
+    @Test
+    void approverCanSkipAFlakyVerification() {
+        withPolicy(java.util.Set.of("prod"));
+        when(probe.status(anyString())).thenReturn(502);
+        Promotion pr = start(pending("v2"));
+        sampleUntilSettled();
+        Promotion paused = promotions.findById(pr.id).orElseThrow();
+        engine.intervene(paused.sagaId, Saga.Action.SKIP, "carol");
+        assertThat(promotions.findById(pr.id).orElseThrow().status).isEqualTo(Promotion.DONE);
+        verify(gitops, never()).setTag(any(), any(), eq("v1"), any());
+    }
+
+    @Test
+    void smokeSamplingCountsGoodAndBadAnswers() {
+        var policy = new PromotionSaga.Policy(true, Duration.ofMinutes(20), java.util.Set.of(), Duration.ofHours(2),
+                true, "/", 2, 2, Duration.ofSeconds(15));
+        Saga.Context c = Saga.Context.detached(Map.of("smokeUrl", "https://x/"), clock.instant());
+        assertThat(PromotionSaga.sample(c, 500, policy)).isInstanceOf(Result.Wait.class);
+        assertThat(PromotionSaga.sample(c, 200, policy)).isInstanceOf(Result.Wait.class);
+        assertThat(PromotionSaga.sample(c, 401, policy)).isInstanceOf(Result.Done.class);   // auth wall = app is up
+        Saga.Context d = Saga.Context.detached(Map.of("smokeUrl", "https://x/"), clock.instant());
+        PromotionSaga.sample(d, -1, policy);
+        assertThat(PromotionSaga.sample(d, 503, policy)).isInstanceOf(Result.Fail.class);
+    }
+
     /** The saga reloads the project from the DB, so match by id rather than instance. */
     private Project isShop() {
         Long id = shop.id;

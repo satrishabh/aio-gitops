@@ -6,6 +6,7 @@ import com.aio.platform.domain.Deployment;
 import com.aio.platform.domain.Project;
 import com.aio.platform.domain.Promotion;
 import com.aio.platform.repo.PromotionRepo;
+import com.aio.platform.saga.Saga;
 import com.aio.platform.saga.SagaEngine;
 import java.time.Instant;
 import java.util.Set;
@@ -26,14 +27,16 @@ public class PromotionService {
     private final SagaEngine sagas;
     private final AuditService audit;
     private final AppProperties props;
+    private final FreezePolicy freeze;
 
     public PromotionService(PromotionRepo promotions, GitOpsService gitops, SagaEngine sagas,
-                            AuditService audit, AppProperties props) {
+                            AuditService audit, AppProperties props, FreezePolicy freeze) {
         this.promotions = promotions;
         this.gitops = gitops;
         this.sagas = sagas;
         this.audit = audit;
         this.props = props;
+        this.freeze = freeze;
     }
 
     public Promotion promote(Project p, String from, String to, String actor) {
@@ -63,13 +66,32 @@ public class PromotionService {
         pr = promotions.save(pr);
         audit.record(actor, kind.toLowerCase() + ".request", p.name + "/" + to, tag);
         if ("prod".equals(to)) return pr;
+        if (freeze.active(to).isPresent()) {        // keep the request; an approver applies it after the freeze
+            pr.message = freeze.active(to).get().describe() + "; approve it once the freeze ends";
+            return promotions.save(pr);
+        }
         if (promotions.claimPending(pr.id, actor, Instant.now()) == 0) throw new IllegalStateException("request changed concurrently");
         return startSaga(p, promotions.findById(pr.id).orElseThrow(), actor);
     }
 
     public Promotion approve(Project p, Promotion pr, String actor) {
+        return approve(p, pr, actor, false);
+    }
+
+    /**
+     * Approves and applies a request. During a deployment freeze only an AIO admin may apply, and only with
+     * {@code overrideFreeze} (break-glass, audited).
+     */
+    public Promotion approve(Project p, Promotion pr, String actor, boolean overrideFreeze) {
         requirePending(pr);
         if (!canApprove(actor, pr)) throw new SecurityException("not allowed to approve this request");
+        var frozen = freeze.active(pr.toEnv);
+        if (frozen.isPresent()) {
+            if (!overrideFreeze) freeze.require(pr.toEnv);
+            if (!AioAuthorization.currentUserHas(AioAuthorization.ADMIN))
+                throw new SecurityException("only an AIO admin can override a deployment freeze");
+            audit.record(actor, "freeze.override", p.name + "/" + pr.toEnv, frozen.get().describe() + "; applying " + pr.imageTag);
+        }
         // atomic PENDING -> APPLYING: of two concurrent approvals (or a double click) only one proceeds
         if (promotions.claimPending(pr.id, actor, Instant.now()) == 0)
             throw new IllegalArgumentException("request is no longer pending");
@@ -78,6 +100,19 @@ public class PromotionService {
         }
         audit.record(actor, "promotion.approve", p.name + "/" + pr.toEnv, pr.imageTag);
         return startSaga(p, promotions.findById(pr.id).orElseThrow(), actor);
+    }
+
+    /**
+     * An approver's decision on a promotion that paused (manual-intervention strategy) or whose automatic revert
+     * failed: retry, skip the failed step, roll back, or mark a failed revert as resolved by hand.
+     */
+    public Promotion intervene(Project p, Promotion pr, Saga.Action action, String actor) {
+        if (!isApprover(actor)) throw new SecurityException("only approvers can decide on a paused deployment");
+        if (pr.sagaId == null) throw new IllegalArgumentException("request has no deployment in progress");
+        if (action == Saga.Action.RETRY && Promotion.PAUSED.equals(pr.status)) freeze.require(pr.toEnv);
+        sagas.intervene(pr.sagaId, action, actor);
+        audit.record(actor, "promotion." + action.name().toLowerCase(), p.name + "/" + pr.toEnv, pr.imageTag);
+        return promotions.findById(pr.id).orElseThrow();
     }
 
     public Promotion reject(Promotion pr, String actor, String reason) {

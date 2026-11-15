@@ -33,9 +33,11 @@ public class CdController {
     private final PromotionService promotions;
     private final AuditService audit;
     private final ClusterRegistry clusters;
+    private final com.aio.platform.service.FreezePolicy freeze;
 
     public CdController(ProjectRepo projects, ArgoCdService argo, GitOpsService gitops, PromotionService promotions,
-                        AuditService audit, ClusterRegistry clusters) {
+                        AuditService audit, ClusterRegistry clusters, com.aio.platform.service.FreezePolicy freeze) {
+        this.freeze = freeze;
         this.projects = projects;
         this.argo = argo;
         this.gitops = gitops;
@@ -124,6 +126,7 @@ public class CdController {
     public Map<String, String> sync(@PathVariable Long id, @PathVariable String env, @AuthenticationPrincipal OAuth2User user) {
         Project p = project(id, env);
         String actor = guardProd(env, user, "sync prod");
+        if ("prod".equals(env)) freeze.require(env);
         argo.sync(ArgoCdService.appName(p, env));
         audit.record(actor, "cd.sync", p.name + "/" + env, null);
         return Map.of("status", "syncing");
@@ -163,6 +166,7 @@ public class CdController {
                                               @AuthenticationPrincipal OAuth2User user) {
         Project p = project(id, env);
         String actor = guardProd(env, user, "edit prod values");
+        freeze.require(env);
         if (req == null) throw new IllegalArgumentException("yaml is required");
         String msg = req.message() == null || req.message().isBlank() ? "edit values" : req.message().trim();
         if (msg.length() > 200) msg = msg.substring(0, 200);

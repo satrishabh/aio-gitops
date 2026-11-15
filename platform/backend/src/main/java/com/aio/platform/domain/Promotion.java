@@ -7,7 +7,9 @@ import java.time.Instant;
 @Table(name = "promotions")
 public class Promotion {
     /** APPLYING: approved (or auto-applied) and being carried out by the "promotion" saga. */
-    public static final String PENDING = "PENDING", APPLYING = "APPLYING", DONE = "DONE", REJECTED = "REJECTED", FAILED = "FAILED";
+    public static final String PENDING = "PENDING", APPLYING = "APPLYING", DONE = "DONE", REJECTED = "REJECTED", FAILED = "FAILED",
+            /** PAUSED: a step failed and the environment's failure strategy is manual intervention; an approver decides. */
+            PAUSED = "PAUSED";
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) public Long id;
     public Long projectId;

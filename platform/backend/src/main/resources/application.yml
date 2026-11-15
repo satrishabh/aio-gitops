@@ -67,6 +67,22 @@ app:
   promotion:
     verify-health: ${AIO_PROMOTION_VERIFY_HEALTH:true}
     timeout: ${AIO_PROMOTION_TIMEOUT:PT20M}
+    # Failure strategy: environments listed here pause a failed deployment for an approver (retry / skip /
+    # rollback) instead of rolling back at once; nobody deciding within intervention-timeout rolls back.
+    manual-intervention-envs: ${AIO_PROMOTION_MANUAL_ENVS:}
+    intervention-timeout: ${AIO_PROMOTION_INTERVENTION_TIMEOUT:PT2H}
+    # Smoke test after Argo reports Healthy: GET <public URL><path> until `samples` answers without 5xx;
+    # `failure-limit` bad samples fail the deployment. Skipped for environments without a public URL.
+    smoke:
+      enabled: ${AIO_PROMOTION_SMOKE:true}
+      path: ${AIO_PROMOTION_SMOKE_PATH:/}
+      samples: ${AIO_PROMOTION_SMOKE_SAMPLES:4}
+      failure-limit: ${AIO_PROMOTION_SMOKE_FAILURE_LIMIT:2}
+      interval: ${AIO_PROMOTION_SMOKE_INTERVAL:PT15S}
+  # Deployment freeze windows, e.g. "prod@FRI 18:00/MON 09:00#weekend; *@2026-12-24T00:00/2026-12-27T00:00#holidays"
+  freeze:
+    windows: ${AIO_FREEZE_WINDOWS:}
+    zone: ${AIO_FREEZE_ZONE:Asia/Kolkata}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

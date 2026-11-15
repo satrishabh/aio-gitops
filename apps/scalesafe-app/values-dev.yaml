@@ -1,5 +1,5 @@
 # AIO dev values for scalesafe-app (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-app/values-dev.yaml in
-# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on indiescale.in.
 nameOverride: scalesafe-app
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
@@ -12,19 +12,19 @@ env:
   - name: SCALESAFE_OIDC_CLIENT_ID
     value: "scalesafe-app"
   - name: SCALESAFE_API_ORCHESTRATOR
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/orchestrator"
+    value: "https://api.indiescale.in/orchestrator"
   - name: SCALESAFE_API_CLIENTS
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/clients"
+    value: "https://api.indiescale.in/clients"
   - name: SCALESAFE_API_KYC
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/kyc"
+    value: "https://api.indiescale.in/kyc"
   - name: SCALESAFE_API_INVESTORS
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/investors"
+    value: "https://api.indiescale.in/investors"
   - name: SCALESAFE_API_VERIFICATION
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/verification"
+    value: "https://api.indiescale.in/verification"
   - name: SCALESAFE_API_ESIGN
-    value: "https://scalesafe-api-dev.52.140.55.184.nip.io/esign"
+    value: "https://api.indiescale.in/esign"
   - name: SCALESAFE_OIDC_AUTHORITY
-    value: "https://scalesafe-id-dev.52.140.55.184.nip.io/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
+    value: "https://id.indiescale.in/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 101
@@ -43,7 +43,7 @@ ingress:
   enabled: true
   className: aio-azure
   controller: traefik
-  host: scalesafe-app-dev.52.140.55.184.nip.io
+  host: app.indiescale.in
   tls: true
   issuer: letsencrypt-azure
   forceHttps: true

@@ -29,6 +29,11 @@ config:
   APPROVERS: ''
   AIO_INDEPENDENT_DELIVERY: 'false'
   AIO_WORKERS_ENABLED: 'false'
+  # was set live by hand (drift) on 2026-11-14; recorded here so a helm upgrade keeps it
+  AIO_CI_WORKERS_ENABLED: 'true'
+  # v2 saga worker (promotions) and keep-awake lease (renews the Sablier session while work is in flight)
+  AIO_SAGA_WORKERS_ENABLED: 'true'
+  AIO_KEEP_AWAKE_SABLIER_URL: http://sablier.sablier.svc.cluster.local:10000
   AIO_WORKLOAD_PULL_SECRET: ghcr-readonly
   SPRING_FLYWAY_DEFAULT_SCHEMA: aio_platform
   SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA: aio_platform

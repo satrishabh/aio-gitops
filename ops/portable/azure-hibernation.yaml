@@ -109,6 +109,11 @@ spec:
   ingress:
     - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-ingress}}}]
       ports: [{port: 10000, protocol: TCP}]
+    # AIO's keep-awake lease (KeepAwakeLease) pokes the group's session while builds/sagas run
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-platform}}
+          podSelector: {matchLabels: {app.kubernetes.io/instance: aio-platform}}
+      ports: [{port: 10000, protocol: TCP}]
 # ------------------------------------------------------------------ gate middlewares (one per namespace)
 ---
 apiVersion: traefik.io/v1alpha1

@@ -20,6 +20,11 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  task:
+    scheduling:
+      # @Scheduled pollers used to share ONE thread, so a slow GitHub/Argo call delayed every other poller
+      pool:
+        size: ${AIO_SCHEDULER_THREADS:4}
   security:
     oauth2:
       client:
@@ -52,6 +57,16 @@ app:
     # CI tracking only (Tekton run/scan status, step logs, CI PipelineRun pruning in the CI namespace).
     # Defaults to workers-enabled; lets CI be observed while delivery reconcilers stay off.
     ci-workers-enabled: ${AIO_CI_WORKERS_ENABLED:${AIO_WORKERS_ENABLED:true}}
+    # Saga worker (promotions today; releases/provisioning next). Independent of workers-enabled because
+    # promotions depend on it. See docs/architecture/AIO-V2-ARCHITECTURE.md.
+    saga-workers-enabled: ${AIO_SAGA_WORKERS_ENABLED:true}
+  # Keep the Sablier scale-to-zero group awake while sagas, CI runs or scans are in flight (empty = off)
+  keep-awake:
+    sablier-url: ${AIO_KEEP_AWAKE_SABLIER_URL:}
+    group: ${AIO_KEEP_AWAKE_GROUP:aio}
+  promotion:
+    verify-health: ${AIO_PROMOTION_VERIFY_HEALTH:true}
+    timeout: ${AIO_PROMOTION_TIMEOUT:PT20M}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

@@ -1,0 +1,261 @@
+# Preview realm for the ScaleSafe Keycloak: no human test users, no password-grant client.
+# Service client secrets are ${SCALESAFE_CS_*} placeholders filled from the `scalesafe-keycloak` Secret at import.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scalesafe-keycloak-realm
+  labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+data:
+  scalesafe-realm.json: |
+    {
+      "realm": "scalesafe",
+      "displayName": "ScaleSafe",
+      "enabled": true,
+      "sslRequired": "external",
+      "registrationAllowed": true,
+      "registrationEmailAsUsername": true,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": true,
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "roles": {
+        "realm": [
+          {
+            "name": "client",
+            "description": "Client portal user (own data only)"
+          },
+          {
+            "name": "ops",
+            "description": "ScaleSafe operations: admin console, KYC review"
+          },
+          {
+            "name": "platform-admin",
+            "description": "Saga definitions, registry, retry and cancel"
+          },
+          {
+            "name": "saga-participant",
+            "description": "Service calling orchestrator registry, start and callbacks"
+          },
+          {
+            "name": "saga-orchestrator",
+            "description": "Orchestrator calling participant saga actions"
+          },
+          {
+            "name": "firm-maker",
+            "description": "Firm staff: create and prepare investor cases"
+          },
+          {
+            "name": "firm-checker",
+            "description": "Firm staff: approve or return investor cases (not their own)"
+          },
+          {
+            "name": "firm-admin",
+            "description": "Firm admin: dashboard, rules overrides"
+          },
+          {
+            "name": "default-roles-scalesafe",
+            "description": "Granted to every new user",
+            "composite": true,
+            "composites": {
+              "realm": [
+                "client"
+              ]
+            }
+          }
+        ]
+      },
+      "defaultRole": {
+        "name": "default-roles-scalesafe"
+      },
+      "clients": [
+        {
+          "clientId": "scalesafe-app",
+          "name": "ScaleSafe client portal",
+          "enabled": true,
+          "publicClient": true,
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "redirectUris": [
+            "https://scalesafe-app-dev.52.140.55.184.nip.io/*"
+          ],
+          "webOrigins": [
+            "https://scalesafe-app-dev.52.140.55.184.nip.io"
+          ],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "https://scalesafe-app-dev.52.140.55.184.nip.io/*"
+          },
+          "protocolMappers": [
+            {
+              "name": "tenant groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "full.path": "true",
+                "claim.name": "groups",
+                "access.token.claim": "true",
+                "id.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "introspection.token.claim": "true"
+              }
+            }
+          ]
+        },
+        {
+          "clientId": "scalesafe-admin",
+          "name": "ScaleSafe admin console",
+          "enabled": true,
+          "publicClient": true,
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "redirectUris": [
+            "https://scalesafe-admin-dev.52.140.55.184.nip.io/*"
+          ],
+          "webOrigins": [
+            "https://scalesafe-admin-dev.52.140.55.184.nip.io"
+          ],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "https://scalesafe-admin-dev.52.140.55.184.nip.io/*"
+          },
+          "protocolMappers": [
+            {
+              "name": "tenant groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "full.path": "true",
+                "claim.name": "groups",
+                "access.token.claim": "true",
+                "id.token.claim": "true",
+                "userinfo.token.claim": "true",
+                "introspection.token.claim": "true"
+              }
+            }
+          ]
+        },
+        {
+          "clientId": "orchestrator",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_ORCHESTRATOR}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        },
+        {
+          "clientId": "client-service",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_CLIENT_SERVICE}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        },
+        {
+          "clientId": "kyc-service",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_KYC_SERVICE}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        },
+        {
+          "clientId": "investor-service",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_INVESTOR_SERVICE}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        },
+        {
+          "clientId": "verification-service",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_VERIFICATION_SERVICE}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        },
+        {
+          "clientId": "esign-service",
+          "enabled": true,
+          "publicClient": false,
+          "secret": "${SCALESAFE_CS_ESIGN_SERVICE}",
+          "standardFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true
+        }
+      ],
+      "users": [
+        {
+          "username": "service-account-orchestrator",
+          "enabled": true,
+          "serviceAccountClientId": "orchestrator",
+          "realmRoles": [
+            "saga-orchestrator"
+          ]
+        },
+        {
+          "username": "service-account-client-service",
+          "enabled": true,
+          "serviceAccountClientId": "client-service",
+          "realmRoles": [
+            "saga-participant"
+          ]
+        },
+        {
+          "username": "service-account-kyc-service",
+          "enabled": true,
+          "serviceAccountClientId": "kyc-service",
+          "realmRoles": [
+            "saga-participant"
+          ]
+        },
+        {
+          "username": "service-account-investor-service",
+          "enabled": true,
+          "serviceAccountClientId": "investor-service",
+          "realmRoles": [
+            "saga-participant"
+          ]
+        },
+        {
+          "username": "service-account-verification-service",
+          "enabled": true,
+          "serviceAccountClientId": "verification-service",
+          "realmRoles": [
+            "saga-participant"
+          ]
+        },
+        {
+          "username": "service-account-esign-service",
+          "enabled": true,
+          "serviceAccountClientId": "esign-service",
+          "realmRoles": [
+            "saga-participant"
+          ]
+        }
+      ],
+      "groups": [
+        {
+          "name": "tenants",
+          "path": "/tenants",
+          "subGroups": [
+            {
+              "name": "acme-capital",
+              "path": "/tenants/acme-capital"
+            },
+            {
+              "name": "beta-advisors",
+              "path": "/tenants/beta-advisors"
+            }
+          ]
+        }
+      ]
+    }

@@ -15,6 +15,7 @@ import RunDetail from './pages/RunDetail.jsx'
 import CdDetail from './pages/CdDetail.jsx'
 import Clusters from './pages/Clusters.jsx'
 import Approvals from './pages/Approvals.jsx'
+import Assistant from './pages/Assistant.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
 import Templates from './pages/Templates.jsx'
@@ -25,7 +26,7 @@ import ScanDetail from './pages/ScanDetail.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
-  [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
+  [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'], [/^\/assistant/, 'Ask AIO'],
   [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'],
   [/^\/pipelines\/ci/, 'Pipelines / CI'], [/^\/pipelines\/cd/, 'Pipelines / CD'], [/^\/pipelines\/security/, 'Pipelines / Security'],
   [/^\/scans\//, 'Pipelines / Security scan'],
@@ -125,6 +126,7 @@ export default function App() {
             <div className="nav-section">Delivery</div>
             {!community && <NavLink to="/approvals"><Icon name="shield" />Approvals{pending > 0 && <span className="count" aria-label={`${pending} pending`}>{pending}</span>}</NavLink>}
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
+            <NavLink to="/assistant"><Icon name="star" />Ask AIO</NavLink>
             {!community && <>
               {me.accessTier === 'admin' && <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>}
             </>}
@@ -172,6 +174,7 @@ export default function App() {
               <Route path="/runs/:id" element={<RunDetail me={me} />} />
               <Route path="/approvals" element={<Approvals me={me} />} />
               <Route path="/metrics" element={<Metrics />} />
+              <Route path="/assistant" element={<Assistant />} />
               <Route path="/clusters" element={<Clusters />} />
               <Route path="/audit" element={<Audit />} />
               <Route path="/pipelines/ci" element={<PipelinesCi />} />

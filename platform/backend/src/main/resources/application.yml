@@ -83,6 +83,20 @@ app:
   freeze:
     windows: ${AIO_FREEZE_WINDOWS:}
     zone: ${AIO_FREEZE_ZONE:Asia/Kolkata}
+  # "Ask AIO" assistant (read-only RAG over resources/knowledge). Off unless enabled AND a base URL and model are set.
+  # Any OpenAI-compatible endpoint: e.g. https://api.groq.com/openai/v1, https://openrouter.ai/api/v1,
+  # or a local Ollama http://ollama.ollama.svc:11434/v1. The key must come from a Kubernetes Secret.
+  assistant:
+    enabled: ${AIO_ASSISTANT_ENABLED:false}
+    base-url: ${AIO_ASSISTANT_BASE_URL:}
+    api-key: ${AIO_ASSISTANT_API_KEY:}
+    model: ${AIO_ASSISTANT_MODEL:}
+    timeout: ${AIO_ASSISTANT_TIMEOUT:PT45S}
+    max-question-chars: ${AIO_ASSISTANT_MAX_QUESTION:2000}
+    max-output-tokens: ${AIO_ASSISTANT_MAX_OUTPUT_TOKENS:800}
+    per-user-per-hour: ${AIO_ASSISTANT_PER_USER_PER_HOUR:20}
+    daily-limit: ${AIO_ASSISTANT_DAILY_LIMIT:300}
+    top-k: ${AIO_ASSISTANT_TOP_K:5}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

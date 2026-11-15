@@ -6,14 +6,16 @@ import com.aio.platform.domain.Deployment;
 import com.aio.platform.domain.Project;
 import com.aio.platform.domain.Promotion;
 import com.aio.platform.repo.PromotionRepo;
+import com.aio.platform.saga.SagaEngine;
 import java.time.Instant;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
  * dev -> staging is applied immediately (auto-sync). Anything that touches prod
- * (promotion or rollback) becomes a PENDING request that an approver must approve,
- * after which the tag is committed and the prod Application is synced.
+ * (promotion or rollback) becomes a PENDING request that an approver must approve.
+ * Applying is delegated to the {@link PromotionSaga} (commit, sync, verify healthy, auto-revert on failure);
+ * the request is APPLYING until the saga finishes and sets DONE or FAILED.
  */
 @Service
 public class PromotionService {
@@ -21,15 +23,15 @@ public class PromotionService {
 
     private final PromotionRepo promotions;
     private final GitOpsService gitops;
-    private final ArgoCdService argo;
+    private final SagaEngine sagas;
     private final AuditService audit;
     private final AppProperties props;
 
-    public PromotionService(PromotionRepo promotions, GitOpsService gitops, ArgoCdService argo,
+    public PromotionService(PromotionRepo promotions, GitOpsService gitops, SagaEngine sagas,
                             AuditService audit, AppProperties props) {
         this.promotions = promotions;
         this.gitops = gitops;
-        this.argo = argo;
+        this.sagas = sagas;
         this.audit = audit;
         this.props = props;
     }
@@ -60,16 +62,22 @@ public class PromotionService {
         pr.status = Promotion.PENDING;
         pr = promotions.save(pr);
         audit.record(actor, kind.toLowerCase() + ".request", p.name + "/" + to, tag);
-        return "prod".equals(to) ? pr : apply(p, pr, actor);
+        if ("prod".equals(to)) return pr;
+        if (promotions.claimPending(pr.id, actor, Instant.now()) == 0) throw new IllegalStateException("request changed concurrently");
+        return startSaga(p, promotions.findById(pr.id).orElseThrow(), actor);
     }
 
     public Promotion approve(Project p, Promotion pr, String actor) {
         requirePending(pr);
         if (!canApprove(actor, pr)) throw new SecurityException("not allowed to approve this request");
+        // atomic PENDING -> APPLYING: of two concurrent approvals (or a double click) only one proceeds
+        if (promotions.claimPending(pr.id, actor, Instant.now()) == 0)
+            throw new IllegalArgumentException("request is no longer pending");
         if (actor.equalsIgnoreCase(pr.requestedBy)) {
             audit.record(actor, "promotion.self_approve", p.name + "/" + pr.toEnv, pr.imageTag);
         }
-        return apply(p, pr, actor);
+        audit.record(actor, "promotion.approve", p.name + "/" + pr.toEnv, pr.imageTag);
+        return startSaga(p, promotions.findById(pr.id).orElseThrow(), actor);
     }
 
     public Promotion reject(Promotion pr, String actor, String reason) {
@@ -108,25 +116,10 @@ public class PromotionService {
         return canApprove(props.security().approvers(), actor, pr.requestedBy);
     }
 
-    private Promotion apply(Project p, Promotion pr, String actor) {
-        pr.decidedBy = actor;
-        pr.decidedAt = Instant.now();
-        try {
-            gitops.setTag(p, pr.toEnv, pr.imageTag,
-                    "platform: " + pr.kind.toLowerCase() + " " + p.name + " " + pr.toEnv + " -> " + pr.imageTag
-                            + " (by " + actor + ")");
-            if ("prod".equals(pr.toEnv)) {
-                String app = ArgoCdService.appName(p, pr.toEnv);
-                argo.getApp(app, true); // make Argo fetch the new commit before syncing
-                argo.sync(app);
-            }
-            pr.status = Promotion.DONE;
-            audit.record(actor, pr.kind.toLowerCase() + ".apply", p.name + "/" + pr.toEnv, pr.imageTag);
-        } catch (Exception e) {
-            pr.status = Promotion.FAILED;
-            pr.message = e.getMessage();
-            audit.record(actor, pr.kind.toLowerCase() + ".failed", p.name + "/" + pr.toEnv, e.getMessage());
-        }
+    /** Hands the claimed (APPLYING) request to the promotion saga; idempotent per promotion id. */
+    private Promotion startSaga(Project p, Promotion pr, String actor) {
+        var saga = sagas.start(PromotionSaga.TYPE, PromotionSaga.key(pr), PromotionSaga.data(p, pr, actor));
+        pr.sagaId = saga.id;
         return promotions.save(pr);
     }
 

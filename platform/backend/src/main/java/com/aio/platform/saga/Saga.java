@@ -73,6 +73,13 @@ public final class Saga {
             this.data = parse(instance.data);
         }
 
+        /** A context that is not backed by a stored saga, for unit tests and dry runs. */
+        public static Context detached(Map<String, Object> data, Instant now) {
+            SagaInstance s = new SagaInstance();
+            s.data = write(new LinkedHashMap<>(data));
+            return new Context(s, now);
+        }
+
         public Long sagaId() { return instance.id; }
         public String businessKey() { return instance.businessKey; }
         public Instant now() { return now; }
@@ -89,7 +96,10 @@ public final class Saga {
             return v == null ? null : ((Number) v).longValue();
         }
 
-        public boolean has(String key) { return data.containsKey(key); }
+        public boolean has(String key) { return data.get(key) != null; }
+
+        /** Last error recorded on the saga (why it is compensating or failed); null when none. */
+        public String lastError() { return instance.lastError; }
 
         public void put(String key, Object value) { data.put(key, value); }
 

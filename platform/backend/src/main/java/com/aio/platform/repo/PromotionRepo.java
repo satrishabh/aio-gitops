@@ -14,4 +14,16 @@ public interface PromotionRepo extends JpaRepository<Promotion, Long> {
     List<Promotion> findByProjectIdOrderByIdDesc(Long projectId, Pageable page);
 
     List<Promotion> findAllByOrderByIdDesc(Pageable page);
+
+    /**
+     * Atomically moves a PENDING request to APPLYING. Returns 0 when it was already decided, so two approvers
+     * clicking at once cannot both apply it.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("update Promotion p set p.status = 'APPLYING', p.decidedBy = :actor, "
+            + "p.decidedAt = :at, p.version = p.version + 1 where p.id = :id and p.status = 'PENDING'")
+    int claimPending(@org.springframework.data.repository.query.Param("id") Long id,
+                     @org.springframework.data.repository.query.Param("actor") String actor,
+                     @org.springframework.data.repository.query.Param("at") java.time.Instant at);
 }

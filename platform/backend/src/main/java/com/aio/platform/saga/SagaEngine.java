@@ -184,7 +184,8 @@ public class SagaEngine {
         List<Saga.Step> steps = d.steps();
         if (s.deadlineAt != null && now.isAfter(s.deadlineAt)) {
             history.add(SagaEvent.of(s.id, name(steps, s.step), "TIMEOUT", "deadline " + s.deadlineAt + " exceeded", now));
-            beginCompensation(s, "timed out in step " + name(steps, s.step), now, history, steps);
+            beginCompensation(s, "timed out in step " + name(steps, s.step)
+                    + (s.lastError == null ? "" : " (last error: " + s.lastError + ")"), now, history, steps);
             return;
         }
         Saga.Step step = steps.get(s.step);

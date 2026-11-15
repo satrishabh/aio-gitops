@@ -97,6 +97,8 @@ app:
     per-user-per-hour: ${AIO_ASSISTANT_PER_USER_PER_HOUR:20}
     daily-limit: ${AIO_ASSISTANT_DAILY_LIMIT:300}
     top-k: ${AIO_ASSISTANT_TOP_K:5}
+    # G2 "explain a failure": include the last 60 log lines of failed steps (redacted). Off: metadata only.
+    share-logs: ${AIO_ASSISTANT_SHARE_LOGS:false}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

@@ -1,17 +1,102 @@
 [
-  {"q": "How do I approve a production deployment?", "source": "aio-user-guide.md", "heading": "Approvals"},
-  {"q": "Who is allowed to approve prod requests?", "source": "aio-user-guide.md", "heading": "Approvals"},
-  {"q": "What happens when a deployment fails?", "source": "aio-user-guide.md", "heading": "fails"},
-  {"q": "What does the Needs decision status mean and what can I do?", "source": "aio-user-guide.md", "heading": "fails"},
-  {"q": "Why does AIO take a few minutes to open in the morning?", "source": "aio-user-guide.md", "heading": "slow"},
-  {"q": "Are GitHub webhooks lost while AIO sleeps?", "source": "aio-user-guide.md", "heading": "slow"},
-  {"q": "The smoke test fails because our home page returns an error, how do I fix it?", "source": "aio-user-guide.md", "heading": "Smoke"},
-  {"q": "Can I deploy to prod during a freeze window?", "source": "aio-user-guide.md", "heading": "freeze"},
-  {"q": "How is change failure rate calculated?", "source": "aio-user-guide.md", "heading": "metrics"},
-  {"q": "Can the assistant change or roll back my deployment?", "source": "aio-user-guide.md", "heading": "assistant"},
-  {"q": "How do I create a new project from a template?", "source": "aio-user-guide.md", "heading": "Create"},
-  {"q": "Why did a redelivered webhook not start a second build?", "source": "aio-user-guide.md", "heading": "Builds"},
-  {"q": "What is the saga engine and how does compensation work?", "source": "AIO-V2-ARCHITECTURE.md", "heading": ""},
-  {"q": "What does AIO cost per month and what is the cost model?", "source": "AIO-V2-ARCHITECTURE.md", "heading": "Cost"},
-  {"q": "What is the supply chain score and what is missing for SLSA?", "source": "AIO-V2-SCORECARD.md", "heading": ""}
+ {
+  "q": "How do I approve a production deployment?",
+  "source": "aio-user-guide.md",
+  "heading": "Approvals"
+ },
+ {
+  "q": "Who is allowed to approve prod requests?",
+  "source": "aio-user-guide.md",
+  "heading": "Approvals"
+ },
+ {
+  "q": "What happens when a deployment fails?",
+  "source": "aio-user-guide.md",
+  "heading": "fails"
+ },
+ {
+  "q": "What does the Needs decision status mean and what can I do?",
+  "source": "aio-user-guide.md",
+  "heading": "fails"
+ },
+ {
+  "q": "Why does AIO take a few minutes to open in the morning?",
+  "source": "aio-user-guide.md",
+  "heading": "slow"
+ },
+ {
+  "q": "Are GitHub webhooks lost while AIO sleeps?",
+  "source": "aio-user-guide.md",
+  "heading": "slow"
+ },
+ {
+  "q": "The smoke test fails because our home page returns an error, how do I fix it?",
+  "source": "aio-user-guide.md",
+  "heading": "Smoke"
+ },
+ {
+  "q": "Can I deploy to prod during a freeze window?",
+  "source": "aio-user-guide.md",
+  "heading": "freeze"
+ },
+ {
+  "q": "How is change failure rate calculated?",
+  "source": "aio-user-guide.md",
+  "heading": "metrics"
+ },
+ {
+  "q": "Can the assistant change or roll back my deployment?",
+  "source": "aio-user-guide.md",
+  "heading": "assistant"
+ },
+ {
+  "q": "How do I create a new project from a template?",
+  "source": "aio-user-guide.md",
+  "heading": "Create"
+ },
+ {
+  "q": "Why did a redelivered webhook not start a second build?",
+  "source": "aio-user-guide.md",
+  "heading": "Builds"
+ },
+ {
+  "q": "What is the saga engine and how does compensation work?",
+  "source": "AIO-V2-ARCHITECTURE.md",
+  "heading": ""
+ },
+ {
+  "q": "What does AIO cost per month and what is the cost model?",
+  "source": "AIO-V2-ARCHITECTURE.md",
+  "heading": "Cost"
+ },
+ {
+  "q": "What is the supply chain score and what is missing for SLSA?",
+  "source": "AIO-V2-SCORECARD.md",
+  "heading": ""
+ },
+ {
+  "q": "My build failed with exit code 1 in the Dockerfile step, what should I check?",
+  "source": "aio-troubleshooting.md",
+  "heading": "Dockerfile"
+ },
+ {
+  "q": "The vulnerability scan blocked my build, how can I get past it?",
+  "source": "aio-troubleshooting.md",
+  "heading": "Vulnerability"
+ },
+ {
+  "q": "The deployment is Degraded and pods are crash looping after promote",
+  "source": "aio-troubleshooting.md",
+  "heading": "Degraded"
+ },
+ {
+  "q": "Automatic rollback failed and it says needs manual attention",
+  "source": "aio-troubleshooting.md",
+  "heading": "rollback failed"
+ },
+ {
+  "q": "Image push to the registry failed during the build",
+  "source": "aio-troubleshooting.md",
+  "heading": "registry"
+ }
 ]

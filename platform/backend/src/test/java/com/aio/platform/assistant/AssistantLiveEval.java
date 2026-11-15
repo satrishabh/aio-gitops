@@ -29,7 +29,8 @@ class AssistantLiveEval {
         String base = System.getenv("AIO_EVAL_BASE_URL"), model = System.getenv("AIO_EVAL_MODEL"),
                 key = System.getenv("AIO_EVAL_API_KEY");
         KnowledgeBase kb = new KnowledgeBase();
-        var llm = new OpenAiCompatibleClient(base, key, model, Duration.ofSeconds(60));
+        var llm = new OpenAiCompatibleClient(base, key, model,
+                Duration.ofSeconds(Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_TIMEOUT_SECONDS", "60"))));
         var service = new AssistantService(kb, llm, mock(AuditService.class), Clock.systemUTC(), true, model,
                 "eval", 2000, 800, 1000, 1000, 5);
         ObjectMapper json = new ObjectMapper();
@@ -50,6 +51,27 @@ class AssistantLiveEval {
             lines.add(json.writeValueAsString(row));
             Thread.sleep(2500);   // stay under free-tier requests-per-minute limits
         }
+        // G2: one synthetic failed build, explained from metadata only (as with share-logs off)
+        String facts = """
+                Kind: CI build run
+                Project: demo
+                Status: FAILED
+                Trigger: PUSH
+                AIO message: build step failed
+                Steps:
+                - clone: SUCCEEDED
+                - build / kaniko: FAILED (exit code 1)
+                - scan / gate: SKIPPED
+                """;
+        var explained = service.explain("eval", "run:demo", "CI run #1 of demo", facts, "build failed kaniko dockerfile");
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("user_input", "Explain why CI run #1 of demo failed and what to do next.");
+        row.put("response", explained.answer());
+        row.put("retrieved_contexts", List.of(facts));
+        row.put("grounded", explained.grounded());
+        row.put("expected_source", "aio-troubleshooting.md");
+        lines.add(json.writeValueAsString(row));
+
         Path out = Path.of("target", "assistant-eval.jsonl");
         Files.createDirectories(out.getParent());
         Files.write(out, lines);

@@ -43,6 +43,8 @@ public class OpenAiCompatibleClient implements LlmClient {
             int code = e.getStatusCode().value();
             throw new IllegalStateException(code == 429 ? "The AI provider's free quota is used up for now; try again later"
                     : "The AI provider answered HTTP " + code);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            throw new IllegalStateException("The AI provider did not answer in time or could not be reached; try again later");
         }
         if (res == null || !res.path("choices").isArray() || res.path("choices").isEmpty())
             throw new IllegalStateException("The AI provider returned no answer");

@@ -34,7 +34,7 @@ Schema: `V10__sagas.sql` (saga tables + promotions version/saga_id/previous_tag)
   - `KeepAwakeLeaseTest` (6, against a fake Sablier HTTP server)
   - `StuckRunRecoveryTest` (3)
 - Frontend: `node --test platform/frontend/tests/activity.test.mjs` (5) passes, and `vite build` passes.
-- **Not yet done:** running the Flyway migrations V10/V11 against real PostgreSQL. Tests use H2 with Hibernate-generated schema. The first deploy runs them, so do the deploy in a quiet window (see below).
+- **Migrations validated on real PostgreSQL (16 Nov 2026):** all migrations V1–V11 applied on PostgreSQL 16.4 and Hibernate `ddl-auto=validate` passed for every entity (`AIO_IT_EMBEDDED_PG=true mvn test -Dtest=PostgresSchemaIT`, an embedded throwaway server, no Docker). Still take the fresh backup below before deploying.
 
 ### Behaviour changes to know
 1. **The promote button no longer returns DONE immediately.** The request shows `APPLYING` until Argo CD reports the new image healthy (typically 1–3 min). DONE is now a stronger promise.

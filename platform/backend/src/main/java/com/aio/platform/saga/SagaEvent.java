@@ -15,7 +15,7 @@ public class SagaEvent {
     @Column(length = 1000) public String message;
     public Instant at;
 
-    static SagaEvent of(Long sagaId, String step, String outcome, String message, Instant at) {
+    public static SagaEvent of(Long sagaId, String step, String outcome, String message, Instant at) {
         SagaEvent e = new SagaEvent();
         e.sagaId = sagaId;
         e.step = step;

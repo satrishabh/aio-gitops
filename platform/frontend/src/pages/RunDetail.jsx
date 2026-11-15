@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
 import { activity } from '../activity.js'
 import Badge, { Vulns } from '../components/Badge.jsx'
+import ExplainFailure from '../components/ExplainFailure.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Skeleton, ago } from '../components/ui.jsx'
 import { useAction } from '../hooks.jsx'
@@ -194,6 +195,7 @@ export default function RunDetail({ me }) {
         {r.overrideReason && <p className="muted">Risk accepted: “{r.overrideReason}”</p>}
         {r.message && r.status === 'FAILED' && <div className="banner" style={{ background: 'var(--red-bg)', color: 'var(--red)', marginTop: 14, marginBottom: 0 }}>
           <Icon name="x" size={15} />{r.message}</div>}
+        {(r.status === 'FAILED' || r.releaseStatus === 'FAILED') && <ExplainFailure kind="run" id={r.id} />}
       </div>
 
       <div className="card">

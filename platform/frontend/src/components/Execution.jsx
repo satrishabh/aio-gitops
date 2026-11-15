@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { activity } from '../activity.js'
+import ExplainFailure from './ExplainFailure.jsx'
 import { ago } from './ui.jsx'
 
 /** Step state -> badge colour and label. Text always carries the meaning; colour only reinforces it. */
@@ -93,6 +94,8 @@ export default function Execution({ promotionId, canDecide, onChanged }) {
           {error && <p className="muted" role="alert" style={{ margin: '8px 0 0' }}>{error}</p>}
         </div>
       )}
+
+      {(paused || stuck || ['COMPENSATED', 'FAILED'].includes(saga.status)) && <ExplainFailure kind="promotion" id={promotionId} />}
 
       <details className="exec-log">
         <summary>Event log ({events.length})</summary>

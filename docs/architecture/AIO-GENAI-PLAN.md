@@ -3,6 +3,7 @@
 16 Nov 2026. Goal: an assistant ("Ask AIO") that helps across the whole delivery process, up to taking a new
 application idea to a shipped project, built **one use case at a time, safety first, at near-zero running cost**.
 Kafka-class messaging is the later horizon, adopted only when a use case needs it.
+Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSISTANT-PRODUCT.md`.
 
 ## 1. Principles
 
@@ -28,7 +29,7 @@ Kafka-class messaging is the later horizon, adopted only when a use case needs i
 | Slice | Use case | What the model sees | Can it act? | Status |
 |---|---|---|---|---|
 | **G1** | **Ask AIO**: how-to and policy questions with cited answers | Curated docs (redacted) | No | **Built on branch** (171 tests, retrieval recall@5 = 1.00) |
-| G2 | **Explain a failure**: why did this CI run, scan or deployment fail, and what to try | The failed step's last log lines and saga events, redacted, for a project the user can see | No | Next |
+| **G2** | **Explain a failure**: why did this CI run or deployment fail, and what to try | Status, failed steps, exit codes and saga events of a project the user can see; the last 60 log lines only with `AIO_ASSISTANT_SHARE_LOGS=true`, redacted | No | **Built on branch** |
 | G3 | **Idea to spec**: describe an app, get a spec, a template choice, a Dockerfile and values draft | The idea, the template catalogue | No: draft only; the person clicks New project | Planned |
 | G4 | **Do it for me, with approval**: create project, promote, open a PR with the draft | As G3, plus tool results | Yes, through existing APIs as sagas, every step confirmed by a person; prod via approvals | Planned |
 | G5 | **Approval co-pilot**: risk summary for a prod request (diff of images, scan delta, recent failures) | Scan and deployment data for that project | No | Planned |

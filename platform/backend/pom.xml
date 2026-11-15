@@ -33,13 +33,21 @@
     <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId></dependency>
     <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId></dependency>
     <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
-    <!-- Cloud SQL Java connector: lets DB_URL point at a Cloud SQL instance (IAM-authorised, TLS) without a proxy sidecar -->
     <dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-client</artifactId><version>${fabric8.version}</version></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-test</artifactId><scope>test</scope></dependency>
     <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><scope>test</scope></dependency>
+    <!-- Real PostgreSQL for PostgresSchemaIT without Docker (test scope only; started only when AIO_IT_EMBEDDED_PG=true) -->
+    <dependency><groupId>io.zonky.test</groupId><artifactId>embedded-postgres</artifactId><version>2.1.0</version><scope>test</scope></dependency>
   </dependencies>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- PostgreSQL 16 binaries for embedded-postgres, matching docker-compose -->
+      <dependency><groupId>io.zonky.test.postgres</groupId><artifactId>embedded-postgres-binaries-bom</artifactId><version>16.4.0</version><type>pom</type><scope>import</scope></dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <build>
     <finalName>platform</finalName>

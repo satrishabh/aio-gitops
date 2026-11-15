@@ -696,3 +696,5 @@ select option { background: var(--panel-solid); color: var(--text); }
 .assistant-ask { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
 .assistant-ask textarea { flex: 1 1 240px; min-width: 0; resize: vertical; font: inherit; padding: 10px; border-radius: 10px; }
 .assistant-note { font-size: 0.8rem; margin: 0; }
+
+.explain { margin-top: 12px; display: grid; gap: 8px; justify-items: start; }

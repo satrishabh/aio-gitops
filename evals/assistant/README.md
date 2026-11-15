@@ -30,7 +30,22 @@ Add a line to `platform/backend/src/test/resources/assistant-golden.json` for ev
 went wrong, with the document and heading that should answer it. Fix the knowledge (or retrieval) until layer 1 passes
 again. This is the regression suite for the assistant.
 
+## Results so far
+
+**16 Nov 2026, local model `qwen2.5:1.5b` on Ollama (laptop CPU), 20 golden questions + 1 failure explanation:**
+- The whole pipeline worked end to end: retrieval, redaction, prompt, answer, sources.
+- Answers were on topic and mostly faithful to the docs (manual review); one mixed up two approval rules.
+- **0 of 21 answers used the `[n]` citation format**: a 1.5B model ignores that instruction, so the UI shows
+  sources as "related, not cited". Use a larger model (free-tier 70B-class) and confirm citations with layer 3.
+- About 73 s per answer on CPU: a laptop-sized local model is too slow for daily use; use a free cloud tier, or a
+  GPU node if data must stay in-house.
+- Found and fixed: a provider timeout surfaced as a raw I/O error; it now says the provider did not answer in time.
+- The model, Ollama and Docker were stopped and the model deleted afterwards (nothing left running).
+
+Run your own live eval with a local model:
+`AIO_EVAL_BASE_URL=http://localhost:11434/v1 AIO_EVAL_MODEL=<model> AIO_EVAL_TIMEOUT_SECONDS=240 mvn test -Dtest=AssistantLiveEval`
+
 ## Not yet done
 
-- Layer 3 has not been run against a live model (no key was used while building it).
+- Ragas faithfulness (layer 3 scoring) has not been run: it needs a judge model key.
 - Red-team prompts (promptfoo) and production tracing (Langfuse) are planned in `docs/architecture/AIO-GENAI-PLAN.md`.

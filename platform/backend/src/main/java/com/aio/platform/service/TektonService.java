@@ -262,6 +262,14 @@ public class TektonService {
         try { Thread.sleep(ms); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
     }
 
+    /**
+     * Finds the PipelineRun of a run by its {@code aio.platform/run-id} label, for runs whose name was never saved
+     * (the platform stopped between creating the PipelineRun and recording its generated name). Null if none.
+     */
+    public String recoverRunByLabel(CiRun run) {
+        return findByLabel("aio.platform/run-id", run.id);
+    }
+
     public GenericKubernetesResource getPipelineRun(String name) {
         return k8s.genericKubernetesResources(PIPELINE_RUN).inNamespace(ns()).withName(name).get();
     }

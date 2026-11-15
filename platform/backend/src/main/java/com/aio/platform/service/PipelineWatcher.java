@@ -47,13 +47,17 @@ public class PipelineWatcher {
 
     void sync(CiRun run) {
         if (run.pipelineRunName == null) {
-            if (!"INDEPENDENT".equals(run.deliveryMode)) return;
-            run.pipelineRunName = tekton.recoverIndependentRun(run);
+            // INDEPENDENT runs have a fixed name; LEGACY runs have a generated one, so look them up by label.
+            // Before this, a LEGACY run whose name was never saved stayed PENDING forever (and blocked switching
+            // the project to independent delivery).
+            run.pipelineRunName = "INDEPENDENT".equals(run.deliveryMode)
+                    ? tekton.recoverIndependentRun(run) : tekton.recoverRunByLabel(run);
             if (run.pipelineRunName == null) {
                 if (run.createdAt.isBefore(Instant.now().minus(Duration.ofMinutes(10))))
                     finish(run, CiRun.FAILED, "Build submission was not confirmed; start a new run after checking cluster availability");
                 return;
             }
+            runs.save(run);
         }
         GenericKubernetesResource pr = tekton.getPipelineRun(run.pipelineRunName);
         if (pr == null) {

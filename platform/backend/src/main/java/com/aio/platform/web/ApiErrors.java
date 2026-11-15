@@ -40,6 +40,12 @@ public class ApiErrors {
         return body(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    /** Optimistic locking (@Version): someone else changed the record first, e.g. approved while you rejected. */
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    ResponseEntity<Map<String, String>> concurrentChange(org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+        return body(HttpStatus.CONFLICT, "This item was changed by someone else just now; reload and try again");
+    }
+
     @ExceptionHandler(io.fabric8.kubernetes.client.KubernetesClientException.class)
     ResponseEntity<Map<String, String>> kubernetes(io.fabric8.kubernetes.client.KubernetesClientException e) {
         // API errors can include request objects. Never log or return a Secret request body.

@@ -70,8 +70,8 @@ spec:
           envFrom: [{ secretRef: { name: scalesafe-postgres } }]
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           resources:
-            requests: { cpu: 20m, memory: 256Mi }  # single-node sizing
-            limits: { cpu: "1", memory: 1Gi }
+            requests: { cpu: 25m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
           readinessProbe: { exec: { command: [pg_isready, -U, postgres, -d, scalesafe] }, initialDelaySeconds: 5, periodSeconds: 10 }
           livenessProbe: { exec: { command: [pg_isready, -U, postgres] }, initialDelaySeconds: 30, periodSeconds: 20 }
           volumeMounts:

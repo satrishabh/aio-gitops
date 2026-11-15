@@ -39,7 +39,7 @@ spec:
           envFrom: [{ secretRef: { name: scalesafe-keycloak } }]
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           resources:
-            requests: { cpu: 40m, memory: 512Mi }  # single-node sizing; bursts to the 1 CPU limit
+            requests: { cpu: 25m, memory: 384Mi }
             limits: { cpu: "1", memory: 1Gi }
           startupProbe: { httpGet: { path: /health/started, port: management }, periodSeconds: 10, failureThreshold: 36 }
           readinessProbe: { httpGet: { path: /health/ready, port: management }, periodSeconds: 10 }

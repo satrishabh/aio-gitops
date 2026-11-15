@@ -1,5 +1,5 @@
 # AIO dev values for scalesafe-orchestrator (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-orchestrator/values-dev.yaml in
-# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Preview only (nip.io).
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on indiescale.in.
 nameOverride: scalesafe-orchestrator
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
@@ -15,7 +15,7 @@ env:
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
   - name: SCALESAFE_CORS_ALLOWED_ORIGINS
-    value: "https://scalesafe-app-dev.52.140.55.184.nip.io,https://scalesafe-admin-dev.52.140.55.184.nip.io,https://scalesafe-site-dev.52.140.55.184.nip.io"
+    value: "https://app.indiescale.in,https://admin.indiescale.in,https://indiescale.in"
 resources:
   requests: {cpu: 25m, memory: 256Mi}
   limits: {cpu: 500m, memory: 512Mi}
@@ -31,7 +31,7 @@ ingress:
   controller: traefik
   enabled: false
 routes:
-  - host: scalesafe-api-dev.52.140.55.184.nip.io
+  - host: api.indiescale.in
     path: "/orchestrator"
     tls: true
     issuer: letsencrypt-azure

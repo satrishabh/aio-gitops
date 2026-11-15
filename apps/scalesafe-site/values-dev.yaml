@@ -1,5 +1,5 @@
 # Azure AKS 'creative' (dev). scalesafe.co.in marketing site: static nginx on 8080.
-# Preview only: served on a nip.io test host. scalesafe.co.in DNS stays on Cloudflare until cutover.
+# Pre-corporate staging on indiescale.in. scalesafe.co.in DNS stays on Cloudflare until cutover.
 # Source: github.com/satrishabh/scalesafe @ 9498408a96b7, built by ci/scalesafe-site-ci-tbhx6
 # (Trivy HIGH/CRITICAL gate: critical=0 high=0 medium=0 low=0)
 nameOverride: scalesafe-site
@@ -33,6 +33,6 @@ ingress:
   host: indiescale.in
   tls: true
   issuer: letsencrypt-azure
-  forceHttps: false
+  forceHttps: true
   externalDns: false
 routes: []

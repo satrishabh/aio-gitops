@@ -10,6 +10,8 @@ metadata:
   name: pipeline-runner
   namespace: ci
 automountServiceAccountToken: false
+# pulls the GHCR-mirrored Kaniko image (tekton/tasks/kaniko-build-push.yaml)
+imagePullSecrets: [{name: ghcr-pull}]
 ---
 # Used by the EventListener to create PipelineRuns
 apiVersion: v1

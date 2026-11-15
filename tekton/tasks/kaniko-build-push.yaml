@@ -27,11 +27,13 @@ spec:
     - name: IMAGE_URL
   steps:
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.23.2
+      # mirrored from gcr.io/kaniko-project/executor:v1.23.2 (same digest) so CI has no Google dependency;
+      # private GHCR package, pulled with the ghcr-pull secret on SA pipeline-runner
+      image: ghcr.io/satrishabh/kaniko-executor:v1.23.2@sha256:9e69fd4330ec887829c780f5126dd80edc663df6def362cd22e79bcdf00ac53f
       workingDir: $(workspaces.source.path)
       computeResources:
         requests: { cpu: 100m, memory: 768Mi }   # low request so it fits on busy small nodes; bursts to the limit
-        limits: { cpu: 900m, memory: 2Gi }   # sized for e2-medium nodes
+        limits: { cpu: 900m, memory: 2Gi }   # sized for 2-vCPU / 8 GiB nodes (AKS B2as_v2)
       args:
         - --dockerfile=$(params.DOCKERFILE)
         - --context=$(workspaces.source.path)/$(params.CONTEXT)

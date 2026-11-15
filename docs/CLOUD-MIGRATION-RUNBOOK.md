@@ -399,6 +399,8 @@ Treat these as a product backlog, not features already implemented:
 
 ## Related records
 
+- [MIGRATION-RETROSPECTIVE-GCP-TO-AZURE-2026-11.md](MIGRATION-RETROSPECTIVE-GCP-TO-AZURE-2026-11.md): what actually happened in the GCP → Azure move, costs, every problem and fix, and a pre-flight checklist. Read it before the next migration.
+
 - [Native Azure cutover](NATIVE-AZURE-CUTOVER-2026-11-14.md): event record;
   read the subsequent hibernation record for the final source-ingress state.
 - [GCP downgrade and final hibernation](GCP-DOWNSIZE-2026-11-14.md).

@@ -13,7 +13,7 @@
 {{- fail (printf "config.%s must use HTTPS" $key) -}}
 {{- end -}}
 {{- end -}}
-{{- range $key := list "DB_URL" "DB_USER" "DB_PASSWORD" "OIDC_CLIENT_SECRET" "GITHUB_TOKEN" "ARGOCD_TOKEN" -}}
+{{- range $key := list "DB_URL" "DB_USER" "DB_PASSWORD" "OIDC_CLIENT_SECRET" "GITHUB_TOKEN" "ARGOCD_TOKEN" "AIO_ASSISTANT_API_KEY" -}}
 {{- if hasKey $.Values.config $key -}}
 {{- fail (printf "%s belongs in existingSecret, not config" $key) -}}
 {{- end -}}

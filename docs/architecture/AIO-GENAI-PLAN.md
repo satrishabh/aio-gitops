@@ -10,7 +10,7 @@ Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSIST
 1. **One use case per slice.** Each slice is off by default behind its own flag, has an eval gate, and can be turned off without a deploy.
 2. **Read before write.** The assistant first explains, then drafts, and only at the end acts. It acts only through existing AIO APIs, inside a saga, after a person approves.
 3. **Least data out.** Only curated, redacted text leaves the cluster. Code, logs and secrets go out only in later slices that explicitly need them, after redaction, and per project with consent.
-4. **Free first, swappable always.** The `LlmClient` port uses the OpenAI-compatible protocol, so Groq, OpenRouter, Cerebras, Mistral or a local Ollama are a configuration change. A Claude adapter on the official Anthropic SDK is the quality option when a paid tier is justified.
+4. **Free first, swappable always.** The `LlmClient` port uses the OpenAI-compatible protocol, so Google Gemini (the chosen default, free tier), Groq, OpenRouter, Cerebras, Mistral or a local Ollama are a configuration change. A Claude adapter on the official Anthropic SDK is the quality option when a paid tier is justified.
 5. **Measured.** Retrieval evals run in CI; answer-quality evals (Ragas faithfulness) gate model or prompt changes.
 
 ## 2. Safety model (OWASP Top 10 for LLM applications)
@@ -39,7 +39,7 @@ Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSIST
 
 | Need | Now (zero extra infra) | Next | Later, only if needed |
 |---|---|---|---|
-| Models | Free OpenAI-compatible tiers (Groq, OpenRouter, Cerebras, Mistral) | Claude via official SDK for quality-critical slices | Self-hosted Ollama / vLLM on a GPU node |
+| Models | **Google Gemini 2.5 Flash, free tier (chosen)**; other free OpenAI-compatible tiers (Groq, OpenRouter, Cerebras, Mistral) as fallbacks | Claude via official SDK for quality-critical slices | Self-hosted Ollama / vLLM on a GPU node |
 | Retrieval | In-memory BM25 over curated Markdown | pgvector + full-text hybrid search with reciprocal rank fusion in the existing PostgreSQL | Dedicated vector DB only past ~1M chunks |
 | Evals | JUnit retrieval eval (CI) + Ragas faithfulness (offline) | DeepEval or Ragas in CI on a nightly schedule; promptfoo red-team prompts | Langfuse datasets from production traces |
 | Guardrails | Redaction, tagged sources, no tools, caps | LLM Guard or Llama Guard classifier on input and output for G4 | NeMo Guardrails dialogue rails |
@@ -57,7 +57,21 @@ Kafka is not needed at today's scale, and it would cost more than the rest of th
 
 ## 6. Deploying G1
 
-1. Pick a provider, create a key, store it as a Kubernetes Secret (never in values files or chat).
-2. Set `AIO_ASSISTANT_ENABLED=true`, `AIO_ASSISTANT_BASE_URL`, `AIO_ASSISTANT_MODEL`, `AIO_ASSISTANT_API_KEY` (from the Secret).
+Chosen provider: **Google Gemini free tier**, through its OpenAI-compatible endpoint (no new code or SDK).
+
+| Setting | Value |
+|---|---|
+| `AIO_ASSISTANT_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` |
+| `AIO_ASSISTANT_MODEL` | `gemini-2.5-flash` (or `gemini-2.5-flash-lite` for higher free limits, lower quality) |
+| `AIO_ASSISTANT_REASONING_EFFORT` | `none`: no hidden thinking, so the 800-token cap goes to the answer and replies are fast |
+| `AIO_ASSISTANT_SHARE_LOGS` | `false`: Google may use free-tier prompts to improve its products, and people may review them |
+| `AIO_ASSISTANT_API_KEY` | from Google AI Studio, stored only in the `aio-platform-runtime` Secret; the chart refuses it in `config` |
+
+Free-tier limits are per Google Cloud project, change without notice, and reset at midnight Pacific. AIO's own caps
+(20 per person per hour, 300 per day) sit below them; a 429 shows "free quota used up". **Never link a billing
+account to the key's project**: from then on every request is charged. Use a separate project just for this key.
+
+1. Create the key in Google AI Studio and add it to the Secret (never in values files or chat).
+2. In `ops/portable/azure-native-aio-values.yaml` the Gemini settings are already present with `AIO_ASSISTANT_ENABLED: 'false'`; switch it to `'true'` after step 3.
 3. Run layer 3 of `evals/assistant/README.md` once with that model; ship only if faithfulness ≥ 0.8.
 4. Watch the audit log for a week; grow the golden set from real questions.

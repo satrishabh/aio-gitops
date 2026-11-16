@@ -88,6 +88,8 @@ app:
   # or a local Ollama http://ollama.ollama.svc:11434/v1. The key must come from a Kubernetes Secret.
   assistant:
     enabled: ${AIO_ASSISTANT_ENABLED:false}
+    # Default provider: Google Gemini free tier, e.g. https://generativelanguage.googleapis.com/v1beta/openai
+    # with model gemini-2.5-flash and reasoning-effort none. Any OpenAI-compatible endpoint works.
     base-url: ${AIO_ASSISTANT_BASE_URL:}
     api-key: ${AIO_ASSISTANT_API_KEY:}
     model: ${AIO_ASSISTANT_MODEL:}
@@ -97,6 +99,8 @@ app:
     per-user-per-hour: ${AIO_ASSISTANT_PER_USER_PER_HOUR:20}
     daily-limit: ${AIO_ASSISTANT_DAILY_LIMIT:300}
     top-k: ${AIO_ASSISTANT_TOP_K:5}
+    # Sent as reasoning_effort when set. Gemini 2.5 Flash: none = no thinking (fast; the whole budget goes to the answer).
+    reasoning-effort: ${AIO_ASSISTANT_REASONING_EFFORT:}
     # G2 "explain a failure": include the last 60 log lines of failed steps (redacted). Off: metadata only.
     share-logs: ${AIO_ASSISTANT_SHARE_LOGS:false}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)

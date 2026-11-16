@@ -11,14 +11,18 @@ Three layers. The first runs on every build; the other two run when you choose t
 ## Run layer 3
 
 ```bash
-# 1. answers from the assistant (uses the model you would deploy)
-export AIO_EVAL_BASE_URL=https://api.groq.com/openai/v1 AIO_EVAL_MODEL=<model id> AIO_EVAL_API_KEY=<key from your secret store>
+# 1. answers from the assistant, with the model you would deploy (Google Gemini free tier)
+#    read the key from your secret store into the variable; never type it into chat or a file in the repo
+export AIO_EVAL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai AIO_EVAL_MODEL=gemini-2.5-flash
+export AIO_EVAL_REASONING_EFFORT=none AIO_EVAL_PAUSE_SECONDS=7   # stay under the free per-minute limit
+export AIO_EVAL_API_KEY=<key>
 cd platform/backend && mvn test -Dtest=AssistantLiveEval && cd ../..
 
 # 2. score them (a different model as judge is better than self-judging)
 python -m venv .venv-evals && . .venv-evals/bin/activate
 pip install -r evals/assistant/requirements.txt
-export JUDGE_BASE_URL=https://openrouter.ai/api/v1 JUDGE_MODEL=<judge model id> JUDGE_API_KEY=<key>
+# Gemini works as the judge too (same endpoint and key); a model from another provider avoids self-judging bias
+export JUDGE_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai JUDGE_MODEL=gemini-2.5-flash JUDGE_API_KEY=$AIO_EVAL_API_KEY
 python evals/assistant/ragas_eval.py platform/backend/target/assistant-eval.jsonl
 ```
 

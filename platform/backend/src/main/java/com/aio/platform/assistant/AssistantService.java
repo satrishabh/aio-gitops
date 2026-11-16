@@ -101,9 +101,10 @@ public class AssistantService {
                             @Value("${app.assistant.max-output-tokens:800}") int maxTokens,
                             @Value("${app.assistant.per-user-per-hour:20}") int perHour,
                             @Value("${app.assistant.daily-limit:300}") int perDay,
-                            @Value("${app.assistant.top-k:5}") int topK) {
+                            @Value("${app.assistant.top-k:5}") int topK,
+                            @Value("${app.assistant.reasoning-effort:}") String reasoningEffort) {
         this(knowledge, enabled && !baseUrl.isBlank() && !model.isBlank()
-                        ? new OpenAiCompatibleClient(baseUrl, apiKey, model, timeout) : null,
+                        ? new OpenAiCompatibleClient(baseUrl, apiKey, model, timeout, reasoningEffort) : null,
                 audit, clock.getIfAvailable(Clock::systemUTC), enabled && !baseUrl.isBlank() && !model.isBlank(),
                 model, host(baseUrl), maxQuestion, maxTokens, perHour, perDay, topK);
     }

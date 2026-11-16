@@ -30,7 +30,10 @@ class AssistantLiveEval {
                 key = System.getenv("AIO_EVAL_API_KEY");
         KnowledgeBase kb = new KnowledgeBase();
         var llm = new OpenAiCompatibleClient(base, key, model,
-                Duration.ofSeconds(Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_TIMEOUT_SECONDS", "60"))));
+                Duration.ofSeconds(Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_TIMEOUT_SECONDS", "60"))),
+                System.getenv("AIO_EVAL_REASONING_EFFORT"));
+        // free tiers cap requests per minute (Gemini Flash: about 10); pause between questions to stay under it
+        long pauseMs = 1000L * Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_PAUSE_SECONDS", "0"));
         var service = new AssistantService(kb, llm, mock(AuditService.class), Clock.systemUTC(), true, model,
                 "eval", 2000, 800, 1000, 1000, 5);
         ObjectMapper json = new ObjectMapper();
@@ -40,6 +43,7 @@ class AssistantLiveEval {
         }
         List<String> lines = new ArrayList<>();
         for (Map<String, String> g : golden) {
+            if (pauseMs > 0 && !lines.isEmpty()) Thread.sleep(pauseMs);
             var answer = service.ask("eval", g.get("q"), List.of());
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("user_input", g.get("q"));

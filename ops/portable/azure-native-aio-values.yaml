@@ -49,6 +49,14 @@ config:
   APP_CLUSTERS_0_INGRESSCONTROLLER: traefik
   # Argo CD UI (GitHub SSO) linked from AIO
   TOOLS_ARGOCD_URL: https://argocd.sarvaikam.com
+  # Ask AIO / Explain with AIO on the Google Gemini free tier. OFF until AIO_ASSISTANT_API_KEY is added to the
+  # aio-platform-runtime Secret (never here: the chart refuses it) and the Ragas eval passes; then set ENABLED 'true'.
+  # Free-tier prompts may be used by Google to improve its products, so build logs stay off (SHARE_LOGS 'false').
+  AIO_ASSISTANT_ENABLED: 'false'
+  AIO_ASSISTANT_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
+  AIO_ASSISTANT_MODEL: gemini-2.5-flash
+  AIO_ASSISTANT_REASONING_EFFORT: none
+  AIO_ASSISTANT_SHARE_LOGS: 'false'
 ingress:
   enabled: false
 resources:

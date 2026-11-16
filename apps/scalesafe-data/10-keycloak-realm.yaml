@@ -77,14 +77,14 @@ data:
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "redirectUris": [
-            "https://app.indiescale.in/*"
+            "https://app.scalesafe.capital/*"
           ],
           "webOrigins": [
-            "https://app.indiescale.in"
+            "https://app.scalesafe.capital"
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "https://app.indiescale.in/*"
+            "post.logout.redirect.uris": "https://app.scalesafe.capital/*"
           },
           "protocolMappers": [
             {
@@ -111,14 +111,14 @@ data:
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
           "redirectUris": [
-            "https://admin.indiescale.in/*"
+            "https://admin.scalesafe.capital/*"
           ],
           "webOrigins": [
-            "https://admin.indiescale.in"
+            "https://admin.scalesafe.capital"
           ],
           "attributes": {
             "pkce.code.challenge.method": "S256",
-            "post.logout.redirect.uris": "https://admin.indiescale.in/*"
+            "post.logout.redirect.uris": "https://admin.scalesafe.capital/*"
           },
           "protocolMappers": [
             {

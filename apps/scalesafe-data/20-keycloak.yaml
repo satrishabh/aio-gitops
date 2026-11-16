@@ -30,7 +30,7 @@ spec:
             - { name: KC_DB, value: postgres }
             - { name: KC_DB_URL, value: "jdbc:postgresql://scalesafe-postgres:5432/keycloak" }
             - { name: KC_DB_USERNAME, value: keycloak }
-            - { name: KC_HOSTNAME, value: "https://id.indiescale.in" }
+            - { name: KC_HOSTNAME, value: "https://id.scalesafe.capital" }
             - { name: KC_HTTP_ENABLED, value: "true" }
             - { name: KC_PROXY_HEADERS, value: xforwarded }
             - { name: KC_HEALTH_ENABLED, value: "true" }
@@ -56,8 +56,8 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-azure
 spec:
   ingressClassName: aio-azure
-  tls: [{ hosts: ["id.indiescale.in"], secretName: tls-scalesafe-id-dev }]
+  tls: [{ hosts: ["id.scalesafe.capital"], secretName: tls-scalesafe-id-dev }]
   rules:
-    - host: "id.indiescale.in"
+    - host: "id.scalesafe.capital"
       http:
         paths: [{ path: /, pathType: Prefix, backend: { service: { name: scalesafe-keycloak, port: { name: http } } } }]

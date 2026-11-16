@@ -28,7 +28,7 @@ them, and every failed build starts with reading logs from the bottom up.
 | G3 Idea to spec | Describe an app, get a spec, template choice, Dockerfile and values draft | New applications start in minutes, on the paved road | Draft only; the person clicks **New project** |
 | G4 Do it, with approval | The assistant prepares the project or promotion; a person confirms each step | Fewer clicks for routine work | Runs as sagas through existing APIs, with approvals and freeze windows |
 | G5 Approval co-pilot | Risk summary on each prod request | Faster, better-informed approvals | Advisory text only |
-| G6 Morning summary | What failed overnight and what it cost | Problems seen before users report them | Read-only, scheduled |
+| G6 Morning summary | What failed overnight and what is waiting for a decision | Problems seen before users report them | Read-only, scheduled; first job built (daily summary, admins) |
 
 ## How we will know it works
 
@@ -47,6 +47,12 @@ them, and every failed build starts with reading logs from the bottom up.
 - **No new infrastructure.** Retrieval runs in memory inside AIO, so there is no vector database and no extra pods.
 - **Local option.** Ollama on a developer laptop or a larger node keeps all data in-house, at the cost of answer quality and memory.
 - **Paid when it pays.** For G3 and G4, where wrong answers cost more, Claude via the official Anthropic SDK is the planned option. It is per-token, so it stays behind the same caps.
+
+## Living within the free tier
+
+The free Gemini key has request and token limits. AIO enforces lower limits itself, so the key is never cut off
+mid-day: people get an instant "try again in N s" instead of an error, scheduled jobs wait their turn and may use
+at most a quarter of the day, and the Ask AIO page shows how much of today's quota is used.
 
 ## Safety promises to users
 

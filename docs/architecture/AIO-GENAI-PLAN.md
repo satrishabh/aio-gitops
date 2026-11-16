@@ -21,7 +21,7 @@ Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSIST
 | LLM02 sensitive information disclosure | `Redactor` on the question, the history, the retrieved context and the answer; curated knowledge folder is an allowlist with a CI test that it holds nothing redactable; audit records sizes, never text |
 | LLM06 excessive agency | Read-only until G4; then a fixed list of tools that call existing AIO APIs with the user's own permissions, prod changes still go through approvals and freeze windows |
 | LLM09 misinformation | Grounded or silent: no sources means a fixed answer without calling the model; numbered citations; UI says "check the source before acting" |
-| LLM10 unbounded consumption | Question and history caps, output token cap, per-person hourly and global daily limits sized to free tiers |
+| LLM10 unbounded consumption | Question and history caps, output token cap, per-person hourly and global daily limits, and a provider limiter (requests and tokens per minute, requests per day) set below the free tier's own; scheduled jobs get at most a quarter of the day |
 | Supply chain of models and data | Provider is configuration; free tiers may log prompts, so only curated docs are sent; anything else needs a provider with a no-training agreement or a self-hosted model |
 
 ## 3. Use cases, one by one
@@ -33,7 +33,7 @@ Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSIST
 | G3 | **Idea to spec**: describe an app, get a spec, a template choice, a Dockerfile and values draft | The idea, the template catalogue | No: draft only; the person clicks New project | Planned |
 | G4 | **Do it for me, with approval**: create project, promote, open a PR with the draft | As G3, plus tool results | Yes, through existing APIs as sagas, every step confirmed by a person; prod via approvals | Planned |
 | G5 | **Approval co-pilot**: risk summary for a prod request (diff of images, scan delta, recent failures) | Scan and deployment data for that project | No | Planned |
-| G6 | **Ops watch**: summarise overnight failures and cost each morning | Saga events, metrics | No | Horizon |
+| G6 | **Ops watch**: summarise overnight failures and cost each morning | Counts and failed or waiting items of the last 24 h (all projects; admins only) | No | **First job built: daily summary** (off by default) |
 
 ## 4. Open-source building blocks (chosen for a single small node)
 
@@ -55,7 +55,32 @@ Kafka is not needed at today's scale, and it would cost more than the rest of th
 3. **NATS JetStream** (one small Go binary, persistence and replay) when several services need fan-out or request-reply.
 4. **Kafka API (Redpanda or Apache Kafka KRaft)** only for high-volume streams or a Kafka-only integration; the outbox then relays into it unchanged.
 
-## 6. Deploying G1
+## 6. Free-tier limits and scheduled jobs
+
+Gemini's free tier limits requests per minute, input tokens per minute and requests per day, per Google Cloud
+project, and the limits change without notice. AIO keeps under them itself instead of finding out from 429 errors:
+
+| Guard | Default | Why |
+|---|---|---|
+| Requests per minute | 8 (`AIO_ASSISTANT_RPM`) | Below the free Flash limit |
+| Tokens per minute | 200,000 (`AIO_ASSISTANT_TPM`) | Estimated before the call (characters / 4 + the answer budget), corrected with the provider's count after |
+| Requests per day | 200 (`AIO_ASSISTANT_RPD`), resetting at midnight Pacific | Below the free daily limit |
+| Scheduled share | 25% of the day (`AIO_ASSISTANT_BACKGROUND_SHARE`) | A job can never use up people's quota |
+| Provider 429 | Everyone pauses until its Retry-After (default 60 s) | Stops hammering a provider that said no |
+
+People are never queued: over a limit, they see "try again in N s" at once. Scheduled jobs wait for a free slot
+(up to 10 minutes) and give up after three failed attempts a day.
+
+**Daily summary (first scheduled job).** Every 30 minutes AIO checks whether today's summary exists; the first
+time it is awake after 09:00 IST it writes one from the last 24 hours of CI runs and deployments (counts, failures,
+deployments waiting for a decision). It is stored once per day, shown to admins on the Ask AIO page, and costs no
+model call on a quiet day. Because AKS stops at night and AIO sleeps when idle, a fixed cron would be missed; this
+catches up when AIO next wakes, and it never wakes the platform itself. Enable with `AIO_ASSISTANT_DIGEST_ENABLED`.
+
+Next scheduled jobs, each only after the one before has run cleanly for a week: weekly delivery metrics in plain
+words (DORA), and a nightly re-run of the retrieval eval when the knowledge folder changes.
+
+## 7. Deploying G1
 
 Chosen provider: **Google Gemini free tier**, through its OpenAI-compatible endpoint (no new code or SDK).
 

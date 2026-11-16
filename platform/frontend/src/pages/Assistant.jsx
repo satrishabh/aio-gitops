@@ -14,15 +14,20 @@ const EXAMPLES = [
  * "Ask AIO": a read-only assistant grounded in the curated AIO docs. It cites its sources and cannot change anything.
  * The conversation lives only in this tab; the server keeps no copy of the text.
  */
-export default function Assistant() {
+export default function Assistant({ me }) {
   const [status, setStatus] = useState(null)
   const [turns, setTurns] = useState([])
   const [question, setQuestion] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [digest, setDigest] = useState(null)
   const end = useRef(null)
 
   useEffect(() => { api('/api/assistant/status').then(setStatus).catch(e => setError(e.message)) }, [])
+  // the daily summary covers every project: admins only, and absent until the scheduled job has written one
+  useEffect(() => {
+    if (me?.accessTier === 'admin' && status?.enabled) api('/api/assistant/reports/daily-digest').then(setDigest).catch(() => setDigest(null))
+  }, [me, status])
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }) }, [turns, busy])
 
   async function ask(text) {
@@ -51,6 +56,14 @@ export default function Assistant() {
                 sub="Answers from the AIO docs, with sources. Read-only: it explains, and you act on the page it names." />
       {off && <div className="card" role="status"><Empty icon="star" title="The assistant is turned off">
         An admin can enable it with an AI provider key (AIO_ASSISTANT_ENABLED). Until then, the docs answer the same questions.</Empty></div>}
+
+      {digest && (
+        <div className="card assistant-digest">
+          <h2>Daily summary <span className="muted">{digest.day} · {digest.model === 'none' ? 'no activity' : digest.model}</span></h2>
+          <div className="bubble-text">{digest.text}</div>
+          <p className="muted assistant-note">Written by the AI from AIO's own records ({digest.basis}); check details before acting.</p>
+        </div>
+      )}
 
       {status?.enabled && (
         <div className="card assistant">
@@ -87,6 +100,7 @@ export default function Assistant() {
           <p className="muted assistant-note">
             Do not paste secrets: questions go to {status.provider || 'the AI provider'} ({status.model}) after redaction.
             Answers can be wrong; check the source before acting, especially for prod.
+            {status.usage && <> Free quota today: {status.usage.requestsToday} of {status.usage.requestsPerDay} requests.</>}
           </p>
         </div>
       )}

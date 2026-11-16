@@ -76,6 +76,12 @@ public class AssistantService {
             or changed anything.
             """ + RULES;
 
+    /** Scheduled jobs (G6): source [1] holds the facts; the task text comes from the job. */
+    private static final String SUMMARY_SYSTEM = """
+            You are the AIO assistant writing for the platform team. Use ONLY the facts in source [1]; never invent
+            projects, numbers or causes. Cite [1]. If the facts show nothing worth attention, say so in one line.
+            """;
+
     private static final Pattern CITE = Pattern.compile("\\[(\\d{1,2})]");
 
     private final KnowledgeBase knowledge;
@@ -85,6 +91,7 @@ public class AssistantService {
     private final boolean enabled;
     private final String model;
     private final String providerHost;
+    private final ProviderLimiter limiter;   // null: no provider-side limits (tests, local models)
     private final int maxQuestion, maxTokens, perHour, perDay, topK;
     private final Map<String, Deque<Instant>> recent = new ConcurrentHashMap<>();
     private volatile LocalDate day;
@@ -102,15 +109,29 @@ public class AssistantService {
                             @Value("${app.assistant.per-user-per-hour:20}") int perHour,
                             @Value("${app.assistant.daily-limit:300}") int perDay,
                             @Value("${app.assistant.top-k:5}") int topK,
-                            @Value("${app.assistant.reasoning-effort:}") String reasoningEffort) {
+                            @Value("${app.assistant.reasoning-effort:}") String reasoningEffort,
+                            @Value("${app.assistant.limits.requests-per-minute:8}") int rpm,
+                            @Value("${app.assistant.limits.tokens-per-minute:200000}") int tpm,
+                            @Value("${app.assistant.limits.requests-per-day:200}") int rpd,
+                            @Value("${app.assistant.limits.background-share:0.25}") double backgroundShare,
+                            @Value("${app.assistant.limits.day-zone:America/Los_Angeles}") String dayZone) {
         this(knowledge, enabled && !baseUrl.isBlank() && !model.isBlank()
                         ? new OpenAiCompatibleClient(baseUrl, apiKey, model, timeout, reasoningEffort) : null,
                 audit, clock.getIfAvailable(Clock::systemUTC), enabled && !baseUrl.isBlank() && !model.isBlank(),
-                model, host(baseUrl), maxQuestion, maxTokens, perHour, perDay, topK);
+                model, host(baseUrl), maxQuestion, maxTokens, perHour, perDay, topK,
+                new ProviderLimiter(rpm, tpm, rpd, backgroundShare, java.time.ZoneId.of(dayZone),
+                        clock.getIfAvailable(Clock::systemUTC), d -> Thread.sleep(d.toMillis())));
     }
 
     AssistantService(KnowledgeBase knowledge, LlmClient llm, AuditService audit, Clock clock, boolean enabled, String model,
                      String providerHost, int maxQuestion, int maxTokens, int perHour, int perDay, int topK) {
+        this(knowledge, llm, audit, clock, enabled, model, providerHost, maxQuestion, maxTokens, perHour, perDay, topK, null);
+    }
+
+    AssistantService(KnowledgeBase knowledge, LlmClient llm, AuditService audit, Clock clock, boolean enabled, String model,
+                     String providerHost, int maxQuestion, int maxTokens, int perHour, int perDay, int topK,
+                     ProviderLimiter limiter) {
+        this.limiter = limiter;
         this.knowledge = knowledge;
         this.llm = llm;
         this.audit = audit;
@@ -128,8 +149,11 @@ public class AssistantService {
     public boolean enabled() { return enabled; }
 
     public Map<String, Object> status() {
-        return Map.of("enabled", enabled, "model", enabled ? model : "", "provider", enabled ? providerHost : "",
-                "documents", knowledge.documents(), "chunks", knowledge.size(), "perHour", perHour);
+        Map<String, Object> s = new java.util.LinkedHashMap<>(Map.of("enabled", enabled, "model", enabled ? model : "",
+                "provider", enabled ? providerHost : "", "documents", knowledge.documents(), "chunks", knowledge.size(),
+                "perHour", perHour));
+        if (enabled && limiter != null) s.put("usage", limiter.usage());
+        return s;
     }
 
     /** G1: a question about AIO, answered from the curated docs. */
@@ -147,7 +171,8 @@ public class AssistantService {
             audit.record(actor, "assistant.ask", "assistant", "q=" + q.length() + " chars, no sources, not sent");
             return new Answer(NOT_FOUND, List.of(), false, model);
         }
-        return complete(actor, "assistant.ask", ASK_SYSTEM, docs, "Question: " + safeQ, history, "q=" + q.length() + " chars");
+        return complete(actor, "assistant.ask", ASK_SYSTEM, docs, "Question: " + safeQ, history, "q=" + q.length() + " chars",
+                ProviderLimiter.Lane.INTERACTIVE, Duration.ZERO);
     }
 
     /**
@@ -162,11 +187,25 @@ public class AssistantService {
         docs.add(new Doc(title, safeFacts));
         docs.addAll(docs(knowledge.search(Redactor.redact(clip(retrievalHint, 1000)), 3)));
         return complete(actor, "assistant.explain", EXPLAIN_SYSTEM, docs,
-                "Task: explain why this failed and what to do next.", List.of(), "target=" + target + ", facts=" + facts.length() + " chars");
+                "Task: explain why this failed and what to do next.", List.of(), "target=" + target + ", facts=" + facts.length() + " chars",
+                ProviderLimiter.Lane.INTERACTIVE, Duration.ZERO);
+    }
+
+    /**
+     * G6, for scheduled jobs: summarise {@code facts} (source [1]) as {@code task} says. Runs in the background lane:
+     * it waits up to {@code maxWait} for a free slot and never uses more than its share of the daily free quota.
+     */
+    public Answer summarize(String job, String task, String title, String facts, Duration maxWait) {
+        requireEnabled();
+        String safeFacts = Redactor.redact(clip(facts, 8000)).replace("</source>", "</ source>");
+        if (safeFacts.isBlank()) throw new IllegalArgumentException("Nothing to summarise");
+        return complete(job, "assistant.summary", SUMMARY_SYSTEM + task + "\n" + RULES, List.of(new Doc(title, safeFacts)),
+                "Task: write the summary.", List.of(), "job=" + job + ", facts=" + facts.length() + " chars",
+                ProviderLimiter.Lane.BACKGROUND, maxWait);
     }
 
     private Answer complete(String actor, String action, String system, List<Doc> docs, String instruction,
-                            List<Turn> history, String auditDetail) {
+                            List<Turn> history, String auditDetail, ProviderLimiter.Lane lane, Duration maxWait) {
         admit(actor);   // only calls that reach the provider count against the quotas
         StringBuilder ctx = new StringBuilder();
         for (int i = 0; i < docs.size(); i++) {
@@ -182,7 +221,19 @@ public class AssistantService {
         }
         messages.add(new LlmClient.Message("user", ctx + "\n" + instruction));
 
-        LlmClient.Reply reply = llm.complete(messages, maxTokens);
+        ProviderLimiter.Ticket ticket = null;
+        if (limiter != null) {
+            int chars = messages.stream().mapToInt(m -> m.content().length()).sum();
+            ticket = limiter.acquire(lane, ProviderLimiter.estimate(chars, maxTokens), maxWait);
+        }
+        LlmClient.Reply reply;
+        try {
+            reply = llm.complete(messages, maxTokens);
+        } catch (LlmClient.RateLimited e) {
+            if (limiter != null) limiter.cooldown(e.retryAfter);   // stop everyone until the provider is ready again
+            throw e;
+        }
+        if (limiter != null) limiter.settle(ticket, reply.inputTokens(), reply.outputTokens());
         String text = Redactor.redact(reply.text() == null ? "" : reply.text().strip());
         if (text.isEmpty()) text = NOT_FOUND;
 

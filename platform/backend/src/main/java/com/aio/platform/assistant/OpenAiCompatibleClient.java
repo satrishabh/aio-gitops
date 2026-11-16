@@ -48,6 +48,18 @@ public class OpenAiCompatibleClient implements LlmClient {
         return body;
     }
 
+    /** Retry-After in seconds (the only form the providers use); null when absent or unreadable. */
+    static Duration retryAfter(org.springframework.http.HttpHeaders headers) {
+        String v = headers == null ? null : headers.getFirst("Retry-After");
+        if (v == null) return null;
+        try {
+            long s = (long) Math.ceil(Double.parseDouble(v.trim()));
+            return s > 0 && s <= 86_400 ? Duration.ofSeconds(s) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     static String answerText(JsonNode res) {
         if (res == null || !res.path("choices").isArray() || res.path("choices").isEmpty())
             throw new IllegalStateException("The AI provider returned no answer");
@@ -67,8 +79,8 @@ public class OpenAiCompatibleClient implements LlmClient {
                     .retrieve().body(JsonNode.class);
         } catch (RestClientResponseException e) {
             int code = e.getStatusCode().value();
-            throw new IllegalStateException(code == 429 ? "The AI provider's free quota is used up for now; try again later"
-                    : "The AI provider answered HTTP " + code);
+            if (code == 429) throw new RateLimited(retryAfter(e.getResponseHeaders()));
+            throw new IllegalStateException("The AI provider answered HTTP " + code);
         } catch (org.springframework.web.client.ResourceAccessException e) {
             throw new IllegalStateException("The AI provider did not answer in time or could not be reached; try again later");
         }

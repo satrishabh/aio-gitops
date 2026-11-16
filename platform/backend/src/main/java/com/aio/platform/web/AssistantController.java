@@ -14,9 +14,20 @@ public class AssistantController {
     private final AssistantService assistant;
     private final com.aio.platform.assistant.FailureExplainer explainer;
 
-    public AssistantController(AssistantService assistant, com.aio.platform.assistant.FailureExplainer explainer) {
+    private final com.aio.platform.repo.AssistantReportRepo reports;
+
+    public AssistantController(AssistantService assistant, com.aio.platform.assistant.FailureExplainer explainer,
+                               com.aio.platform.repo.AssistantReportRepo reports) {
         this.assistant = assistant;
         this.explainer = explainer;
+        this.reports = reports;
+    }
+
+    /** G6: the latest daily summary. It covers every project, so admins only. 404 when none was written yet. */
+    @GetMapping("/reports/daily-digest")
+    public com.aio.platform.domain.AssistantReport dailyDigest() {
+        if (!com.aio.platform.security.UserScope.admin()) throw new SecurityException("Only admins can read the daily summary");
+        return reports.findFirstByKindOrderByDayDesc("daily-digest").orElseThrow();
     }
 
     @GetMapping("/status")

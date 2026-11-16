@@ -33,4 +33,14 @@ class OpenAiCompatibleClientTest {
         assertThatThrownBy(() -> OpenAiCompatibleClient.answerText(json.readTree("{\"choices\":[]}")))
                 .hasMessageContaining("no answer");
     }
+
+    @Test
+    void retryAfterIsReadInSeconds() {
+        var h = new org.springframework.http.HttpHeaders();
+        assertThat(OpenAiCompatibleClient.retryAfter(h)).isNull();
+        h.set("Retry-After", "17");
+        assertThat(OpenAiCompatibleClient.retryAfter(h)).isEqualTo(java.time.Duration.ofSeconds(17));
+        h.set("Retry-After", "Wed, 21 Oct 2026 07:28:00 GMT");
+        assertThat(OpenAiCompatibleClient.retryAfter(h)).isNull();
+    }
 }

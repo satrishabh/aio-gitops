@@ -103,6 +103,20 @@ app:
     reasoning-effort: ${AIO_ASSISTANT_REASONING_EFFORT:}
     # G2 "explain a failure": include the last 60 log lines of failed steps (redacted). Off: metadata only.
     share-logs: ${AIO_ASSISTANT_SHARE_LOGS:false}
+    # Provider limits, set a little below the provider's own (Gemini free tier counts per Google Cloud project and
+    # resets the day at midnight Pacific). Scheduled jobs may use only background-share of the daily requests.
+    limits:
+      requests-per-minute: ${AIO_ASSISTANT_RPM:8}
+      tokens-per-minute: ${AIO_ASSISTANT_TPM:200000}
+      requests-per-day: ${AIO_ASSISTANT_RPD:200}
+      background-share: ${AIO_ASSISTANT_BACKGROUND_SHARE:0.25}
+      day-zone: ${AIO_ASSISTANT_DAY_ZONE:America/Los_Angeles}
+    # G6 scheduled task: daily delivery summary for admins, written the first time AIO is awake after `hour`.
+    digest:
+      enabled: ${AIO_ASSISTANT_DIGEST_ENABLED:false}
+      hour: ${AIO_ASSISTANT_DIGEST_HOUR:9}
+      zone: ${AIO_ASSISTANT_DIGEST_ZONE:Asia/Kolkata}
+      max-wait: ${AIO_ASSISTANT_DIGEST_MAX_WAIT:PT10M}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

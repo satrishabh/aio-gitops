@@ -174,7 +174,7 @@ export default function App() {
               <Route path="/runs/:id" element={<RunDetail me={me} />} />
               <Route path="/approvals" element={<Approvals me={me} />} />
               <Route path="/metrics" element={<Metrics />} />
-              <Route path="/assistant" element={<Assistant />} />
+              <Route path="/assistant" element={<Assistant me={me} />} />
               <Route path="/clusters" element={<Clusters />} />
               <Route path="/audit" element={<Audit />} />
               <Route path="/pipelines/ci" element={<PipelinesCi />} />

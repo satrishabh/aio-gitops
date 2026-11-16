@@ -53,7 +53,7 @@ class AssistantLiveEval {
             row.put("grounded", answer.grounded());
             row.put("expected_source", g.get("source"));
             lines.add(json.writeValueAsString(row));
-            Thread.sleep(2500);   // stay under free-tier requests-per-minute limits
+            if (pauseMs == 0) Thread.sleep(2500);   // stay under free-tier requests-per-minute limits
         }
         // G2: one synthetic failed build, explained from metadata only (as with share-logs off)
         String facts = """
@@ -67,6 +67,7 @@ class AssistantLiveEval {
                 - build / kaniko: FAILED (exit code 1)
                 - scan / gate: SKIPPED
                 """;
+        if (pauseMs > 0) Thread.sleep(pauseMs);
         var explained = service.explain("eval", "run:demo", "CI run #1 of demo", facts, "build failed kaniko dockerfile");
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("user_input", "Explain why CI run #1 of demo failed and what to do next.");
@@ -75,6 +76,27 @@ class AssistantLiveEval {
         row.put("grounded", explained.grounded());
         row.put("expected_source", "aio-troubleshooting.md");
         lines.add(json.writeValueAsString(row));
+
+        // G6: the scheduled daily summary, from synthetic facts in the job's own format
+        if (pauseMs > 0) Thread.sleep(pauseMs);
+        var r1 = new com.aio.platform.domain.CiRun();
+        r1.id = 41L; r1.projectId = 1L; r1.status = "SUCCEEDED"; r1.trigger = "PUSH";
+        var r2 = new com.aio.platform.domain.CiRun();
+        r2.id = 42L; r2.projectId = 2L; r2.status = "FAILED"; r2.trigger = "PUSH"; r2.message = "build step failed (kaniko exit code 1)";
+        var r3 = new com.aio.platform.domain.CiRun();
+        r3.id = 43L; r3.projectId = 2L; r3.status = "FAILED"; r3.trigger = "RERUN"; r3.message = "build step failed (kaniko exit code 1)";
+        var p1 = new com.aio.platform.domain.Promotion();
+        p1.id = 9L; p1.projectId = 1L; p1.fromEnv = "staging"; p1.toEnv = "prod"; p1.kind = "PROMOTE"; p1.status = "PAUSED";
+        p1.requestedBy = "ann"; p1.message = "needs a decision: smoke test failed 2 of 4 samples";
+        String digestFacts = DailyDigestJob.facts(List.of(r1, r2, r3), List.of(p1), id -> id == 1L ? "shop" : "blog");
+        var digest = service.summarize("eval", DailyDigestJob.TASK, "Builds and deployments, last 24 hours", digestFacts, Duration.ZERO);
+        Map<String, Object> drow = new LinkedHashMap<>();
+        drow.put("user_input", "Write the morning summary of the last 24 hours of builds and deployments.");
+        drow.put("response", digest.answer());
+        drow.put("retrieved_contexts", List.of(digestFacts));
+        drow.put("grounded", digest.grounded());
+        drow.put("expected_source", "daily-digest");
+        lines.add(json.writeValueAsString(drow));
 
         Path out = Path.of("target", "assistant-eval.jsonl");
         Files.createDirectories(out.getParent());

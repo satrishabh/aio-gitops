@@ -49,6 +49,9 @@ again. This is the regression suite for the assistant.
 Run your own live eval with a local model:
 `AIO_EVAL_BASE_URL=http://localhost:11434/v1 AIO_EVAL_MODEL=<model> AIO_EVAL_TIMEOUT_SECONDS=240 mvn test -Dtest=AssistantLiveEval`
 
+The live eval also writes one G2 explanation and one G6 daily summary (from synthetic facts), so a single run
+checks every way the assistant calls the model. About 23 requests: under 10% of a free day.
+
 ## Not yet done
 
 - Ragas faithfulness (layer 3 scoring) has not been run: it needs a judge model key.

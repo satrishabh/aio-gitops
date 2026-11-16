@@ -11,6 +11,8 @@ public interface PromotionRepo extends JpaRepository<Promotion, Long> {
         @org.springframework.data.repository.query.Param("status") String status, Pageable page);
     List<Promotion> findByStatusOrderByIdDesc(String status);
 
+    List<Promotion> findByRequestedAtAfterOrderByIdAsc(java.time.Instant after);
+
     List<Promotion> findByProjectIdOrderByIdDesc(Long projectId, Pageable page);
 
     List<Promotion> findAllByOrderByIdDesc(Pageable page);

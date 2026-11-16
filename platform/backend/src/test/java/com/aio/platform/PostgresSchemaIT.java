@@ -62,7 +62,7 @@ class PostgresSchemaIT {
     void allMigrationsApplyAndEntitiesMatchTheSchema() {
         var info = Flyway.configure().dataSource(dataSource).load().info();
         assertThat(info.pending()).isEmpty();
-        assertThat(info.current().getVersion().getVersion()).isEqualTo("11");
+        assertThat(info.current().getVersion().getVersion()).isEqualTo("12");
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         System.out.println("PostgreSQL " + jdbc.queryForObject("show server_version", String.class)
                 + ", schema version " + info.current().getVersion());

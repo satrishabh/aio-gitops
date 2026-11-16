@@ -57,6 +57,11 @@ config:
   AIO_ASSISTANT_MODEL: gemini-2.5-flash
   AIO_ASSISTANT_REASONING_EFFORT: none
   AIO_ASSISTANT_SHARE_LOGS: 'false'
+  # Below the free tier's own limits (check AI Studio for your project's current numbers)
+  AIO_ASSISTANT_RPM: '8'
+  AIO_ASSISTANT_RPD: '200'
+  # Daily summary for admins (scheduled; at most 25% of the daily requests). Enable after the assistant itself.
+  AIO_ASSISTANT_DIGEST_ENABLED: 'false'
 ingress:
   enabled: false
 resources:

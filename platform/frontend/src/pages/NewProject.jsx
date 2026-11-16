@@ -41,7 +41,7 @@ export default function NewProject() {
 
   return (
     <>
-      <PageHead title="New project" sub="Connect a GitHub repository that has a Dockerfile — any language works.">
+      <PageHead title="New project" sub="Connect any GitHub repository. With a Dockerfile we build it; without one, Cloud Native Buildpacks detect the language.">
         <Link to="/templates" className="btn"><Icon name="layers" size={14} />Start from a template</Link>
       </PageHead>
       <div className="steps-indicator">
@@ -90,7 +90,7 @@ export default function NewProject() {
         <div className="card form" style={{ maxWidth: 'none', margin: 0 }}>
           <div className="card-head"><h3>Build &amp; test</h3></div>
           <div className="row">
-            <label>Dockerfile<input value={form.dockerfile} onChange={set('dockerfile')} /></label>
+            <label>Dockerfile <span className="muted">(optional — buildpacks if missing)</span><input value={form.dockerfile} onChange={set('dockerfile')} /></label>
             <label>Build context<input value={form.contextDir} onChange={set('contextDir')} /></label>
           </div>
           <label>Stack preset

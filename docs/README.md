@@ -6,7 +6,8 @@ This uses only standard Kubernetes APIs, so it runs on EKS, GKE, AKS, OKE, Digit
 
 ```
 GitHub push/PR --webhook--> Tekton EventListener (HMAC verified)
-   └─ ci-pipeline: clone → test → kaniko build+push (:<git-sha>) → trivy scan → bump values-dev.yaml
+   └─ ci-pipeline: clone → test → build+push (:<git-sha>; Dockerfile→Kaniko, else Buildpacks) → trivy scan → bump values-dev.yaml
+                    └─ Tekton Chains signs the image + attaches SLSA provenance; Kyverno checks both at admission
                                                                                  │ (git commit)
 GitOps repo  <───────────────────────────────────────────────────────────────────┘
    └─ Argo CD ApplicationSet: app-dev (auto) · app-staging (auto) · app-prod (MANUAL sync)
@@ -30,12 +31,14 @@ kubectl -n ci create secret generic registry-credentials --from-file=config.json
 kubectl -n ci create secret generic github-token --from-literal=token=<PAT contents:write on gitops repo>
 kubectl -n ci create secret generic github-webhook-secret --from-literal=secretToken=$(openssl rand -hex 20)
 ```
+Then add image signing and admission checks: `bash bootstrap/install-supply-chain.sh` (run automatically by `gcp-setup.sh`; see [supply chain](architecture/SUPPLY-CHAIN.md)).
+
 For production, manage these with External Secrets Operator, Sealed Secrets or Vault, so you can use any cloud's secret manager.
 
 If the GitOps repo is private, register it in Argo CD: `argocd repo add https://github.com/<org>/<gitops>.git --username x --password <token>`.
 
 ## 3. Hook up an app repo (any language)
-1. The repo needs a `Dockerfile`. Java, Node, Python, Go and others all work, because the pipeline only builds the Dockerfile.
+1. A `Dockerfile` is optional. If the repo has one, Kaniko builds it. If not, Cloud Native Buildpacks (Paketo) detect Java, Node, Go, Python, .NET and others and build an image without one. The pipeline parameter `build-strategy` (`auto` by default, or `dockerfile` / `buildpacks`) forces a choice. See [supply chain](architecture/SUPPLY-CHAIN.md).
 2. In GitHub, go to Settings → Webhooks and add one:
    - URL: `https://tekton-hooks.<domain>/`
    - Content type: `application/json`

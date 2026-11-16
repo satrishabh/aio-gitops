@@ -1,0 +1,160 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: build-image
+spec:
+  description: >
+    Build and push an image, tagged with the git SHA. With a Dockerfile, Kaniko builds it. Without one,
+    Cloud Native Buildpacks (Paketo) detect the language (Java, Node, Go, Python, .NET, ...) and build it,
+    so no Dockerfile is needed. BUILD_STRATEGY=auto picks per run. IMAGE_URL/IMAGE_DIGEST are the results
+    Tekton Chains looks for to sign the image and attach SLSA provenance; CHAINS-GIT_* tie that provenance
+    to the source commit.
+  params:
+    - name: IMAGE
+      description: Full image ref without tag, e.g. ghcr.io/my-org/my-app
+    - name: TAG
+    - name: DOCKERFILE
+      default: ./Dockerfile
+      description: Path relative to the repository root
+    - name: CONTEXT
+      default: "."
+    - name: BUILD_STRATEGY
+      default: auto
+      description: '"auto" (Dockerfile if present, otherwise buildpacks), "dockerfile" or "buildpacks"'
+    - name: SOURCE_URL
+      default: ""
+      description: Git URL of the source, recorded in the provenance
+    - name: SOURCE_COMMIT
+      default: ""
+      description: Full commit SHA of the source, recorded in the provenance
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      description: Secret containing config.json (registry credentials)
+      mountPath: /kaniko/.docker
+  results:
+    - name: IMAGE_DIGEST
+    - name: IMAGE_URL
+    - name: BUILD_STRATEGY
+      description: The strategy actually used ("dockerfile" or "buildpacks")
+    - name: CHAINS-GIT_URL
+    - name: CHAINS-GIT_COMMIT
+  volumes:
+    - name: cnb-app
+      emptyDir: {}
+    - name: cnb-layers
+      emptyDir: {}
+    - name: cnb-platform
+      emptyDir: {}
+  # Steps cannot be skipped individually, so each build step exits early unless it was chosen.
+  # Both builder images are pulled on every run; nodes cache them after the first pull.
+  steps:
+    - name: detect
+      image: alpine:3.20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      env:
+        - { name: STRATEGY, value: $(params.BUILD_STRATEGY) }
+        - { name: DOCKERFILE, value: $(params.DOCKERFILE) }
+      script: |
+        #!/bin/sh
+        set -eu
+        case "$STRATEGY" in
+          auto|dockerfile|buildpacks) ;;
+          *) echo "BUILD_STRATEGY must be auto, dockerfile or buildpacks (got '$STRATEGY')"; exit 1 ;;
+        esac
+        DF="$(workspaces.source.path)/$DOCKERFILE"
+        if [ "$STRATEGY" = auto ]; then
+          if [ -f "$DF" ]; then STRATEGY=dockerfile; else STRATEGY=buildpacks; fi
+        fi
+        if [ "$STRATEGY" = dockerfile ] && [ ! -f "$DF" ]; then
+          echo "Dockerfile $DOCKERFILE not found. Add one, or use the buildpacks strategy."; exit 1
+        fi
+        printf "%s" "$STRATEGY" > "$(results.BUILD_STRATEGY.path)"
+        echo "Build strategy: $STRATEGY"
+
+    - name: build-and-push
+      # -debug variant: same executor plus a busybox shell, needed for the strategy check
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests: { cpu: 100m, memory: 768Mi }   # low request so it fits on busy small nodes; bursts to the limit
+        limits: { cpu: 900m, memory: 2Gi }   # sized for e2-medium nodes
+      env:
+        - { name: IMAGE, value: $(params.IMAGE) }
+        - { name: TAG, value: $(params.TAG) }
+        - { name: DOCKERFILE, value: $(params.DOCKERFILE) }
+        - { name: CONTEXT, value: $(params.CONTEXT) }
+      script: |
+        #!/busybox/sh
+        set -eu
+        if [ "$(cat "$(results.BUILD_STRATEGY.path)")" != dockerfile ]; then
+          echo "Skipped: building with buildpacks."; exit 0
+        fi
+        exec /kaniko/executor \
+          --dockerfile="$DOCKERFILE" \
+          --context="$(workspaces.source.path)/$CONTEXT" \
+          --destination="$IMAGE:$TAG" \
+          --digest-file="$(results.IMAGE_DIGEST.path)" \
+          --cache=true \
+          --cache-repo="$IMAGE-cache" \
+          --snapshot-mode=redo
+
+    - name: buildpacks
+      # Paketo noble builder (lifecycle 0.21.22). Pinned; bump deliberately, it decides language runtimes.
+      image: docker.io/paketobuildpacks/ubuntu-noble-builder:0.0.203
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001    # CNB_USER_ID of this builder
+        runAsGroup: 1001
+      computeResources:
+        requests: { cpu: 100m, memory: 768Mi }
+        limits: { cpu: 900m, memory: 2Gi }
+      env:
+        - { name: IMAGE, value: $(params.IMAGE) }
+        - { name: TAG, value: $(params.TAG) }
+        - { name: CONTEXT, value: $(params.CONTEXT) }
+        - { name: CNB_PLATFORM_API, value: "0.13" }
+        - { name: DOCKER_CONFIG, value: /kaniko/.docker }   # registry auth for the export and the cache image
+      volumeMounts:
+        - { name: cnb-app, mountPath: /aio/app }
+        - { name: cnb-layers, mountPath: /layers }
+        - { name: cnb-platform, mountPath: /platform }
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+        if [ "$(cat "$(results.BUILD_STRATEGY.path)")" != buildpacks ]; then
+          echo "Skipped: building with the Dockerfile."; exit 0
+        fi
+        # The workspace belongs to uid 65532; the lifecycle runs as 1001 and writes into the app dir,
+        # so build from a private copy rather than loosening workspace permissions.
+        cp -R "$(workspaces.source.path)/$CONTEXT/." /aio/app/
+        rm -rf /aio/app/.git
+        /cnb/lifecycle/creator \
+          -app=/aio/app -layers=/layers -platform=/platform \
+          -cache-image="$IMAGE-cache:buildpacks" \
+          -report=/layers/report.toml \
+          "$IMAGE:$TAG"
+        DIGEST=$(sed -n 's/^ *digest *= *"\(sha256:[0-9a-f]\{64\}\)".*/\1/p' /layers/report.toml | head -1)
+        if [ -z "$DIGEST" ]; then echo "No image digest in the lifecycle report:"; cat /layers/report.toml; exit 1; fi
+        printf "%s" "$DIGEST" > "$(results.IMAGE_DIGEST.path)"
+
+    - name: write-url
+      image: alpine:3.20
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      env:
+        - { name: IMAGE, value: $(params.IMAGE) }
+        - { name: TAG, value: $(params.TAG) }
+        - { name: SOURCE_URL, value: $(params.SOURCE_URL) }
+        - { name: SOURCE_COMMIT, value: $(params.SOURCE_COMMIT) }
+      script: |
+        #!/bin/sh
+        set -eu
+        grep -q '^sha256:[0-9a-f]\{64\}$' "$(results.IMAGE_DIGEST.path)" || { echo "Build produced no image digest"; exit 1; }
+        printf "%s" "$IMAGE:$TAG" > "$(results.IMAGE_URL.path)"
+        printf "%s" "$SOURCE_URL" > "$(results.CHAINS-GIT_URL.path)"
+        printf "%s" "$SOURCE_COMMIT" > "$(results.CHAINS-GIT_COMMIT.path)"
+        echo "Pushed $IMAGE:$TAG@$(cat "$(results.IMAGE_DIGEST.path)")"

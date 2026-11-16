@@ -9,6 +9,10 @@ kind: ServiceAccount
 metadata:
   name: pipeline-runner
   namespace: ci
+# Tekton Chains pushes image signatures and provenance with the credentials of the TaskRun's service account.
+# Created by bootstrap/install-supply-chain.sh; pods still run if it does not exist yet.
+imagePullSecrets:
+  - name: registry-signing
 ---
 # Used by the EventListener to create PipelineRuns
 apiVersion: v1

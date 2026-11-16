@@ -122,6 +122,12 @@ rm -f /dev/shm/config.json
 kubectl -n ci create secret generic github-token --from-literal=token="$GH_PAT" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Image signing + provenance (Tekton Chains) and admission checks (Kyverno, Audit mode). SUPPLY_CHAIN=0 skips.
+if [ "${SUPPLY_CHAIN:-1}" = "1" ]; then
+  step "Supply chain: Tekton Chains + Kyverno"
+  APP_REGISTRY="${APP_REGISTRY:-ghcr.io/${GH_USER}}" bash "$ROOT/bootstrap/install-supply-chain.sh"
+fi
+
 # Argo CD token for the platform account, via the API (admin session, local port-forward)
 kubectl -n argocd port-forward svc/argocd-server 8443:443 >/dev/null 2>&1 &
 PF=$!; trap 'kill $PF 2>/dev/null || true' EXIT; sleep 5

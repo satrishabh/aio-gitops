@@ -60,6 +60,7 @@ data:
     SA = "/var/run/secrets/kubernetes.io/serviceaccount"
     NS = "dev"
     SAVED = "scalesafe.co.in/night-saved-autosync"
+    DEFAULT_AUTOSYNC = {"prune": True, "selfHeal": True}  # what AIO sets on every new dev app
     APPS = ["scalesafe-orchestrator", "scalesafe-clients", "scalesafe-kyc", "scalesafe-investors",
             "scalesafe-verification", "scalesafe-esign", "scalesafe-app", "scalesafe-admin", "scalesafe-site"]
     TOKEN = open(SA + "/token").read().strip()
@@ -107,6 +108,11 @@ data:
             code, _ = call("PATCH", argo(app), {"metadata": {"annotations": {SAVED: None}},
                                                 "spec": {"syncPolicy": {"automated": json.loads(saved)}}})
             print(f"{app}: auto-sync restored ({code})")
+        elif (a["spec"].get("syncPolicy") or {}).get("automated") is None:
+            # The saved note can be lost when AIO rewrites the app overnight (16 Nov: the site stayed paused).
+            # Every ScaleSafe dev app runs AIO's default, so restore that rather than leave it paused.
+            code, _ = call("PATCH", argo(app), {"spec": {"syncPolicy": {"automated": DEFAULT_AUTOSYNC}}})
+            print(f"{app}: auto-sync was off with no saved setting; AIO default restored ({code})")
 
 
     def scale(kind, name, n):

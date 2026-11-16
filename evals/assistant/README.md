@@ -13,7 +13,7 @@ Three layers. The first runs on every build; the other two run when you choose t
 ```bash
 # 1. answers from the assistant, with the model you would deploy (Google Gemini free tier)
 #    read the key from your secret store into the variable; never type it into chat or a file in the repo
-export AIO_EVAL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai AIO_EVAL_MODEL=gemini-2.5-flash
+export AIO_EVAL_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai AIO_EVAL_MODEL=gemini-3.1-flash-lite,gemini-3.5-flash
 export AIO_EVAL_REASONING_EFFORT=none AIO_EVAL_PAUSE_SECONDS=7   # stay under the free per-minute limit
 export AIO_EVAL_API_KEY=<key>
 cd platform/backend && mvn test -Dtest=AssistantLiveEval && cd ../..
@@ -22,7 +22,7 @@ cd platform/backend && mvn test -Dtest=AssistantLiveEval && cd ../..
 python -m venv .venv-evals && . .venv-evals/bin/activate
 pip install -r evals/assistant/requirements.txt
 # Gemini works as the judge too (same endpoint and key); a model from another provider avoids self-judging bias
-export JUDGE_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai JUDGE_MODEL=gemini-2.5-flash JUDGE_API_KEY=$AIO_EVAL_API_KEY
+export JUDGE_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai JUDGE_MODEL=gemini-3.5-flash JUDGE_API_KEY=$AIO_EVAL_API_KEY
 python evals/assistant/ragas_eval.py platform/backend/target/assistant-eval.jsonl
 ```
 
@@ -36,7 +36,30 @@ again. This is the regression suite for the assistant.
 
 ## Results so far
 
-**16 Nov 2026, local model `qwen2.5:1.5b` on Ollama (laptop CPU), 20 golden questions + 1 failure explanation:**
+**16 Nov 2026, Google Gemini free tier, `gemini-3.1-flash-lite` (fallback `gemini-3.5-flash`), 20 golden questions +
+1 failure explanation + 1 daily summary:**
+
+| Measure | Gemini 3.1 Flash-Lite | Local qwen2.5 1.5B (earlier) |
+|---|---|---|
+| Answers returned | 22 of 22, no retries | 21 of 21 |
+| Answers citing sources `[n]` | **20 of 20** | 0 of 21 |
+| Time per answer | **1.0 to 7.5 s** (most about 2 s) | about 73 s |
+| Ragas faithfulness, mean | **0.85 to 0.86** (two runs; gate 0.8) | not measured |
+| Ragas faithfulness, worst | 0.00 (see below) | not measured |
+
+- The worst scores were checked by hand. The 0.00 was an export bug (the failure explanation was scored without the
+  three docs it cited; fixed in `AssistantLiveEval`). The 0.20 and 0.50 answers repeat their source almost word for
+  word: Flash-Lite judging its own answers misreads them. Use a stronger judge (e.g. `gemini-3.5-flash` after its
+  daily reset, or a model from another provider) before treating the worst-case gate as reliable.
+- **Free-tier limits are much lower than the docs suggested:** `gemini-3.5-flash` (served as `gemini-3.6-flash`)
+  allows **20 requests a day** per project; the 21st answered 429 with "retry in 4h52m". `gemini-2.5-flash` is no
+  longer offered to new keys, `gemini-3.5-flash-lite` refused the request (400), and `gemini-3.8-flash` did not answer
+  within 30 s. AIO therefore uses a model list, `gemini-3.1-flash-lite,gemini-3.5-flash`, and rests a model until the
+  time Google gives.
+- Ragas judges with about two requests per answer: a full scoring run costs about 45 requests.
+
+
+**Earlier the same day, local model `qwen2.5:1.5b` on Ollama (laptop CPU), 20 golden questions + 1 failure explanation:**
 - The whole pipeline worked end to end: retrieval, redaction, prompt, answer, sources.
 - Answers were on topic and mostly faithful to the docs (manual review); one mixed up two approval rules.
 - **0 of 21 answers used the `[n]` citation format**: a 1.5B model ignores that instruction, so the UI shows

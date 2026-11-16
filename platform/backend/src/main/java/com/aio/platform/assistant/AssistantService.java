@@ -116,7 +116,8 @@ public class AssistantService {
                             @Value("${app.assistant.limits.background-share:0.25}") double backgroundShare,
                             @Value("${app.assistant.limits.day-zone:America/Los_Angeles}") String dayZone) {
         this(knowledge, enabled && !baseUrl.isBlank() && !model.isBlank()
-                        ? new OpenAiCompatibleClient(baseUrl, apiKey, model, timeout, reasoningEffort) : null,
+                        ? FallbackLlmClient.of(model, m -> new OpenAiCompatibleClient(baseUrl, apiKey, m, timeout, reasoningEffort),
+                                clock.getIfAvailable(Clock::systemUTC)) : null,
                 audit, clock.getIfAvailable(Clock::systemUTC), enabled && !baseUrl.isBlank() && !model.isBlank(),
                 model, host(baseUrl), maxQuestion, maxTokens, perHour, perDay, topK,
                 new ProviderLimiter(rpm, tpm, rpd, backgroundShare, java.time.ZoneId.of(dayZone),
@@ -153,6 +154,7 @@ public class AssistantService {
                 "provider", enabled ? providerHost : "", "documents", knowledge.documents(), "chunks", knowledge.size(),
                 "perHour", perHour));
         if (enabled && limiter != null) s.put("usage", limiter.usage());
+        if (enabled && llm instanceof FallbackLlmClient f) s.put("resting", f.cooling());
         return s;
     }
 

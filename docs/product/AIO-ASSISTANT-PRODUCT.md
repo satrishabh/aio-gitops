@@ -43,7 +43,7 @@ them, and every failed build starts with reading logs from the bottom up.
 
 ## Cost
 
-- **Free tier first.** Google Gemini 2.5 Flash on the free tier is the chosen model; Groq, OpenRouter, Cerebras or Mistral are drop-in fallbacks. Free tiers cover a small team's daily questions. Caps per person and per day stop runaway use.
+- **Free tier first.** Google Gemini 3.5 Flash on the free tier is the chosen model; Groq, OpenRouter, Cerebras or Mistral are drop-in fallbacks. Free tiers cover a small team's daily questions. Caps per person and per day stop runaway use.
 - **No new infrastructure.** Retrieval runs in memory inside AIO, so there is no vector database and no extra pods.
 - **Local option.** Ollama on a developer laptop or a larger node keeps all data in-house, at the cost of answer quality and memory.
 - **Paid when it pays.** For G3 and G4, where wrong answers cost more, Claude via the official Anthropic SDK is the planned option. It is per-token, so it stays behind the same caps.
@@ -69,6 +69,6 @@ at most a quarter of the day, and the Ask AIO page shows how much of today's quo
 
 ## Open questions for the owner
 
-- ~~Which provider and model?~~ Decided 16 Nov 2026: Google Gemini 2.5 Flash, free tier. Free-tier prompts may be used by Google, so only curated docs and run metadata are sent; revisit if the free tier is cut.
+- ~~Which provider and model?~~ Decided 16 Nov 2026: Google Gemini 3.5 Flash, free tier. Free-tier prompts may be used by Google, so only curated docs and run metadata are sent; revisit if the free tier is cut.
 - May build logs be shared with that provider (`AIO_ASSISTANT_SHARE_LOGS`)?
 - Who owns the knowledge folder and the golden set (a weekly 15-minute review)?

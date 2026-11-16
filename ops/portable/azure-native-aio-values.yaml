@@ -54,7 +54,8 @@ config:
   # Free-tier prompts may be used by Google to improve its products, so build logs stay off (SHARE_LOGS 'false').
   AIO_ASSISTANT_ENABLED: 'false'
   AIO_ASSISTANT_BASE_URL: https://generativelanguage.googleapis.com/v1beta/openai
-  AIO_ASSISTANT_MODEL: gemini-2.5-flash
+  # tried in order; each model has its own free daily limit (measured 16 Nov 2026: 20 requests a day for 3.5 Flash)
+  AIO_ASSISTANT_MODEL: gemini-3.1-flash-lite,gemini-3.5-flash
   AIO_ASSISTANT_REASONING_EFFORT: none
   AIO_ASSISTANT_SHARE_LOGS: 'false'
   # Below the free tier's own limits (check AI Studio for your project's current numbers)

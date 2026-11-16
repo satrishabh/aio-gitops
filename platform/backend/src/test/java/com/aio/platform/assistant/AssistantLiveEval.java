@@ -29,9 +29,10 @@ class AssistantLiveEval {
         String base = System.getenv("AIO_EVAL_BASE_URL"), model = System.getenv("AIO_EVAL_MODEL"),
                 key = System.getenv("AIO_EVAL_API_KEY");
         KnowledgeBase kb = new KnowledgeBase();
-        var llm = new OpenAiCompatibleClient(base, key, model,
-                Duration.ofSeconds(Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_TIMEOUT_SECONDS", "60"))),
-                System.getenv("AIO_EVAL_REASONING_EFFORT"));
+        Duration timeout = Duration.ofSeconds(Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_TIMEOUT_SECONDS", "60")));
+        // a comma-separated AIO_EVAL_MODEL is tried in order, exactly as AIO does in production
+        var llm = FallbackLlmClient.of(model, m -> new OpenAiCompatibleClient(base, key, m, timeout,
+                System.getenv("AIO_EVAL_REASONING_EFFORT")), Clock.systemUTC());
         // free tiers cap requests per minute (Gemini Flash: about 10); pause between questions to stay under it
         long pauseMs = 1000L * Long.parseLong(System.getenv().getOrDefault("AIO_EVAL_PAUSE_SECONDS", "0"));
         var service = new AssistantService(kb, llm, mock(AuditService.class), Clock.systemUTC(), true, model,
@@ -42,9 +43,15 @@ class AssistantLiveEval {
             golden = json.readValue(in, new TypeReference<>() {});
         }
         List<String> lines = new ArrayList<>();
+        int n = 0, failed = 0;
         for (Map<String, String> g : golden) {
-            if (pauseMs > 0 && !lines.isEmpty()) Thread.sleep(pauseMs);
-            var answer = service.ask("eval", g.get("q"), List.of());
+            if (pauseMs > 0 && n > 0) Thread.sleep(pauseMs);
+            n++;
+            long t0 = System.currentTimeMillis();
+            AssistantService.Answer answer = withRetry(() -> service.ask("eval", g.get("q"), List.of()), pauseMs);
+            System.out.printf("eval %2d/%d %5d ms %s%n", n, golden.size(), System.currentTimeMillis() - t0,
+                    answer == null ? "FAILED" : answer.grounded() ? "cited" : "not cited");
+            if (answer == null) { failed++; continue; }
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("user_input", g.get("q"));
             row.put("response", answer.answer());
@@ -68,11 +75,16 @@ class AssistantLiveEval {
                 - scan / gate: SKIPPED
                 """;
         if (pauseMs > 0) Thread.sleep(pauseMs);
-        var explained = service.explain("eval", "run:demo", "CI run #1 of demo", facts, "build failed kaniko dockerfile");
+        var explained = withRetry(() -> service.explain("eval", "run:demo", "CI run #1 of demo", facts, "build failed kaniko dockerfile"), pauseMs);
+        System.out.println("eval explain " + (explained == null ? "FAILED" : "ok"));
+        if (explained == null) { failed++; explained = new AssistantService.Answer("(failed)", List.of(), false, model); }
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("user_input", "Explain why CI run #1 of demo failed and what to do next.");
         row.put("response", explained.answer());
-        row.put("retrieved_contexts", List.of(facts));
+        // exactly what the model saw: the facts as source [1], then the same 3 docs the service retrieves
+        List<String> explainContexts = new ArrayList<>(List.of(facts));
+        kb.search(Redactor.redact("build failed kaniko dockerfile"), 3).forEach(h -> explainContexts.add(Redactor.redact(h.chunk().text())));
+        row.put("retrieved_contexts", explainContexts);
         row.put("grounded", explained.grounded());
         row.put("expected_source", "aio-troubleshooting.md");
         lines.add(json.writeValueAsString(row));
@@ -89,7 +101,9 @@ class AssistantLiveEval {
         p1.id = 9L; p1.projectId = 1L; p1.fromEnv = "staging"; p1.toEnv = "prod"; p1.kind = "PROMOTE"; p1.status = "PAUSED";
         p1.requestedBy = "ann"; p1.message = "needs a decision: smoke test failed 2 of 4 samples";
         String digestFacts = DailyDigestJob.facts(List.of(r1, r2, r3), List.of(p1), id -> id == 1L ? "shop" : "blog");
-        var digest = service.summarize("eval", DailyDigestJob.TASK, "Builds and deployments, last 24 hours", digestFacts, Duration.ZERO);
+        var digest = withRetry(() -> service.summarize("eval", DailyDigestJob.TASK, "Builds and deployments, last 24 hours", digestFacts, Duration.ZERO), pauseMs);
+        System.out.println("eval digest " + (digest == null ? "FAILED" : "ok"));
+        if (digest == null) { failed++; digest = new AssistantService.Answer("(failed)", List.of(), false, model); }
         Map<String, Object> drow = new LinkedHashMap<>();
         drow.put("user_input", "Write the morning summary of the last 24 hours of builds and deployments.");
         drow.put("response", digest.answer());
@@ -101,6 +115,20 @@ class AssistantLiveEval {
         Path out = Path.of("target", "assistant-eval.jsonl");
         Files.createDirectories(out.getParent());
         Files.write(out, lines);
-        System.out.println("wrote " + out.toAbsolutePath());
+        System.out.println("wrote " + out.toAbsolutePath() + " (" + failed + " failed after one retry)");
+    }
+
+    /** Free tiers sometimes stall or refuse; retry once after a pause, then record the item as failed and go on. */
+    private static AssistantService.Answer withRetry(java.util.function.Supplier<AssistantService.Answer> call, long pauseMs)
+            throws InterruptedException {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return call.get();
+            } catch (IllegalStateException e) {
+                System.out.println("eval attempt " + attempt + " failed: " + e.getMessage());
+                if (attempt == 2) return null;
+                Thread.sleep(Math.max(pauseMs, 5000));
+            }
+        }
     }
 }

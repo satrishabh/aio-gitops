@@ -12,7 +12,7 @@ import statistics
 import sys
 
 from langchain_openai import ChatOpenAI
-from ragas import EvaluationDataset, evaluate
+from ragas import EvaluationDataset, RunConfig, evaluate
 from ragas.llms import LangchainLLMWrapper
 from ragas.metrics import Faithfulness
 
@@ -35,8 +35,18 @@ def main(path: str) -> int:
         model=os.environ["JUDGE_MODEL"],
         temperature=0,
     ))
-    result = evaluate(dataset=dataset, metrics=[Faithfulness(llm=judge)])
-    scores = [s for s in result.to_pandas()["faithfulness"].tolist() if s == s]  # drop NaN
+    # free tiers allow few requests per minute: judge one call at a time, back off on 429
+    run_config = RunConfig(max_workers=int(os.environ.get("JUDGE_MAX_WORKERS", "1")), max_retries=6, max_wait=90,
+                           timeout=180)
+    result = evaluate(dataset=dataset, metrics=[Faithfulness(llm=judge)], run_config=run_config)
+    df = result.to_pandas()
+    # per-answer scores (questions and scores only) so a low score can be traced to its question
+    out = os.path.join(os.path.dirname(os.path.abspath(path)), "assistant-ragas-scores.csv")
+    df[["user_input", "faithfulness"]].to_csv(out, index=False)
+    for q, f in sorted(zip(df["user_input"], df["faithfulness"]), key=lambda x: (x[1] == x[1], x[1]))[:5]:
+        print(f"  low: {f:.2f}  {q[:90]}")
+    print(f"per-answer scores: {out}")
+    scores = [s for s in df["faithfulness"].tolist() if s == s]  # drop NaN
     mean = statistics.mean(scores) if scores else 0.0
     worst = min(scores) if scores else 0.0
     minimum = float(os.environ.get("FAITHFULNESS_MIN", "0.8"))

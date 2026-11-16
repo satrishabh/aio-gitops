@@ -39,7 +39,7 @@ Product view (who it is for, value, measures, rollout): `docs/product/AIO-ASSIST
 
 | Need | Now (zero extra infra) | Next | Later, only if needed |
 |---|---|---|---|
-| Models | **Google Gemini 2.5 Flash, free tier (chosen)**; other free OpenAI-compatible tiers (Groq, OpenRouter, Cerebras, Mistral) as fallbacks | Claude via official SDK for quality-critical slices | Self-hosted Ollama / vLLM on a GPU node |
+| Models | **Google Gemini 3.5 Flash, free tier (chosen)**; other free OpenAI-compatible tiers (Groq, OpenRouter, Cerebras, Mistral) as fallbacks | Claude via official SDK for quality-critical slices | Self-hosted Ollama / vLLM on a GPU node |
 | Retrieval | In-memory BM25 over curated Markdown | pgvector + full-text hybrid search with reciprocal rank fusion in the existing PostgreSQL | Dedicated vector DB only past ~1M chunks |
 | Evals | JUnit retrieval eval (CI) + Ragas faithfulness (offline) | DeepEval or Ragas in CI on a nightly schedule; promptfoo red-team prompts | Langfuse datasets from production traces |
 | Guardrails | Redaction, tagged sources, no tools, caps | LLM Guard or Llama Guard classifier on input and output for G4 | NeMo Guardrails dialogue rails |
@@ -64,9 +64,9 @@ project, and the limits change without notice. AIO keeps under them itself inste
 |---|---|---|
 | Requests per minute | 8 (`AIO_ASSISTANT_RPM`) | Below the free Flash limit |
 | Tokens per minute | 200,000 (`AIO_ASSISTANT_TPM`) | Estimated before the call (characters / 4 + the answer budget), corrected with the provider's count after |
-| Requests per day | 200 (`AIO_ASSISTANT_RPD`), resetting at midnight Pacific | Below the free daily limit |
+| Requests per day | 200 (`AIO_ASSISTANT_RPD`), resetting at midnight Pacific | AIO's overall cap; each model's own daily limit is enforced by Google and handled by the model list |
 | Scheduled share | 25% of the day (`AIO_ASSISTANT_BACKGROUND_SHARE`) | A job can never use up people's quota |
-| Provider 429 | Everyone pauses until its Retry-After (default 60 s) | Stops hammering a provider that said no |
+| Provider 429 | That model rests until the time Google gives (header or "retry in 4h52m" in the body); the next model answers; only when all rest does everyone pause | Stops hammering a model that said no, without losing service |
 
 People are never queued: over a limit, they see "try again in N s" at once. Scheduled jobs wait for a free slot
 (up to 10 minutes) and give up after three failed attempts a day.
@@ -87,7 +87,7 @@ Chosen provider: **Google Gemini free tier**, through its OpenAI-compatible endp
 | Setting | Value |
 |---|---|
 | `AIO_ASSISTANT_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` |
-| `AIO_ASSISTANT_MODEL` | `gemini-2.5-flash` (or `gemini-2.5-flash-lite` for higher free limits, lower quality) |
+| `AIO_ASSISTANT_MODEL` | `gemini-3.1-flash-lite,gemini-3.5-flash`: tried in order; each model has its own free daily limit (measured: 20 a day for 3.5 Flash). Flash-Lite answered all 22 eval tasks in about 2 s each, with citations |
 | `AIO_ASSISTANT_REASONING_EFFORT` | `none`: no hidden thinking, so the 800-token cap goes to the answer and replies are fast |
 | `AIO_ASSISTANT_SHARE_LOGS` | `false`: Google may use free-tier prompts to improve its products, and people may review them |
 | `AIO_ASSISTANT_API_KEY` | from Google AI Studio, stored only in the `aio-platform-runtime` Secret; the chart refuses it in `config` |

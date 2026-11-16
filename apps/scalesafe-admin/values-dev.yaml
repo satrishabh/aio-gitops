@@ -1,5 +1,5 @@
 # AIO dev values for scalesafe-admin (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-admin/values-dev.yaml in
-# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on indiescale.in.
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
 nameOverride: scalesafe-admin
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
@@ -12,19 +12,21 @@ env:
   - name: SCALESAFE_OIDC_CLIENT_ID
     value: "scalesafe-admin"
   - name: SCALESAFE_API_ORCHESTRATOR
-    value: "https://api.indiescale.in/orchestrator"
+    value: "https://api.scalesafe.capital/orchestrator"
   - name: SCALESAFE_API_CLIENTS
-    value: "https://api.indiescale.in/clients"
+    value: "https://api.scalesafe.capital/clients"
   - name: SCALESAFE_API_KYC
-    value: "https://api.indiescale.in/kyc"
+    value: "https://api.scalesafe.capital/kyc"
   - name: SCALESAFE_API_INVESTORS
-    value: "https://api.indiescale.in/investors"
+    value: "https://api.scalesafe.capital/investors"
   - name: SCALESAFE_API_VERIFICATION
-    value: "https://api.indiescale.in/verification"
+    value: "https://api.scalesafe.capital/verification"
   - name: SCALESAFE_API_ESIGN
-    value: "https://api.indiescale.in/esign"
+    value: "https://api.scalesafe.capital/esign"
+  - name: SCALESAFE_LEGAL_SITE
+    value: "https://scalesafe.capital"   # footer legal links; production leaves this unset (scalesafe.co.in)
   - name: SCALESAFE_OIDC_AUTHORITY
-    value: "https://id.indiescale.in/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
+    value: "https://id.scalesafe.capital/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 101
@@ -43,7 +45,7 @@ ingress:
   enabled: true
   className: aio-azure
   controller: traefik
-  host: admin.indiescale.in
+  host: admin.scalesafe.capital
   tls: true
   issuer: letsencrypt-azure
   forceHttps: true

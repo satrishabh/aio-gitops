@@ -46,3 +46,12 @@ routes:
     wwwRedirect: true
     stripPrefix: false
     externalDns: false
+  - host: scalesafe.capital
+    path: "/"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: true
+    stripPrefix: false
+    externalDns: false

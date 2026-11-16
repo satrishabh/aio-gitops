@@ -59,7 +59,7 @@ spec:
 
     - name: build-push
       runAfter: [test]
-      taskRef: { name: kaniko-build-push }
+      taskRef: { name: buildkit-build-push }
       params:
         - { name: IMAGE, value: $(params.image) }
         - { name: TAG, value: $(tasks.clone.results.short-sha) }

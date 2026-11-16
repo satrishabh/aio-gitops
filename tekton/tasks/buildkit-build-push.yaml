@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: buildkit-build-push
+spec:
+  description: >
+    Build an image from any Dockerfile with rootless BuildKit (no Docker daemon, no privileged pod)
+    and push it to GHCR / Docker Hub / any OCI registry. Drop-in replacement for kaniko-build-push:
+    same params, workspaces and results. Replaces Kaniko, which Google archived in 2025 and whose
+    layer cache breaks multi-stage builds on re-runs ("lstat /kaniko/0/workspace/app.jar").
+  params:
+    - name: IMAGE
+      description: Full image ref without tag, e.g. ghcr.io/my-org/my-app or docker.io/myuser/my-app
+    - name: TAG
+    - name: DOCKERFILE
+      description: Path to the Dockerfile, relative to the source workspace
+      default: ./Dockerfile
+    - name: CONTEXT
+      description: Build context, relative to the source workspace
+      default: "."
+    - name: EXTRA_ARGS
+      description: Extra buildctl build args, e.g. --opt build-arg:FOO=bar
+      type: array
+      default: []
+  workspaces:
+    - name: source
+    - name: dockerconfig
+      description: Secret containing config.json (registry credentials)
+  results:
+    - name: IMAGE_DIGEST
+    - name: IMAGE_URL
+  steps:
+    - name: build-and-push
+      # mirrored from moby/buildkit:v0.34.1-rootless (same digest) so CI has no Docker Hub dependency;
+      # private GHCR package, pulled with the ghcr-pull secret on SA pipeline-runner
+      image: ghcr.io/satrishabh/buildkit:v0.34.1-rootless@sha256:f68752a5a94acfcdad2d07867b7075601a421638e17fc5f28efc1c814d0c4f89
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests: { cpu: 100m, memory: 768Mi }   # low request so it fits on busy small nodes; bursts to the limit
+        limits: { cpu: 900m, memory: 2Gi }
+      # Rootless BuildKit runs as an unprivileged user inside a user namespace. That needs the
+      # default seccomp and AppArmor profiles lifted for this container only; it is not privileged.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: Unconfined }
+        appArmorProfile: { type: Unconfined }
+      env:
+        - name: BUILDKITD_FLAGS
+          value: --oci-worker-no-process-sandbox
+        - name: DOCKER_CONFIG
+          value: $(workspaces.dockerconfig.path)
+        # params go in through env, never spliced into the script, so odd values can't inject shell
+        - { name: IMAGE, value: $(params.IMAGE) }
+        - { name: TAG, value: $(params.TAG) }
+        - { name: DOCKERFILE, value: $(params.DOCKERFILE) }
+        - { name: CONTEXT, value: $(params.CONTEXT) }
+        - { name: SRC, value: $(workspaces.source.path) }
+        - { name: DIGEST_PATH, value: $(results.IMAGE_DIGEST.path) }
+        - { name: URL_PATH, value: $(results.IMAGE_URL.path) }
+      args: ["$(params.EXTRA_ARGS[*])"]
+      script: |
+        #!/bin/sh
+        set -eu
+        CACHE="$IMAGE-cache:buildkit"
+        buildctl-daemonless.sh build \
+          --frontend dockerfile.v0 \
+          --local context="$SRC/$CONTEXT" \
+          --local dockerfile="$SRC/$(dirname "$DOCKERFILE")" \
+          --opt filename="$(basename "$DOCKERFILE")" \
+          --output type=image,name="$IMAGE:$TAG",push=true \
+          --import-cache type=registry,ref="$CACHE" \
+          --export-cache type=registry,ref="$CACHE",mode=max,ignore-error=true \
+          --metadata-file /tmp/metadata.json \
+          "$@"
+        DIGEST=$(grep -o '"containerimage.digest": *"sha256:[0-9a-f]*"' /tmp/metadata.json | grep -o 'sha256:[0-9a-f]*' || true)
+        if [ -z "$DIGEST" ]; then echo "no image digest in build metadata:"; cat /tmp/metadata.json; exit 1; fi
+        printf "%s" "$DIGEST" > "$DIGEST_PATH"
+        printf "%s" "$IMAGE:$TAG" > "$URL_PATH"
+        echo "pushed $IMAGE:$TAG@$DIGEST"

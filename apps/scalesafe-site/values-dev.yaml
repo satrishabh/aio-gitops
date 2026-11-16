@@ -6,7 +6,7 @@ nameOverride: scalesafe-site
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-site
-  tag: 2a31c944f34a
+  tag: 2948ae3b056f
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -27,7 +27,7 @@ probes:
     path: /health
     initialDelaySeconds: 2
 ingress:
-  enabled: false   # served by the AIO domain route below (indiescale.in + www, own certificate)
+  enabled: false # served by the AIO domain route below (indiescale.in + www, own certificate)
   className: aio-azure
   controller: traefik
   host: indiescale.in

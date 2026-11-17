@@ -1,0 +1,32 @@
+# Weekly ghcr.io cleanup: delete image versions nothing uses any more (see scripts/ghcr_cleanup.py for the rules).
+# Needs repo secret GHCR_CLEANUP_TOKEN: classic PAT with read:packages + delete:packages.
+# Optional repo variable GHCR_KEEP: extra refs to keep, space-separated (e.g. "aio-platform@sha256:...").
+name: ghcr-cleanup
+on:
+  schedule:
+    - cron: '30 21 * * 6'   # Sunday 03:00 IST
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main   # deployed tags are written to main by CI and promotions
+      - name: Delete unused image versions
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_CLEANUP_TOKEN }}
+          GHCR_KEEP: ${{ vars.GHCR_KEEP }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          args=(--owner "${GITHUB_REPOSITORY_OWNER}" --keep-latest 2)
+          for k in $GHCR_KEEP; do args+=(--keep "$k"); done
+          [ "$DRY_RUN" = "true" ] || args+=(--delete)
+          python scripts/ghcr_cleanup.py "${args[@]}"

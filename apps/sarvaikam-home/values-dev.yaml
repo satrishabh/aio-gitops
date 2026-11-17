@@ -17,6 +17,7 @@ podSecurityContext:
     type: RuntimeDefault
 replicaCount: 1
 terminationDrainSeconds: 8
+# Managed by the AIO platform Domains tab - edit there, not here
 routes:
   - host: sarvaikam.com
     path: "/"

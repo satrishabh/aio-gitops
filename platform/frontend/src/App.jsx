@@ -13,6 +13,7 @@ import ProjectDetail from './pages/ProjectDetail.jsx'
 import RunDetail from './pages/RunDetail.jsx'
 import CdDetail from './pages/CdDetail.jsx'
 import Clusters from './pages/Clusters.jsx'
+import Connectors from './pages/Connectors.jsx'
 import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
@@ -25,7 +26,7 @@ import ScanDetail from './pages/ScanDetail.jsx'
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
   [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
-  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'],
+  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'], [/^\/connectors/, 'Connectors'],
   [/^\/pipelines\/ci/, 'Pipelines / CI'], [/^\/pipelines\/cd/, 'Pipelines / CD'], [/^\/pipelines\/security/, 'Pipelines / Security'],
   [/^\/scans\//, 'Pipelines / Security scan'],
 ]
@@ -127,6 +128,10 @@ export default function App() {
             {!community && <>
               {me.accessTier === 'admin' && <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>}
             </>}
+            {!community && me.accessTier === 'admin' && <>
+              <div className="nav-section">Connectors</div>
+              <NavLink to="/connectors"><Icon name="plug" />Open source</NavLink>
+            </>}
           </nav>
           <div className="sidebar-foot">
             <div className="me">
@@ -172,6 +177,7 @@ export default function App() {
               <Route path="/approvals" element={<Approvals me={me} />} />
               <Route path="/metrics" element={<Metrics />} />
               <Route path="/clusters" element={<Clusters />} />
+              <Route path="/connectors" element={<Connectors />} />
               <Route path="/audit" element={<Audit />} />
               <Route path="/pipelines/ci" element={<PipelinesCi />} />
               <Route path="/pipelines/cd" element={<PipelinesCd me={me} />} />

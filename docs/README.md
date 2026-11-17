@@ -91,6 +91,7 @@ Register each cluster with `argocd cluster add <context>`, then add an element t
 - **Metrics:** shows deploy frequency, lead time (CI start to prod), change-failure rate (prod rollbacks), time to restore (red build to green build), and CI success rate and duration.
 - **Cleanup:** PipelineRuns older than 24h are pruned, keeping the newest 5 per project (`app.cleanup.*`). Step logs are saved to the database first, so old runs stay readable.
 - **Delete project:** removes the project's Argo CD apps, cascading to its release in each shared namespace (other projects are untouched), plus its GitOps files, webhook and history. Registry images are kept.
+- **Connectors** (admins): open-source tools AIO works with, from a YAML catalog. Shows status, runs tests, and can enable, roll back or disable managed ones such as Prometheus + Grafana through Argo CD. See [connectors](architecture/CONNECTORS.md).
 - **RBAC:** the platform needs a ClusterRole for namespaces and secrets (see `platform/deploy/rbac.yaml`) to manage app environments.
 
 ## Security notes

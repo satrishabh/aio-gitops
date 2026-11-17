@@ -83,6 +83,11 @@ app:
   github:
     api-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
+  connectors:
+    # Empty = built-in catalog (classpath connectors/catalog.yaml); else a file path, e.g. a mounted ConfigMap
+    catalog: ${CONNECTORS_CATALOG:}
+    # any | gke | eks | aks | oke | onprem - hides connectors that do not support this cloud
+    cloud: ${CLOUD_PROVIDER:any}
   security:
     # Comma-separated OIDC usernames/emails and/or AIO client roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}

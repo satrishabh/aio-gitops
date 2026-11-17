@@ -1,0 +1,24 @@
+# Argo CD sync windows for the "apps" project, needed by the kube-green connector.
+# Without them, auto-sync with self-heal puts the replicas back as soon as kube-green scales dev/staging to 0.
+# The windows block automatic syncs (including self-heal) in dev and staging while those namespaces sleep.
+# Manual syncs stay allowed, so a deploy from the portal still goes through at night.
+# Apply (once, by an admin) after enabling kube-green:
+#   kubectl -n argocd patch appproject apps --type merge --patch-file connectors/kube-green/apps-sync-windows.yaml
+# Remove (after disabling kube-green):
+#   kubectl -n argocd patch appproject apps --type json -p '[{"op":"remove","path":"/spec/syncWindows"}]'
+spec:
+  syncWindows:
+    # Monday-Friday 20:00 -> 08:00 IST
+    - kind: deny
+      schedule: "0 20 * * 1-5"
+      duration: 12h
+      timeZone: Asia/Kolkata
+      namespaces: [dev, staging]
+      manualSync: true
+    # Saturday 08:00 -> Monday 08:00 IST (the Friday-night window covers until Saturday 08:00)
+    - kind: deny
+      schedule: "0 8 * * 6"
+      duration: 48h
+      timeZone: Asia/Kolkata
+      namespaces: [dev, staging]
+      manualSync: true

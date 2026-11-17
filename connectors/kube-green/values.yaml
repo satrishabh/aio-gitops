@@ -1,0 +1,16 @@
+# kube-green values for the "kube-green" connector (chart 0.7.1; rollback target 0.7.0).
+# Installed by the AIO portal through Argo CD (app connector-kube-green, namespace kube-green).
+# The webhook certificate comes from cert-manager (a core AIO component). Sleep schedules are the SleepInfo
+# objects in ./sleepinfo, synced together with the chart.
+
+certManager:
+  enabled: true
+
+manager:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+crds:
+  enabled: true
+  keep: true                          # Disable keeps the CRD so SleepInfo objects are not lost by accident

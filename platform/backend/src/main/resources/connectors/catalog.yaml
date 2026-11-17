@@ -1,0 +1,162 @@
+# AIO connector catalog: every open-source tool the platform knows about.
+# Adding a tool is a change to this file only (no code). Override the whole file at runtime with
+# CONNECTORS_CATALOG=/path/to/catalog.yaml (for example a mounted ConfigMap).
+#
+# kind:
+#   core     installed by the bootstrap scripts; AIO checks that `deployment` in `namespace` is available
+#   managed  installed by AIO as Argo CD Application connector-<id> (project "connectors") from a pinned Helm
+#            chart plus `valuesPath` in the GitOps repo; admins can enable, test, disable and roll back
+#   planned  on the roadmap; shown so the scope is visible, cannot be enabled yet
+# clouds: [any] or a subset of [gke, eks, aks, oke, onprem]. Entries not matching CLOUD_PROVIDER are marked
+#   "not for this cloud" instead of being offered.
+# version / previousVersion: exact chart versions (at least two weeks old when pinned). Rollback goes to
+#   previousVersion. Never a floating tag.
+# requires: ids of connectors that must be present first (enable is refused otherwise; disable is refused while
+#   an enabled connector still requires this one).
+# deployment (managed, optional): Test also checks that this Deployment in `namespace` is available. Use it when
+#   the tool has no unauthenticated HTTP endpoint to probe.
+# extrasPath (managed, optional): directory in the GitOps repo with plain manifests synced together with the chart
+#   (for example kube-green SleepInfo schedules). Their namespaces must be allowed in the connectors AppProject.
+# probes: HTTP checks run from the platform pod against in-cluster services (*.svc) only; a probe passes on a
+#   2xx response whose body contains `expect`.
+
+connectors:
+  # ---------------------------------------------------------------- core (installed by bootstrap)
+  - { id: tekton, name: Tekton Pipelines, category: CI/CD, kind: core, namespace: tekton-pipelines,
+      deployment: tekton-pipelines-controller, description: "Runs CI pipelines: clone, test, build, scan." }
+  - { id: argocd, name: Argo CD, category: CI/CD, kind: core, namespace: argocd, deployment: argocd-server,
+      description: GitOps delivery of every project and connector. }
+  - { id: argo-rollouts, name: Argo Rollouts, category: CI/CD, kind: core, namespace: argo-rollouts,
+      deployment: argo-rollouts, description: Blue-green releases for prod. }
+  - { id: tekton-chains, name: Tekton Chains, category: Supply chain, kind: core, namespace: tekton-chains,
+      deployment: tekton-chains-controller, description: Signs images and attaches SLSA provenance. }
+  - { id: kyverno, name: Kyverno, category: Supply chain, kind: core, namespace: kyverno,
+      deployment: kyverno-admission-controller, description: Verifies image signatures when pods start. }
+  - { id: cert-manager, name: cert-manager, category: Networking, kind: core, namespace: cert-manager,
+      deployment: cert-manager, description: TLS certificates for app domains. }
+  - { id: ingress-nginx, name: ingress-nginx, category: Networking, kind: core, namespace: ingress-nginx,
+      deployment: ingress-nginx-controller, description: HTTP routing into the cluster. }
+
+  # ---------------------------------------------------------------- managed (installed from the portal)
+  - id: prometheus
+    name: Prometheus + Grafana
+    category: Observability
+    kind: managed
+    phase: "1"
+    description: >-
+      Metrics, dashboards and alerts (kube-prometheus-stack). Needed by OpenCost, Trivy Operator metrics,
+      KEDA Prometheus triggers and Istio-based autoscaling.
+    namespace: monitoring
+    chartRepo: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    version: 92.17.1
+    previousVersion: 92.16.2
+    releaseName: kps
+    valuesPath: connectors/kube-prometheus-stack/values.yaml
+    accessHint: >-
+      kubectl -n monitoring port-forward svc/kps-grafana 3000:80 (user admin; password:
+      kubectl -n monitoring get secret kps-grafana -o jsonpath='{.data.admin-password}' | base64 -d)
+    probes:
+      - { name: Prometheus query, url: "http://kps-prometheus.monitoring.svc:9090/api/v1/query?query=up", expect: '"status":"success"' }
+      - { name: Prometheus ready, url: "http://kps-prometheus.monitoring.svc:9090/-/ready", expect: Ready }
+      - { name: Alertmanager, url: "http://kps-alertmanager.monitoring.svc:9093/-/healthy", expect: OK }
+      - { name: Grafana, url: "http://kps-grafana.monitoring.svc/api/health", expect: '"database"' }
+
+  # ---------------------------------------------------------------- managed, phase 2 (2026-11-24 -> 12-05)
+  - id: trivy-operator
+    name: Trivy Operator
+    category: Security
+    kind: managed
+    phase: "2"
+    description: >-
+      Rescans what is running for new CVEs, misconfigurations and exposed secrets; reports expire after 24h so
+      every workload is rescanned daily. Complements the Trivy step in CI, which only sees images at build time.
+    namespace: trivy-system
+    deployment: trivy-operator
+    chartRepo: https://aquasecurity.github.io/helm-charts/
+    chart: trivy-operator
+    version: 0.38.1
+    previousVersion: 0.37.0
+    releaseName: trivy-operator
+    valuesPath: connectors/trivy-operator/values.yaml
+    accessHint: >-
+      kubectl get vulnerabilityreports -n dev -o wide (also -n staging, -n prod; configauditreports for
+      misconfigurations)
+    probes:
+      - { name: Operator metrics, url: "http://trivy-operator.trivy-system.svc:8080/metrics", expect: "trivy_" }
+
+  - id: opencost
+    name: OpenCost
+    category: Cost
+    kind: managed
+    phase: "2"
+    description: >-
+      Cost per namespace, project and environment from real usage and cloud list prices (CNCF; any cloud or
+      on-prem). Reads metrics from Prometheus.
+    requires: [prometheus]
+    namespace: opencost
+    deployment: opencost
+    chartRepo: https://opencost.github.io/opencost-helm-chart
+    chart: opencost
+    version: 2.5.33
+    previousVersion: 2.5.32
+    releaseName: opencost
+    valuesPath: connectors/opencost/values.yaml
+    accessHint: kubectl -n opencost port-forward svc/opencost 9090:9090 (then open http://localhost:9090)
+    probes:
+      - { name: Cost API, url: "http://opencost.opencost.svc:9003/healthz", expect: "" }
+      - { name: Allocation (24h by namespace), url: "http://opencost.opencost.svc:9003/allocation/compute?window=1d&aggregate=namespace", expect: '"code":200' }
+
+  - id: goldilocks
+    name: Goldilocks + VPA
+    category: Cost
+    kind: managed
+    phase: "2"
+    description: >-
+      Right-sizing: recommends CPU and memory requests for dev, staging and prod from real usage. VPA runs in
+      recommend-only mode, so nothing is resized automatically.
+    namespace: goldilocks
+    deployment: goldilocks-controller
+    chartRepo: https://charts.fairwinds.com/stable
+    chart: goldilocks
+    version: 11.2.0
+    previousVersion: 11.1.1
+    releaseName: goldilocks
+    valuesPath: connectors/goldilocks/values.yaml
+    accessHint: kubectl -n goldilocks port-forward svc/goldilocks-dashboard 8080:80 (then open http://localhost:8080)
+    probes:
+      - { name: Dashboard, url: "http://goldilocks-dashboard.goldilocks.svc/health", expect: "" }
+
+  - id: kube-green
+    name: kube-green
+    category: Cost
+    kind: managed
+    phase: "2"
+    description: >-
+      Puts dev and staging to sleep 20:00-08:00 IST on weekdays and all weekend, and wakes them on schedule.
+      Prod is never touched. Needs the Argo CD sync windows in connectors/kube-green/apps-sync-windows.yaml.
+    requires: [cert-manager]
+    namespace: kube-green
+    deployment: kube-green-controller-manager
+    chartRepo: https://kube-green.github.io/helm-charts/
+    chart: kube-green
+    version: 0.7.1
+    previousVersion: 0.7.0
+    releaseName: kube-green
+    valuesPath: connectors/kube-green/values.yaml
+    extrasPath: connectors/kube-green/sleepinfo
+    accessHint: kubectl get sleepinfo -n dev,staging (and kubectl get secret -n dev -l app.kubernetes.io/managed-by=kube-green)
+
+  # ---------------------------------------------------------------- planned: reliability, upkeep
+  - { id: velero, name: Velero, category: Reliability, kind: planned, phase: "3",
+      description: "Daily backups of cluster objects (including the signing key) to any S3/GCS/Azure bucket." }
+  - { id: renovate, name: Renovate, category: Upkeep, kind: planned, phase: "3",
+      description: Weekly pull requests that update dependencies. }
+
+  # ---------------------------------------------------------------- planned: cost (cheapest compute wins)
+  - { id: keda, name: KEDA, category: Cost, kind: planned, phase: "3",
+      description: "Event-driven autoscaling, including scale to zero for idle apps (CNCF graduated)." }
+  - { id: descheduler, name: Descheduler, category: Cost, kind: planned, phase: "3",
+      description: "Repacks pods so the node autoscaler can remove under-used nodes." }
+  - { id: karpenter, name: Karpenter, category: Cost, kind: planned, phase: "4", clouds: [eks, aks],
+      description: "Picks the cheapest node, spot first, for pending pods. Official providers: AWS and Azure; elsewhere use the cloud's spot node pools + cluster autoscaler." }

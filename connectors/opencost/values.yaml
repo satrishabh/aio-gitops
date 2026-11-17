@@ -1,0 +1,32 @@
+# opencost values for the "opencost" connector (chart 2.5.33; rollback target 2.5.32).
+# Installed by the AIO portal through Argo CD (app connector-opencost, namespace opencost).
+# Requires the "prometheus" connector (kube-prometheus-stack, Service kps-prometheus in monitoring).
+# Cloud-agnostic: on GKE/EKS/AKS it uses the provider's public list prices; on-prem, set customPricing.
+
+# clusterName is the cluster DNS domain in this chart (default cluster.local), not a display name.
+# The name shown in reports is opencost.exporter.defaultClusterId.
+
+opencost:
+  exporter:
+    defaultClusterId: aio
+    resources:
+      requests: { cpu: 10m, memory: 64Mi }
+      limits: { memory: 1Gi }
+  prometheus:
+    internal:
+      enabled: true
+      serviceName: kps-prometheus
+      namespaceName: monitoring
+      port: 9090
+  metrics:
+    # Prometheus (selectors set to match every release) scrapes OpenCost so Grafana can chart cost over time
+    serviceMonitor:
+      enabled: true
+  # The MCP server is not used by AIO; keep the surface small
+  mcp:
+    enabled: false
+  ui:
+    enabled: true
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }

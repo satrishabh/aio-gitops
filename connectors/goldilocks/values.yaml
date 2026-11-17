@@ -1,0 +1,33 @@
+# goldilocks values for the "goldilocks" connector (chart 11.2.0; rollback target 11.1.1).
+# Installed by the AIO portal through Argo CD (app connector-goldilocks, namespace goldilocks).
+# Goldilocks creates a VerticalPodAutoscaler in recommend-only mode for each workload and shows the suggested
+# requests. Nothing is resized automatically: the VPA updater and admission webhook are not installed.
+
+vpa:
+  enabled: true                       # install the VPA recommender (subchart); skip if the cloud provides VPA
+  recommender:
+    resources:
+      requests: { cpu: 25m, memory: 128Mi }
+      limits: { memory: 512Mi }
+  updater:
+    enabled: false
+  admissionController:
+    enabled: false
+
+controller:
+  # Watch only the app environments (no namespace labels needed)
+  flags:
+    on-by-default: "true"
+    include-namespaces: "dev,staging,prod"
+  resources:
+    requests: { cpu: 25m, memory: 128Mi }
+    limits: { memory: 256Mi }
+
+dashboard:
+  replicaCount: 1
+  flags:
+    on-by-default: "true"
+    include-namespaces: "dev,staging,prod"
+  resources:
+    requests: { cpu: 10m, memory: 64Mi }
+    limits: { memory: 128Mi }

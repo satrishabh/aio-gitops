@@ -89,7 +89,7 @@ kubectl -n argocd rollout status statefulset/argocd-application-controller --tim
 # API account for the platform (apiKey only, scoped to the 'apps' project). logs + resource actions + cluster list
 # are how the platform sees workload clusters: it holds no credentials for them, Argo CD does.
 kubectl -n argocd patch cm argocd-cm --type merge -p '{"data":{"accounts.aio-platform":"apiKey"}}'
-kubectl -n argocd patch cm argocd-rbac-cm --type merge -p '{"data":{"policy.csv":"p, aio-platform, applications, *, apps/*, allow\np, aio-platform, logs, get, apps/*, allow\np, aio-platform, projects, get, apps, allow\np, aio-platform, clusters, get, *, allow\n"}}'
+kubectl -n argocd patch cm argocd-rbac-cm --type merge -p '{"data":{"policy.csv":"p, aio-platform, applications, *, apps/*, allow\np, aio-platform, logs, get, apps/*, allow\np, aio-platform, projects, get, apps, allow\np, aio-platform, clusters, get, *, allow\np, aio-platform, applications, *, connectors/*, allow\n"}}'
 kubectl -n argocd rollout restart deploy/argocd-server
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 

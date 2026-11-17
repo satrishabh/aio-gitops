@@ -1,0 +1,34 @@
+# Open-source connectors installed from the AIO portal (Connectors page, admins only).
+# This project is the guardrail: the portal can only install charts from the repositories and into the
+# namespaces listed here. Adding a connector to the catalog (platform/backend/src/main/resources/connectors/
+# catalog.yaml) also means adding its chart repository and namespace below - a reviewed change.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: connectors
+  namespace: argocd
+spec:
+  description: Open-source connectors (observability, security, cost, backups) managed from the AIO portal
+  sourceRepos:
+    - https://github.com/satrishabh/aio-gitops.git            # values files (connectors/<chart>/values.yaml)
+    - https://prometheus-community.github.io/helm-charts      # prometheus (kube-prometheus-stack)
+    - https://aquasecurity.github.io/helm-charts/             # trivy-operator
+    - https://opencost.github.io/opencost-helm-chart          # opencost
+    - https://charts.fairwinds.com/stable                     # goldilocks (+ vpa subchart)
+    - https://kube-green.github.io/helm-charts/               # kube-green
+  destinations:
+    - { server: https://kubernetes.default.svc, namespace: monitoring }
+    # kube-prometheus-stack adds scrape Services for cluster DNS / kubelet here
+    - { server: https://kubernetes.default.svc, namespace: kube-system }
+    - { server: https://kubernetes.default.svc, namespace: trivy-system }
+    - { server: https://kubernetes.default.svc, namespace: opencost }
+    - { server: https://kubernetes.default.svc, namespace: goldilocks }
+    - { server: https://kubernetes.default.svc, namespace: kube-green }
+    # kube-green SleepInfo schedules (connectors/kube-green/sleepinfo). Never prod.
+    - { server: https://kubernetes.default.svc, namespace: dev }
+    - { server: https://kubernetes.default.svc, namespace: staging }
+  # Operators ship CRDs, ClusterRoles and admission webhooks
+  clusterResourceWhitelist:
+    - { group: "*", kind: "*" }
+  namespaceResourceWhitelist:
+    - { group: "*", kind: "*" }

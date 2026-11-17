@@ -40,13 +40,21 @@ public class ConnectorService {
      * cycles): aggregated ClusterRole rules (kube-green), and CA bundles that operators or cert-manager inject into
      * webhooks, APIServices and CRD conversion webhooks (KEDA rotates its own certificates).
      */
+    /**
+     * AKS's admissions enforcer adds namespaceSelector rules to every webhook so webhooks never block AKS system
+     * namespaces. Charts usually set an empty selector, so without this Argo CD and AKS overwrite each other forever
+     * (seen live with KEDA: the webhook generation kept climbing). Trade-off: a selector change in a new chart
+     * version is not applied on upgrade (RespectIgnoreDifferences); it is on a fresh install.
+     */
+    static final String AKS_WEBHOOK_SELECTORS = ".webhooks[]?.namespaceSelector";
+
     static final List<Map<String, Object>> IGNORE_DIFFERENCES = List.of(
             Map.of("group", "rbac.authorization.k8s.io", "kind", "ClusterRole",
                     "jqPathExpressions", List.of("select(.aggregationRule != null) | .rules")),
             Map.of("group", "admissionregistration.k8s.io", "kind", "ValidatingWebhookConfiguration",
-                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle")),
+                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle", AKS_WEBHOOK_SELECTORS)),
             Map.of("group", "admissionregistration.k8s.io", "kind", "MutatingWebhookConfiguration",
-                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle")),
+                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle", AKS_WEBHOOK_SELECTORS)),
             Map.of("group", "apiregistration.k8s.io", "kind", "APIService", "jsonPointers", List.of("/spec/caBundle")),
             Map.of("group", "apiextensions.k8s.io", "kind", "CustomResourceDefinition",
                     "jqPathExpressions", List.of(".spec.conversion.webhook.clientConfig.caBundle")));

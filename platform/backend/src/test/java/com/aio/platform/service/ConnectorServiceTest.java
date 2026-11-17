@@ -298,6 +298,42 @@ class ConnectorServiceTest {
         assertThrows(IllegalStateException.class, () -> parse(base + ", requires: [x]}\n"));
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static KubernetesClient k8sWithNamespace(io.fabric8.kubernetes.api.model.Namespace ns,
+                                                      io.fabric8.kubernetes.client.dsl.Resource[] holder) {
+        KubernetesClient k8s = mock(KubernetesClient.class);
+        NonNamespaceOperation op = mock(NonNamespaceOperation.class);
+        io.fabric8.kubernetes.client.dsl.Resource res = mock(io.fabric8.kubernetes.client.dsl.Resource.class);
+        when(k8s.namespaces()).thenReturn(op);
+        when(op.withName(anyString())).thenReturn(res);
+        when(res.get()).thenReturn(ns);
+        holder[0] = res;
+        return k8s;
+    }
+
+    @Test
+    void disableRemovesTheNamespaceOnlyWhenArgoCreatedItForThisConnector() {
+        var conn = catalog("any").find("trivy-operator").orElseThrow();
+        var labeled = new io.fabric8.kubernetes.api.model.NamespaceBuilder().withNewMetadata().withName("trivy-system")
+                .addToLabels("aio.platform/connector", "trivy-operator").endMetadata().build();
+        io.fabric8.kubernetes.client.dsl.Resource[] r = new io.fabric8.kubernetes.client.dsl.Resource[1];
+        service(catalog("any"), mock(ArgoCdService.class), k8sWithNamespace(labeled, r)).deleteOwnNamespace(conn);
+        verify(r[0]).delete();
+        var shared = new io.fabric8.kubernetes.api.model.NamespaceBuilder().withNewMetadata().withName("trivy-system")
+                .endMetadata().build();
+        service(catalog("any"), mock(ArgoCdService.class), k8sWithNamespace(shared, r)).deleteOwnNamespace(conn);
+        verify(r[0], never()).delete();
+    }
+
+    @Test
+    void injectedCertificatesAreNotDriftAndTheNamespaceIsLabeled() {
+        var app = service(catalog("any"), mock(ArgoCdService.class)).appSpec(catalog("any").find("keda").orElseThrow(), "2.21.0");
+        var kinds = J.list(app, "spec", "ignoreDifferences").stream().map(m -> J.str(m, "kind")).toList();
+        assertTrue(kinds.containsAll(List.of("ClusterRole", "ValidatingWebhookConfiguration", "MutatingWebhookConfiguration",
+                "APIService", "CustomResourceDefinition")), kinds.toString());
+        assertEquals("keda", J.str(app, "spec", "syncPolicy", "managedNamespaceMetadata", "labels", "aio.platform/connector"));
+    }
+
     @Test
     void builtInCatalogIsCoreOnly() {
         ConnectorCatalog builtIn = new ConnectorCatalog("", "any");

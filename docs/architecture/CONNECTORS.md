@@ -63,6 +63,12 @@ On 2026-11-17, one node had 99% of its allocatable memory requested and was usin
 2. Then kube-green and Trivy Operator (small).
 3. Add a spot node pool (below) before Prometheus, KEDA and the rest.
 
+**Scale to zero (Sablier).** On AKS, AIO, Argo CD and Tekton belong to the Sablier group `aio`. They scale to zero when no one uses the portal, and a browser visit wakes them; bots, curl and uptime checks are ignored on purpose. While the group sleeps, connectors keep running, but Argo CD does not sync or self-heal them and the Connectors page is unavailable. That is acceptable for these tools and saves memory. To keep the group up for maintenance without a browser, ask Sablier directly:
+```bash
+kubectl -n sablier port-forward svc/sablier 18080:10000 &
+curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=45m&timeout=5m"
+```
+
 **Managed AKS add-ons:** AKS can run KEDA (`az aks update --enable-keda`) and VPA (`--enable-vpa`) itself. Use either the add-on or the connector, never both. If the VPA add-on is on, set `vpa.enabled: false` in `aio-catalog values/goldilocks/values.yaml`.
 
 ## Scope: 18 connectors

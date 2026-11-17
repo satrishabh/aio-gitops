@@ -33,6 +33,23 @@ public class ConnectorService {
     private static final Logger log = LoggerFactory.getLogger(ConnectorService.class);
     static final String PROJECT = "connectors";
     static final String HUB = "https://kubernetes.default.svc";
+    static final String NS_LABEL = "aio.platform/connector";
+
+    /**
+     * Fields other controllers own, so Argo CD neither reports them as drift nor reverts them (found in the live AKS
+     * cycles): aggregated ClusterRole rules (kube-green), and CA bundles that operators or cert-manager inject into
+     * webhooks, APIServices and CRD conversion webhooks (KEDA rotates its own certificates).
+     */
+    static final List<Map<String, Object>> IGNORE_DIFFERENCES = List.of(
+            Map.of("group", "rbac.authorization.k8s.io", "kind", "ClusterRole",
+                    "jqPathExpressions", List.of("select(.aggregationRule != null) | .rules")),
+            Map.of("group", "admissionregistration.k8s.io", "kind", "ValidatingWebhookConfiguration",
+                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle")),
+            Map.of("group", "admissionregistration.k8s.io", "kind", "MutatingWebhookConfiguration",
+                    "jqPathExpressions", List.of(".webhooks[]?.clientConfig.caBundle")),
+            Map.of("group", "apiregistration.k8s.io", "kind", "APIService", "jsonPointers", List.of("/spec/caBundle")),
+            Map.of("group", "apiextensions.k8s.io", "kind", "CustomResourceDefinition",
+                    "jqPathExpressions", List.of(".spec.conversion.webhook.clientConfig.caBundle")));
 
     public enum Status { HEALTHY, PROGRESSING, DEGRADED, NOT_INSTALLED, PLANNED, NOT_FOR_THIS_CLOUD, UNKNOWN }
 
@@ -236,6 +253,23 @@ public class ConnectorService {
                     + (users.size() == 1 ? "it" : "them") + " first");
         argo.deleteApp(c.appName());
         lastTests.remove(id);
+        deleteOwnNamespace(c);
+    }
+
+    /**
+     * Operators create objects Argo CD does not track (Trivy scan jobs, self-signed certificate Secrets), so a cascade
+     * delete leaves them behind (seen live on AKS). The connector's namespace is removed too, but only when Argo CD
+     * created it for this connector (label set through managedNamespaceMetadata): a shared namespace is never touched.
+     */
+    void deleteOwnNamespace(Connector c) {
+        try {
+            var ns = k8s.namespaces().withName(c.namespace()).get();
+            if (ns == null || ns.getMetadata().getLabels() == null
+                    || !c.id().equals(ns.getMetadata().getLabels().get(NS_LABEL))) return;
+            k8s.namespaces().withName(c.namespace()).delete();
+        } catch (RuntimeException e) {
+            log.warn("connector {}: namespace {} not removed: {}", c.id(), c.namespace(), e.getMessage());
+        }
     }
 
     /**
@@ -270,6 +304,8 @@ public class ConnectorService {
         // RespectIgnoreDifferences: self-heal must not undo fields other controllers own (see ignoreDifferences)
         syncPolicy.put("syncOptions", List.of("CreateNamespace=true", "ServerSideApply=true", "RespectIgnoreDifferences=true"));
         syncPolicy.put("retry", Map.of("limit", 3, "backoff", Map.of("duration", "15s", "factor", 2, "maxDuration", "3m")));
+        // Marks the namespace Argo CD creates, so Disable can remove what operators leave behind (scan jobs, certs)
+        syncPolicy.put("managedNamespaceMetadata", Map.of("labels", Map.of(NS_LABEL, c.id())));
 
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("project", PROJECT);
@@ -279,9 +315,7 @@ public class ConnectorService {
         spec.put("sources", sources);
         spec.put("destination", Map.of("server", HUB, "namespace", c.namespace()));
         spec.put("syncPolicy", syncPolicy);
-        // Aggregated ClusterRoles get their rules from Kubernetes, not from the chart (seen live with kube-green)
-        spec.put("ignoreDifferences", List.of(Map.of("group", "rbac.authorization.k8s.io", "kind", "ClusterRole",
-                "jqPathExpressions", List.of("select(.aggregationRule != null) | .rules"))));
+        spec.put("ignoreDifferences", IGNORE_DIFFERENCES);
         return Map.of(
                 "metadata", Map.of("name", c.appName(), "namespace", "argocd",
                         "labels", Map.of("aio.platform/connector", c.id()),

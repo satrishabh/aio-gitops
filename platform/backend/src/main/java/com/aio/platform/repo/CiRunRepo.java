@@ -8,6 +8,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CiRunRepo extends JpaRepository<CiRun, Long> {
+    @org.springframework.data.jpa.repository.Query("select r.id from CiRun r where r.deliveryMode = 'INDEPENDENT' and r.status = 'SUCCEEDED' and r.deploy = true and r.releaseStatus in ('READY', 'RETRY_WAIT') and (r.releaseNextAttempt is null or r.releaseNextAttempt <= :now) order by r.id")
+    List<Long> dueReleases(@org.springframework.data.repository.query.Param("now") java.time.Instant now, Pageable page);
+    List<CiRun> findByExternalRegistryTrueAndRegistrySecretsCleanedFalseAndStatusIn(Collection<String> statuses, Pageable page);
+
+    Optional<CiRun> findFirstByProjectIdAndDeliveryModeAndDeployTrueOrderByIdDesc(Long projectId, String deliveryMode);
+    List<CiRun> findByProjectIdAndStatusIn(Long projectId, Collection<String> statuses);
     List<CiRun> findByProjectIdInOrderByIdDesc(Collection<Long> projectIds, Pageable page);
     List<CiRun> findByProjectIdInAndCreatedAtAfterOrderByIdAsc(Collection<Long> projectIds, java.time.Instant after);
     List<CiRun> findByStatusIn(Collection<String> statuses);

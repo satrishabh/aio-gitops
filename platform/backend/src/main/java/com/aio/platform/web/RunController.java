@@ -63,6 +63,14 @@ public class RunController {
     }
 
     /** Step logs: live from the pod while it exists, otherwise the copy archived before pruning. */
+    @PostMapping("/{id}/release/retry")
+    public CiRun retryRelease(@PathVariable Long id, @AuthenticationPrincipal OAuth2User user) {
+        CiRun run = runs.findById(id).orElseThrow();
+        var project = com.aio.platform.security.UserScope.project(projects, run.projectId);
+        return runService.retryRelease(run, project, Me.login(user));
+    }
+
+    /** Step logs: live from the pod while it exists, otherwise the copy archived before pruning. */
     @GetMapping(value = "/{id}/steps/{stepId}/logs", produces = MediaType.TEXT_PLAIN_VALUE)
     public String logs(@PathVariable Long id, @PathVariable Long stepId) {
         RunStep s = steps.findById(stepId).orElseThrow();

@@ -1,0 +1,45 @@
+---
+references:
+  - "File: /platform/backend/src/main/java/com/aio/platform/domain/CiRun.java"
+  - "File:
+    /platform/backend/src/main/java/com/aio/platform/service/ProjectService.jav\
+    a"
+  - "File:
+    /platform/backend/src/main/java/com/aio/platform/service/TemplateService.ja\
+    va"
+  - "File:
+    /platform/backend/src/main/java/com/aio/platform/web/ProjectController.java"
+  - "File: /platform/frontend/src/pages/NewProject.jsx"
+generationTime: 2026-11-02T06:06:55.898Z
+---
+flowchart TD
+    A["NewProject form"] --> B["Load repositories and collect project settings"]
+    B --> C["Submit project request"]
+    C --> D["POST /api/projects"]
+    D --> E["ProjectController.create"]
+    E --> F["ProjectService.create"]
+
+    A -.->|Start from template| G["TemplateService.create"]
+    G --> H["Inspect template repository"]
+    H --> I{"Is it a template and containerizable?"}
+    I -->|No| X["Return error"]
+    I -->|Yes| J["Generate repository, wait for contents, add generated files"]
+    J --> K["ProjectService.createFromTemplate"]
+    K --> L["Shared project creation flow"]
+
+    F --> L
+    L --> M{"Valid GitHub URL and unique project name?"}
+    M -->|No| X
+    M -->|Yes| N["Save project and initialize runtime settings"]
+    N --> O["For each environment: ensure cluster environment"]
+    O --> P["Initialize GitOps files and upsert Argo CD apps"]
+    P --> Q{"Webhook requested and public URL configured?"}
+    Q -->|Yes| R["Register GitHub webhook"]
+    Q -->|No| S["Record project creation audit"]
+    R --> S
+    S --> T["Trigger initial or template CI run"]
+    T --> U["Create CiRun with PENDING status"]
+    U --> V{"Is run active? PENDING or RUNNING"}
+    V -->|Yes| W["Return project and run; frontend navigates to run"]
+    V -->|No| W
+    X --> Y["Frontend displays error"]

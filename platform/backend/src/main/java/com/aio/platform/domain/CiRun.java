@@ -23,6 +23,16 @@ public class CiRun {
     public String message;
     public String imageUrl;
     public String imageDigest;
+    public String deliveryMode = "LEGACY";
+    public String deliveryConfigHash;
+    public boolean externalRegistry;
+    public boolean registrySecretsCleaned;
+    public String releaseStatus;
+    public String releaseMessage;
+    public int releaseAttempts;
+    public Instant releaseNextAttempt;
+    public String releaseImageRepo;
+    @com.fasterxml.jackson.annotation.JsonIgnore public String releaseOwnerSubject;
     public Integer vulnCritical;
     public Integer vulnHigh;
     public Integer vulnMedium;

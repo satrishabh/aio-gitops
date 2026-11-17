@@ -102,6 +102,7 @@ public class DeploymentPoller {
         String prefix = p.imageRepo + ":";
         for (Object o : list) {
             String img = String.valueOf(o);
+            if (img.startsWith(p.imageRepo + "@sha256:")) return img.substring(p.imageRepo.length() + 1);
             if (img.startsWith(prefix)) return img.substring(prefix.length());
         }
         return null;

@@ -18,12 +18,25 @@ public class RunService {
     private final TektonService tekton;
     private final AuditService audit;
     private final PromotionService approvals;
+    private final boolean independentDelivery;
+    private final jakarta.persistence.EntityManager entities;
+    private final DeliveryConfigurationService deliveryConfiguration;
+    private final RegistryConnections registryConnections;
+    private final org.springframework.transaction.support.TransactionTemplate transactions;
 
-    public RunService(CiRunRepo runs, TektonService tekton, AuditService audit, PromotionService approvals) {
+    public RunService(CiRunRepo runs, TektonService tekton, AuditService audit, PromotionService approvals,
+                      jakarta.persistence.EntityManager entities, DeliveryConfigurationService deliveryConfiguration,
+                      RegistryConnections registryConnections, org.springframework.transaction.support.TransactionTemplate transactions,
+                      @org.springframework.beans.factory.annotation.Value("${app.delivery.independent:false}") boolean independentDelivery) {
         this.runs = runs;
         this.tekton = tekton;
         this.audit = audit;
         this.approvals = approvals;
+        this.entities = entities;
+        this.deliveryConfiguration = deliveryConfiguration;
+        this.registryConnections = registryConnections;
+        this.transactions = transactions;
+        this.independentDelivery = independentDelivery;
     }
 
     /**
@@ -56,6 +69,10 @@ public class RunService {
                         String acceptRiskReason) {
         String ref = gitRef == null || gitRef.isBlank() ? p.defaultBranch : gitRef.trim();
         if (!ref.matches("[A-Za-z0-9_./-]{1,200}")) throw new IllegalArgumentException("invalid git ref");
+        boolean independent = independentDelivery || p.deliveryConfigHash != null;
+        if (independent && runs.findByProjectIdAndStatusIn(p.id, CiRun.ACTIVE).stream()
+                .anyMatch(active -> !"INDEPENDENT".equals(active.deliveryMode)))
+            throw new IllegalArgumentException("Wait for legacy builds to finish before switching this project to independent delivery");
 
         CiRun run = new CiRun();
         run.projectId = p.id;
@@ -67,14 +84,60 @@ public class RunService {
         run.gateOverridden = acceptRiskReason != null;
         run.overrideReason = acceptRiskReason;
         run.scanSeverity = run.gateOverridden ? "NONE" : severityOf(p);
-        run = runs.save(run);
+        ProjectDeliveryConfig repositoryConfig = null;
+        if (p.deliveryConfigHash != null) {
+            var prepared = deliveryConfiguration.prepare(p, ref, trigger, deploy);
+            repositoryConfig = prepared.config();
+            run.gitRef = prepared.commit();
+            run.deliveryConfigHash = repositoryConfig.hash();
+            run.externalRegistry = "external".equals(repositoryConfig.mode());
+        }
+        if (independent) {
+            run.deliveryMode = "INDEPENDENT";
+            run.releaseStatus = deploy ? "WAITING_BUILD" : "NOT_REQUESTED";
+            run.releaseImageRepo = p.imageRepo;
+            run.releaseOwnerSubject = p.ownerSubject;
+            if (repositoryConfig != null && "external".equals(repositoryConfig.mode()))
+                run.releaseImageRepo = repositoryConfig.host() + "/" + repositoryConfig.repository();
+        }
+        if (independent) {
+            CiRun intent = run;
+            run = transactions.execute(tx -> {
+                Project locked = entities.find(Project.class, p.id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+                if (locked == null) throw new java.util.NoSuchElementException();
+                if (!java.util.Objects.equals(locked.ownerSubject, p.ownerSubject)
+                        || !java.util.Objects.equals(locked.deliveryConfigHash, p.deliveryConfigHash)
+                        || !java.util.Objects.equals(locked.imageRepo, p.imageRepo))
+                    throw new IllegalArgumentException("Project configuration changed; reload before starting a build");
+                // Persist ordering under the release worker's lock, then commit before submitting externally.
+                if (runs.findByProjectIdAndStatusIn(p.id, CiRun.ACTIVE).stream()
+                        .anyMatch(active -> !"INDEPENDENT".equals(active.deliveryMode)))
+                    throw new IllegalArgumentException("Legacy builds are still active");
+                return runs.saveAndFlush(intent);
+            });
+        } else run = runs.save(run);
+        boolean submitting = false;
         try {
+            if (repositoryConfig != null && "external".equals(repositoryConfig.mode())) {
+                registryConnections.copyForRun(p, repositoryConfig.pushConnection(), repositoryConfig.host(), repositoryConfig.repository(), "push", run.id);
+                registryConnections.copyForRun(p, repositoryConfig.pullConnection(), repositoryConfig.host(), repositoryConfig.repository(), "pull", run.id);
+            }
+            submitting = true;
             run.pipelineRunName = tekton.createPipelineRun(p, run);
         } catch (Exception e) {
-            log.warn("PipelineRun creation failed for {} run {}", p.name, run.id, e);
+            log.warn("PipelineRun creation failed for {} run {} ({})", p.name, run.id, e.getClass().getSimpleName());
             run.status = CiRun.FAILED;
-            run.message = "Could not create PipelineRun: " + TektonService.describe(e);
+            if ("INDEPENDENT".equals(run.deliveryMode) && deploy) run.releaseStatus = "BLOCKED";
+            run.message = run.externalRegistry && !submitting ? "Registry credential provisioning failed; check connection access"
+                    : "Could not create PipelineRun: " + TektonService.describe(e);
             run.finishedAt = Instant.now();
+            if (independent && submitting && !(e instanceof IllegalArgumentException) && !(e instanceof SecurityException) && TektonService.isRetryable(e)) {
+                // An ambiguous API response must not turn a real build into an untracked failure.
+                run.status = CiRun.PENDING;
+                run.finishedAt = null;
+                run.releaseStatus = deploy ? "WAITING_BUILD" : "NOT_REQUESTED";
+                run.message = "Awaiting confirmation of build submission";
+            }
         }
         run = runs.save(run);
         audit.record(actor, "run.trigger", p.name + "#" + run.id, trigger + " " + ref);
@@ -89,5 +152,19 @@ public class RunService {
         if (!run.isActive() || run.pipelineRunName == null) throw new IllegalArgumentException("run is not active");
         tekton.cancel(run.pipelineRunName);
         audit.record(actor, "run.cancel", String.valueOf(run.id), run.pipelineRunName);
+    }
+
+    public CiRun retryRelease(CiRun run, Project project, String actor) {
+        if (!"BLOCKED".equals(run.releaseStatus) || !"INDEPENDENT".equals(run.deliveryMode)
+                || !CiRun.SUCCEEDED.equals(run.status) || !run.deploy)
+            throw new IllegalArgumentException("Only a blocked release from a successful independent build can be retried");
+        String invalid = BuildReleaseWorker.invalidResult(run, project);
+        if (invalid != null) throw new IllegalArgumentException(invalid);
+        run.releaseStatus = "READY";
+        run.releaseAttempts = 0;
+        run.releaseMessage = null;
+        run.releaseNextAttempt = null;
+        audit.record(actor, "release.retry", String.valueOf(run.id), project.name + "/dev");
+        return runs.save(run);
     }
 }

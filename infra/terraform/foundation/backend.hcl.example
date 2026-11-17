@@ -1,0 +1,2 @@
+bucket = "your-globally-unique-aio-state"
+prefix = "aio-dev/foundation"

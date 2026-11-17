@@ -58,6 +58,24 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 75
+  # Optional second signal from the Prometheus Adapter custom-metrics API.
+  # Istio, Prometheus scraping and the adapter rule must be installed first.
+  istio:
+    enabled: false
+    metricName: istio_requests_per_second
+    requestsPerSecondPerReplica: 25
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - { type: Percent, value: 100, periodSeconds: 60 }
+        - { type: Pods, value: 4, periodSeconds: 60 }
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      selectPolicy: Min
+      policies:
+        - { type: Percent, value: 25, periodSeconds: 60 }
 
 pdb:
   enabled: false   # enable when replicaCount > 1

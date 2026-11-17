@@ -4,3 +4,16 @@ target/
 .env
 *.log
 .cortex/
+.tools/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.auto.tfvars
+terraform.tfvars
+backend.hcl
+*.tfvars.json
+infra/generated/
+infra/config.json
+infra/terraform/bootstrap/backend.tf
+__pycache__/

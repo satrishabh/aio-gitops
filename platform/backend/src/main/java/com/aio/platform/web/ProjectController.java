@@ -190,13 +190,13 @@ public class ProjectController {
         return Map.of("status", "reconciled", "environments", outcomes);
     }
 
-    public record RunRequest(String ref) {}
+    public record RunRequest(String ref, Boolean deploy) {}
 
     @PostMapping("/{id}/runs")
     public Object run(@PathVariable Long id, @RequestBody(required = false) RunRequest req,
                       @AuthenticationPrincipal OAuth2User user) {
         Project p = projects.findById(id).orElseThrow();
-        return runService.trigger(p, req == null ? null : req.ref(), "MANUAL", Me.login(user), true);
+        return runService.trigger(p, req == null ? null : req.ref(), "MANUAL", Me.login(user), req == null || req.deploy() == null || req.deploy());
     }
 
     public record ScaleRequest(Integer replicas) {}

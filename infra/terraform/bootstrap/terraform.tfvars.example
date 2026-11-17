@@ -1,0 +1,3 @@
+project_id  = "your-new-gcp-project"
+bucket_name = "your-globally-unique-aio-state"
+region      = "asia-south1"

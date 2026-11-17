@@ -1,5 +1,9 @@
 # Cloud-agnostic CI/CD: Tekton (CI) + Argo CD (CD) + Helm
 
+For the code-level current flow, proposed orchestration/saga approach, circuit-breaker boundaries, and coding standards, see the [application flow and engineering improvement draft](architecture/README.md).
+
+For the [database/platform audit](architecture/DATABASE-AUDIT.md), [migration and future microservice plan](architecture/MIGRATION.md), and [end-to-end Terraform deployment runbook](../infra/README.md), start with those companion documents. The Terraform path provisions a new GCP environment; it does not adopt or change the current cluster automatically.
+
 This uses only standard Kubernetes APIs, so it runs on EKS, GKE, AKS, OKE, DigitalOcean, k3s, kind or on-prem clusters. The only settings that differ between clusters are:
 - the default StorageClass (used for pipeline workspaces)
 - `ingressClassName` (nginx, traefik, alb, gce, ...)

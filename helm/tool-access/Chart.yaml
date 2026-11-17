@@ -1,0 +1,5 @@
+apiVersion: v2
+name: aio-tool-access
+description: AIO identity integration for upstream Argo CD and an operator-only Tekton Dashboard gateway
+type: application
+version: 0.1.0

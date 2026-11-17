@@ -30,6 +30,13 @@ public class GitHubClient {
         return gh.get().uri("/repos/{o}/{r}", owner, repo).retrieve().body(MAP);
     }
 
+    public String resolveCommit(String owner, String repo, String ref) {
+        Map<String, Object> result = gh.get().uri("/repos/{o}/{r}/commits/{ref}", owner, repo, ref).retrieve().body(MAP);
+        String sha = result == null ? null : (String) result.get("sha");
+        if (sha == null || !sha.matches("[a-f0-9]{40}")) throw new IllegalArgumentException("Cannot resolve source commit");
+        return sha;
+    }
+
     public FileContent getFile(String owner, String repo, String path, String ref) {
         try {
             // path contains '/', so it is concatenated (inputs are validated) instead of passed as a URI variable

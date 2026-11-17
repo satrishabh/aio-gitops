@@ -42,7 +42,15 @@ public class PipelineWatcher {
     }
 
     void sync(CiRun run) {
-        if (run.pipelineRunName == null) return;
+        if (run.pipelineRunName == null) {
+            if (!"INDEPENDENT".equals(run.deliveryMode)) return;
+            run.pipelineRunName = tekton.recoverIndependentRun(run);
+            if (run.pipelineRunName == null) {
+                if (run.createdAt.isBefore(Instant.now().minus(Duration.ofMinutes(10))))
+                    finish(run, CiRun.FAILED, "Build submission was not confirmed; start a new run after checking cluster availability");
+                return;
+            }
+        }
         GenericKubernetesResource pr = tekton.getPipelineRun(run.pipelineRunName);
         if (pr == null) {
             if (run.createdAt.isBefore(Instant.now().minus(Duration.ofMinutes(10)))) {
@@ -52,6 +60,20 @@ public class PipelineWatcher {
         }
         Object status = pr.getAdditionalProperties().get("status");
         if (status == null) return;
+
+        if ("INDEPENDENT".equals(run.deliveryMode)) {
+            for (Map<String, Object> result : J.list(status, "results")) {
+                String value = J.str(result, "value");
+                if (value == null) continue;
+                switch (J.str(result, "name")) {
+                    case "commit" -> run.commitSha = value.trim();
+                    case "IMAGE_URL" -> run.imageUrl = value.trim();
+                    case "IMAGE_DIGEST" -> run.imageDigest = value.trim();
+                    case "SUMMARY" -> applyScanSummary(run, value.trim());
+                    default -> { }
+                }
+            }
+        }
 
         run.startedAt = J.time(status, "startTime");
         for (Map<String, Object> child : J.list(status, "childReferences")) {
@@ -156,6 +178,9 @@ public class PipelineWatcher {
         run.status = status;
         run.message = message;
         if (run.finishedAt == null) run.finishedAt = Instant.now();
+        if ("INDEPENDENT".equals(run.deliveryMode) && run.deploy) {
+            run.releaseStatus = CiRun.SUCCEEDED.equals(status) ? "READY" : "BLOCKED";
+        }
         runs.save(run);
         audit.record("system", "run." + status.toLowerCase(), String.valueOf(run.id), run.imageUrl);
     }

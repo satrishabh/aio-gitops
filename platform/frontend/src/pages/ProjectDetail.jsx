@@ -7,6 +7,8 @@ import { Avatar, Empty, Skeleton, Tabs, ago, envTone } from '../components/ui.js
 import { Stale, useAction, usePoll } from '../hooks.jsx'
 import { PRESETS, SEVERITIES } from '../projectOptions.js'
 import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/RuntimeFields.jsx'
+import DeliverySettings from '../components/DeliverySettings.jsx'
+import ToolLinks from '../components/ToolLinks.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const NEXT = { dev: 'staging', staging: 'prod' }
@@ -17,6 +19,7 @@ export default function ProjectDetail() {
   const { id } = useParams()
   const nav = useNavigate()
   const [ref, setRef] = useState('')
+  const [deployBuild, setDeployBuild] = useState(true)
   const [tab, setTab] = useState('runs')
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}`), 8000, [id])
   const { busy, run } = useAction(refresh)
@@ -27,7 +30,7 @@ export default function ProjectDetail() {
   const envOf = env => environments.find(e => e.environment === env) || {}
 
   async function startRun() {
-    const r = await run('run', () => api(`/api/projects/${id}/runs`, { method: 'POST', body: { ref } }), r => `CI run #${r.id} started`)
+    const r = await run('run', () => api(`/api/projects/${id}/runs`, { method: 'POST', body: { ref, deploy: deployBuild } }), r => `CI run #${r.id} started`)
     if (r) nav(`/runs/${r.id}`)
   }
   const promote = env => run(`promote-${env}`,
@@ -47,6 +50,12 @@ export default function ProjectDetail() {
   return (
     <>
       <Stale stale={stale} error={error} onRetry={refresh} />
+      <DeliverySettings key={p.id} project={p} onSaved={refresh} />
+      <ToolLinks key={p.id} projectId={p.id} />
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <input type="checkbox" checked={deployBuild} onChange={e => setDeployBuild(e.target.checked)} />
+        Deploy manual builds to dev after checks pass
+      </label>
 
       <div className="card" style={{ padding: '22px 24px' }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>

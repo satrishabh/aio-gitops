@@ -26,7 +26,7 @@ import ScanDetail from './pages/ScanDetail.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
-  [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
+  [/^\/runs\//, 'Pipelines / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
   [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'], [/^\/connectors/, 'Connectors'], [/^\/assistant/, 'Assistant'],
   [/^\/pipelines\/ci/, 'Pipelines / CI'], [/^\/pipelines\/cd/, 'Pipelines / CD'], [/^\/pipelines\/security/, 'Pipelines / Security'],
   [/^\/scans\//, 'Pipelines / Security scan'],
@@ -119,7 +119,7 @@ export default function App() {
               <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
               <NavLink to="/assistant"><Icon name="zap" />Assistant</NavLink>
               <div className="nav-section">Pipelines</div>
-              <NavLink to="/pipelines/ci"><Icon name="zap" />CI</NavLink>
+              <NavLink to="/pipelines/ci" className={({ isActive }) => isActive || location.pathname.startsWith('/runs/') ? 'active' : ''}><Icon name="zap" />CI</NavLink>
               <NavLink to="/pipelines/cd"><Icon name="rocket" />CD</NavLink>
               <NavLink to="/pipelines/security" className={({ isActive }) => isActive || location.pathname.startsWith('/scans/') ? 'active' : ''}>
                 <Icon name="shield" />Security</NavLink>

@@ -115,33 +115,6 @@ spec:
                 port: { name: http }
 ---
 {{- end }}
-{{- if .Values.autoscaling.enabled }}
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: {{ include "app.name" . }}
-  labels: {{- include "app.labels" . | nindent 4 }}
-spec:
-  scaleTargetRef:
-    {{- if .Values.blueGreen.enabled }}
-    apiVersion: argoproj.io/v1alpha1
-    kind: Rollout
-    {{- else }}
-    apiVersion: apps/v1
-    kind: Deployment
-    {{- end }}
-    name: {{ include "app.name" . }}
-  minReplicas: {{ .Values.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
----
-{{- end }}
 {{- if .Values.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget

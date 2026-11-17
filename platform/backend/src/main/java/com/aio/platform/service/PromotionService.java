@@ -48,6 +48,8 @@ public class PromotionService {
     }
 
     private Promotion request(Project p, String from, String to, String tag, String kind, String actor) {
+        if (tag.startsWith("sha256:") && !ArtifactTrustPolicy.canDeploy(ArtifactTrustPolicy.Tier.NORMAL, to, true))
+            throw new IllegalArgumentException("Digest releases require verified artifact evidence for staging and golden evidence for production; evidence verification is not configured yet");
         Promotion pr = new Promotion();
         pr.projectId = p.id;
         pr.fromEnv = from;

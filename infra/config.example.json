@@ -1,0 +1,13 @@
+{
+  "platform_host": "aio-dev.example.com",
+  "base_domain": "apps-dev.example.com",
+  "gitops_owner": "YOUR_GITHUB_OWNER",
+  "gitops_repo": "aio-dev-gitops",
+  "gitops_branch": "main",
+  "registry_user": "YOUR_GHCR_USER",
+  "image_tag": "REPLACE_WITH_IMMUTABLE_BUILD_TAG",
+  "oidc_issuer": "https://profile.sarvaikam.com/realms/aio",
+  "oidc_client_id": "aio-platform",
+  "acme_email": "operator@example.com",
+  "acme_server": "https://acme-staging-v02.api.letsencrypt.org/directory"
+}

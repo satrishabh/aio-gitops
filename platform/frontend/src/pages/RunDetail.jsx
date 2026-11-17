@@ -78,6 +78,18 @@ export default function RunDetail({ me }) {
   }, [data, selected])
 
   const selStep = data?.steps.find(s => s.id === selected)
+  const pendingRelease = ['READY', 'RETRY_WAIT', 'WAITING_BUILD'].includes(data?.run?.releaseStatus) && data?.run?.status === 'SUCCEEDED'
+  useEffect(() => {
+    if (!pendingRelease) return
+    let closed = false, loading = false
+    const timer = setInterval(async () => {
+      if (loading) return
+      loading = true
+      try { const update = await api(`/api/runs/${id}`); if (!closed) setData(update) } catch (e) { if (!closed) setError(e.message) }
+      finally { loading = false }
+    }, 5000)
+    return () => { closed = true; clearInterval(timer) }
+  }, [id, pendingRelease])
   const selStatus = selStep?.status
   useEffect(() => {
     if (!selected) return
@@ -147,6 +159,9 @@ export default function RunDetail({ me }) {
             {!finished && <button {...btn('cancel', 'btn danger')} onClick={() => run('cancel', () => api(`/api/runs/${id}/cancel`, { method: 'POST' }), 'Cancel requested')}>
               <Icon name="stop" size={13} />Cancel</button>}
             {finished && <button {...btn('rerun', 'btn primary')} onClick={() => rerun(null)}><Icon name="refresh" size={14} />Re-run</button>}
+            {r.status === 'SUCCEEDED' && r.releaseStatus === 'BLOCKED' && <button {...btn('retry-release')} onClick={() => run('retry-release', async () => {
+              const updated = await api(`/api/runs/${id}/release/retry`, { method: 'POST' }); setData(d => ({ ...d, run: updated }))
+            }, 'Release queued without rebuilding')}>Retry GitOps release</button>}
             {finished && gateFailed && me?.approver && !showRisk && (
               <button className="btn" disabled={!!busy} onClick={() => setShowRisk(true)}><Icon name="bug" size={14} />Accept risk…</button>
             )}
@@ -170,6 +185,8 @@ export default function RunDetail({ me }) {
           <div><span>Vulnerabilities</span><Vulns run={r} /></div>
           <div><span>Image</span><code>{r.imageUrl ? r.imageUrl.split('/').pop() : '—'}</code></div>
           <div><span>Scan gate</span><code>{r.scanSeverity || 'HIGH,CRITICAL'}</code></div>
+          {r.deliveryMode === 'INDEPENDENT' && <div><span>GitOps release</span><span>{r.releaseStatus || 'NOT_REQUESTED'}</span></div>}
+          {r.deliveryMode === 'INDEPENDENT' && <div><span>Artifact trust</span><span>Normal · elevated verification pending</span></div>}
           <div><span>Deploys to dev</span>{r.deploy ? <Link to={`/projects/${project.id}/cd/dev`}>yes — view CD</Link> : 'no (pull request)'}</div>
           <div><span>Started</span>{fmtTime(r.startedAt)}</div>
         </div>

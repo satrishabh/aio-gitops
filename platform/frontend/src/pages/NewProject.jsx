@@ -29,9 +29,9 @@ export default function NewProject() {
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      const { project: p, run } = await api('/api/projects', { method: 'POST', body: { ...form, envVars: cleanEnv(form.envVars) } })
+      const { project: p } = await api('/api/projects', { method: 'POST', body: { ...form, envVars: cleanEnv(form.envVars) } })
       toast('ok', `Project ${p.name} created — starting first CI run`)
-      nav(`/runs/${run.id}`)
+      nav('/pipelines/ci')
     } catch (err) {
       setError(err.message); toast('error', err.message)
     } finally {

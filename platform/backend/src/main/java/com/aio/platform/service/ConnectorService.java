@@ -267,7 +267,8 @@ public class ConnectorService {
         Map<String, Object> syncPolicy = new LinkedHashMap<>();
         syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
         // Server-side apply: large CRDs (kube-prometheus-stack) exceed the client-side annotation limit
-        syncPolicy.put("syncOptions", List.of("CreateNamespace=true", "ServerSideApply=true"));
+        // RespectIgnoreDifferences: self-heal must not undo fields other controllers own (see ignoreDifferences)
+        syncPolicy.put("syncOptions", List.of("CreateNamespace=true", "ServerSideApply=true", "RespectIgnoreDifferences=true"));
         syncPolicy.put("retry", Map.of("limit", 3, "backoff", Map.of("duration", "15s", "factor", 2, "maxDuration", "3m")));
 
         Map<String, Object> spec = new LinkedHashMap<>();
@@ -278,9 +279,14 @@ public class ConnectorService {
         spec.put("sources", sources);
         spec.put("destination", Map.of("server", HUB, "namespace", c.namespace()));
         spec.put("syncPolicy", syncPolicy);
+        // Aggregated ClusterRoles get their rules from Kubernetes, not from the chart (seen live with kube-green)
+        spec.put("ignoreDifferences", List.of(Map.of("group", "rbac.authorization.k8s.io", "kind", "ClusterRole",
+                "jqPathExpressions", List.of("select(.aggregationRule != null) | .rules"))));
         return Map.of(
                 "metadata", Map.of("name", c.appName(), "namespace", "argocd",
-                        "labels", Map.of("aio.platform/connector", c.id())),
+                        "labels", Map.of("aio.platform/connector", c.id()),
+                        // Server-side diff: defaults and injected fields (CRD CA bundles) are not reported as drift
+                        "annotations", Map.of("argocd.argoproj.io/compare-options", "ServerSideDiff=true")),
                 "spec", spec);
     }
 

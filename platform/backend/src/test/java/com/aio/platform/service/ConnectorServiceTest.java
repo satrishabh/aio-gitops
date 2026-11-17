@@ -96,6 +96,10 @@ class ConnectorServiceTest {
         assertEquals("values", J.str(sources.get(1), "ref"));
         assertEquals("monitoring", J.str(app, "spec", "destination", "namespace"));
         assertTrue(((List<?>) J.get(app, "spec", "syncPolicy", "syncOptions")).contains("ServerSideApply=true"));
+        // Verified live on AKS with kube-green: without these the app stays OutOfSync and self-heal keeps re-applying
+        assertTrue(((List<?>) J.get(app, "spec", "syncPolicy", "syncOptions")).contains("RespectIgnoreDifferences=true"));
+        assertEquals("ServerSideDiff=true", J.str(app, "metadata", "annotations", "argocd.argoproj.io/compare-options"));
+        assertEquals("ClusterRole", J.str(J.list(app, "spec", "ignoreDifferences").get(0), "kind"));
     }
 
     @Test

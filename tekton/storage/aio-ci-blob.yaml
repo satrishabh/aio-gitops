@@ -1,0 +1,31 @@
+# Optional: CI run workspaces in Azure Blob (NFS 3.0) instead of one managed disk per run. AKS only.
+# Not used unless the platform runs with TEKTON_STORAGE_CLASS=aio-ci-blob.
+#
+# Before switching, compare costs on real builds:
+#   - a managed disk per run is billed at the smallest Standard SSD size (E1, ~USD 0.30/month) with very cheap I/O;
+#   - Blob bills per storage operation. Builds that write many small files (npm install, Maven) can cost more in
+#     operations per run than a disk costs per month. Check the storage account's transaction metrics after a few runs.
+# The biggest disk saving is keeping fewer finished runs: APP_CLEANUP_KEEPPERPROJECT (each run's disk is deleted
+# with the run, after its logs are archived).
+#
+# Prerequisites (cluster changes, run by an admin):
+#   az aks update -g creative -n creative --enable-blob-driver
+#     -> adds a csi-blob-node DaemonSet (~60 Mi requested per node, system-node-critical priority: on a node with
+#        no free memory it preempts a lower-priority pod)
+#   kubectl apply -f tekton/storage/aio-ci-blob.yaml
+# The driver creates an NFS-enabled storage account in the AKS node resource group and allows the cluster subnet.
+# One container per run is created and deleted with the run (reclaimPolicy Delete).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: aio-ci-blob
+provisioner: blob.csi.azure.com
+parameters:
+  protocol: nfs
+  skuName: Standard_LRS
+  mountPermissions: "0777"        # CI steps run as non-root users (uid 65532, 1001)
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions:
+  - nconnect=4

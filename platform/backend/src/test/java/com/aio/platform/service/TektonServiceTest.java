@@ -14,6 +14,17 @@ class TektonServiceTest {
     }
 
     @Test
+    void workspaceUsesTheConfiguredStorageClassOrTheClusterDefault() {
+        var blob = TektonService.workspaceClaim(new com.aio.platform.config.AppProperties.Tekton(
+                "ci", "ci-pipeline", "pipeline-runner", "2Gi", "registry", "github-token", "15m", "aio-ci-blob"));
+        assertEquals("aio-ci-blob", blob.get("storageClassName"));
+        assertEquals(java.util.Map.of("requests", java.util.Map.of("storage", "2Gi")), blob.get("resources"));
+        var dflt = TektonService.workspaceClaim(new com.aio.platform.config.AppProperties.Tekton(
+                "ci", "ci-pipeline", "pipeline-runner", "2Gi", "registry", "github-token", "15m", " "));
+        assertFalse(dflt.containsKey("storageClassName"));
+    }
+
+    @Test
     void retriesTransientFailuresOnly() {
         assertTrue(TektonService.isRetryable(new KubernetesClientException("An error has occurred.", new ConnectException("refused"))));
         assertTrue(TektonService.isRetryable(http(503, "webhook unavailable")));

@@ -49,6 +49,11 @@ export default function Connectors() {
       <PageHead title="Connectors"
         sub={`Open-source tools AIO works with: ${count('CORE')} core, ${count('MANAGED')} managed from here, ${count('PLANNED')} planned. Cloud: ${data.cloud}.`} />
       <Stale stale={stale} error={error} onRetry={refresh} />
+      {data.catalog && <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 8px' }}>
+        Catalog: <span className="mono">{data.catalog.location}</span>{data.catalog.revision ? ` @ ${data.catalog.revision}` : ''}
+        {data.catalog.loadedAt ? ` · loaded ${fmtTime(data.catalog.loadedAt)}` : ''}{data.site ? ` · site ${data.site}` : ''}
+      </p>}
+      {data.catalog?.lastError && <p className="error">Catalog refresh failed, showing the last good catalog: {data.catalog.lastError}</p>}
       <div className="banner"><Icon name="plug" size={15} />
         Managed connectors install through Argo CD from a pinned chart. <b>Test</b> checks they answer, <b>Roll back</b> returns to the
         previous pinned version, <b>Disable</b> removes them. If one is down, AIO keeps working without it.
@@ -71,6 +76,13 @@ export default function Connectors() {
                       <td><b>{c.name}</b> <span className="badge gray quiet">{KIND[c.kind]}{c.phase && c.kind !== 'CORE' ? ` · phase ${c.phase}` : ''}</span>
                         <div className="muted" style={{ fontSize: '0.8rem', maxWidth: 420 }}>{c.description}</div>
                         {c.requires?.length > 0 && <div className="muted" style={{ fontSize: '0.75rem' }}>Needs {c.requires.join(', ')}</div>}
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                          {c.license && <span className="badge gray quiet" title="License">{c.license}</span>}
+                          {c.foundation && <span className="badge gray quiet" title="Governance">{c.foundation}</span>}
+                          {c.origin && <span className="badge gray quiet" title="Project origin">{c.origin}</span>}
+                          {c.sso && c.sso !== 'none' && <span className="badge gray quiet" title="Single sign-on">SSO: {c.sso === 'oidc' ? 'Keycloak' : 'gate'}</span>}
+                          {c.homepage && <a href={c.homepage} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem' }}>project <Icon name="external" size={11} /></a>}
+                        </div>
                         {installed && c.accessHint && <details style={{ fontSize: '0.75rem' }}><summary className="muted">How to open</summary>
                           {c.id === 'prometheus' && data.links?.prometheus
                             ? <a href={data.links.prometheus} target="_blank" rel="noreferrer">Open Grafana <Icon name="external" size={12} /></a>

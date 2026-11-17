@@ -46,6 +46,8 @@ public class ConnectorController {
         requireAdmin();
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("cloud", catalog.cloud());
+        m.put("site", catalog.site());
+        m.put("catalog", catalog.source());
         m.put("links", Map.of("prometheus", grafanaUrl));
         m.put("connectors", connectors.list());
         return m;

@@ -62,7 +62,10 @@ app:
     namespace: ${TEKTON_NAMESPACE:ci}
     pipeline: ci-pipeline
     service-account: pipeline-runner
-    storage-size: 2Gi
+    storage-size: ${TEKTON_STORAGE_SIZE:2Gi}
+    # Workspace volume class for every run. Empty = cluster default (a managed disk per run).
+    # On AKS set TEKTON_STORAGE_CLASS=aio-ci-blob to keep workspaces in Azure Blob instead (tekton/storage/).
+    storage-class: ${TEKTON_STORAGE_CLASS:}
     registry-secret: registry-credentials
     github-token-secret: github-token
     # Max duration of a whole CI/CD run; longer runs are stopped and marked failed
@@ -83,11 +86,24 @@ app:
   github:
     api-url: https://api.github.com
     token: ${GITHUB_TOKEN:}
+  assistant:
+    # Claude API key; empty = the assistant is off. Conversations (and the tool data in them) are sent to the
+    # Anthropic API; secrets in logs and files are redacted first.
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ASSISTANT_MODEL:claude-opus-5-5}
+    effort: ${ASSISTANT_EFFORT:medium}
+    max-steps: ${ASSISTANT_MAX_STEPS:8}
   connectors:
-    # Empty = built-in catalog (classpath connectors/catalog.yaml); else a file path, e.g. a mounted ConfigMap
+    # The open-source catalog repository (aio-catalog) and the tag to use. AIO reads dist/catalog.yaml from it,
+    # and Argo CD reads values and extras from it. Empty = built-in core-only list.
+    repo: ${CONNECTORS_REPO:}
+    revision: ${CONNECTORS_REVISION:}
+    # Alternative to repo: a catalog file path or https URL
     catalog: ${CONNECTORS_CATALOG:}
-    # any | gke | eks | aks | oke | onprem - hides connectors that do not support this cloud
+    # any | gke | eks | aks | oke | onprem - selects values-<cloud>.yaml and hides tools not for this cloud
     cloud: ${CLOUD_PROVIDER:any}
+    # installation name selecting site-<site>.yaml overlays (domains, issuer, ingress), e.g. sarvaikam
+    site: ${CONNECTORS_SITE:}
   security:
     # Comma-separated OIDC usernames/emails and/or AIO client roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}

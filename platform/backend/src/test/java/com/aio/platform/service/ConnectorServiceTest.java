@@ -26,8 +26,19 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 class ConnectorServiceTest {
+    /** The aio-catalog build (dist/catalog.yaml) copied as a fixture: the real entries, values paths and pins. */
+    static final String FIXTURE = fixture();
+
+    private static String fixture() {
+        try {
+            return Path.of(ConnectorServiceTest.class.getResource("/connectors/test-catalog.yaml").toURI()).toString();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static ConnectorCatalog catalog(String cloud) {
-        return new ConnectorCatalog("", cloud);
+        return new ConnectorCatalog(FIXTURE, cloud);
     }
 
     private static List<ConnectorCatalog.Connector> parse(String yaml) {
@@ -81,7 +92,7 @@ class ConnectorServiceTest {
         var sources = J.list(app, "spec", "sources");
         assertEquals("kube-prometheus-stack", J.str(sources.get(0), "chart"));
         assertEquals("92.17.1", J.str(sources.get(0), "targetRevision"));
-        assertEquals(List.of("$values/connectors/kube-prometheus-stack/values.yaml"), J.get(sources.get(0), "helm", "valueFiles"));
+        assertEquals(List.of("$values/values/kube-prometheus-stack/values.yaml"), J.get(sources.get(0), "helm", "valueFiles"));
         assertEquals("values", J.str(sources.get(1), "ref"));
         assertEquals("monitoring", J.str(app, "spec", "destination", "namespace"));
         assertTrue(((List<?>) J.get(app, "spec", "syncPolicy", "syncOptions")).contains("ServerSideApply=true"));
@@ -100,7 +111,7 @@ class ConnectorServiceTest {
     void coreAndPlannedCannotBeInstalledOrRemoved() {
         ConnectorService s = service(catalog("any"), mock(ArgoCdService.class));
         assertThrows(IllegalArgumentException.class, () -> s.install("argocd", null));
-        assertThrows(IllegalArgumentException.class, () -> s.disable("velero"));
+        assertThrows(IllegalArgumentException.class, () -> s.disable("karpenter"));
         assertThrows(java.util.NoSuchElementException.class, () -> s.disable("nope"));
     }
 
@@ -130,7 +141,7 @@ class ConnectorServiceTest {
         ConnectorService s = service(catalog("any"), argo);
         Map<String, Object> prom = s.list().stream().filter(m -> "prometheus".equals(m.get("id"))).findFirst().orElseThrow();
         assertEquals(ConnectorService.Status.UNKNOWN, prom.get("status"));
-        Map<String, Object> planned = s.list().stream().filter(m -> "velero".equals(m.get("id"))).findFirst().orElseThrow();
+        Map<String, Object> planned = s.list().stream().filter(m -> "karpenter".equals(m.get("id"))).findFirst().orElseThrow();
         assertEquals(ConnectorService.Status.PLANNED, planned.get("status"));
     }
 
@@ -211,7 +222,7 @@ class ConnectorServiceTest {
         var kg = catalog("any").find("kube-green").orElseThrow();
         var sources = J.list(s.appSpec(kg, "0.7.1"), "spec", "sources");
         assertEquals(3, sources.size());
-        assertEquals("connectors/kube-green/sleepinfo", J.str(sources.get(2), "path"));
+        assertEquals("extras/kube-green-sleepinfo", J.str(sources.get(2), "path"));
         assertEquals("main", J.str(sources.get(2), "targetRevision"));
         var prom = catalog("any").find("prometheus").orElseThrow();
         assertEquals(2, J.list(s.appSpec(prom, "92.17.1"), "spec", "sources").size());
@@ -223,9 +234,53 @@ class ConnectorServiceTest {
         when(argo.getApp("connector-kube-green", false)).thenReturn(Map.of("spec", Map.of()));
         KubernetesClient k8s = k8sWithDeployment(null);
         var r = service(catalog("any"), argo, k8s).test("kube-green");
-        assertEquals(1, r.probes().size());
-        assertEquals("Deployment kube-green-controller-manager", r.probes().get(0).name());
+        assertEquals(List.of("Argo CD app", "Deployment kube-green-controller-manager"),
+                r.probes().stream().map(ConnectorService.ProbeResult::name).toList());
         assertFalse(r.ok());
+    }
+
+    @Test
+    void connectorWithoutDeploymentOrProbesIsTestedThroughArgoHealth() {
+        ArgoCdService argo = mock(ArgoCdService.class);
+        ConnectorService s = service(catalog("any"), argo);
+        when(argo.getApp("connector-renovate", false)).thenReturn(Map.of("status", Map.of(
+                "health", Map.of("status", "Healthy"), "sync", Map.of("status", "Synced"))));
+        var ok = s.test("renovate");
+        assertTrue(ok.ok());
+        assertEquals("Healthy, Synced", ok.probes().get(0).detail());
+        when(argo.getApp("connector-renovate", false)).thenReturn(Map.of("status", Map.of(
+                "health", Map.of("status", "Degraded"))));
+        assertFalse(s.test("renovate").ok());
+    }
+
+    @Test
+    void aksGetsItsOwnValuesAndIngress() {
+        ConnectorCatalog aks = catalog("aks");
+        ConnectorService s = service(aks, mock(ArgoCdService.class));
+        var velero = J.list(s.appSpec(aks.find("velero").orElseThrow(), "12.2.3"), "spec", "sources");
+        assertEquals(List.of("$values/values/velero/values.yaml", "$values/values/velero/values-aks.yaml"),
+                J.get(velero.get(0), "helm", "valueFiles"));
+        var prom = J.list(s.appSpec(aks.find("prometheus").orElseThrow(), "92.17.1"), "spec", "sources");
+        assertEquals(List.of("$values/values/kube-prometheus-stack/values.yaml",
+                "$values/values/kube-prometheus-stack/values-aks.yaml"), J.get(prom.get(0), "helm", "valueFiles"));
+        Map<String, Object> nginx = s.list().stream().filter(m -> "ingress-nginx".equals(m.get("id"))).findFirst().orElseThrow();
+        assertEquals(ConnectorService.Status.NOT_FOR_THIS_CLOUD, nginx.get("status"));
+        assertTrue(aks.find("traefik").orElseThrow().supports("aks"));
+        assertFalse(aks.find("traefik").orElseThrow().supports("gke"));
+    }
+
+    @Test
+    void cloudSpecificValuesAreAddedForThatCloudOnly() {
+        var velero = catalog("any").find("velero").orElseThrow();
+        var gke = J.list(service(catalog("gke"), mock(ArgoCdService.class)).appSpec(velero, "12.2.3"), "spec", "sources");
+        assertEquals(List.of("$values/values/velero/values.yaml", "$values/values/velero/values-gke.yaml"),
+                J.get(gke.get(0), "helm", "valueFiles"));
+        var any = J.list(service(catalog("any"), mock(ArgoCdService.class)).appSpec(velero, "12.2.3"), "spec", "sources");
+        assertEquals(List.of("$values/values/velero/values.yaml"), J.get(any.get(0), "helm", "valueFiles"));
+        String base = "connectors:\n  - {id: x, name: X, category: C, kind: managed, namespace: ns, chartRepo: https://r, chart: c,"
+                + " version: 1.2.3, releaseName: x, valuesPath: connectors/x/values.yaml";
+        assertThrows(IllegalStateException.class, () -> parse(base + ", cloudValues: {any: connectors/x/a.yaml}}\n"));
+        assertThrows(IllegalStateException.class, () -> parse(base + ", cloudValues: {gke: ../x.yaml}}\n"));
     }
 
     @Test
@@ -239,28 +294,58 @@ class ConnectorServiceTest {
         assertThrows(IllegalStateException.class, () -> parse(base + ", requires: [x]}\n"));
     }
 
-    /** Every managed connector must have its files in the repo and be allowed by the Argo CD connectors project. */
     @Test
-    @SuppressWarnings("unchecked")
-    void managedConnectorsMatchRepoFilesAndArgoProject() throws Exception {
-        Path root = Path.of("../..").toAbsolutePath().normalize();
-        Path projectFile = root.resolve("argocd/projects/connectors-project.yaml");
-        org.junit.jupiter.api.Assumptions.assumeTrue(Files.exists(projectFile), "not running inside the repo");
-        Map<String, Object> project;
-        try (InputStream in = new FileInputStream(projectFile.toFile())) {
-            project = new Yaml(new SafeConstructor(new LoaderOptions())).load(in);
-        }
-        Map<String, Object> spec = (Map<String, Object>) project.get("spec");
-        List<String> repos = (List<String>) spec.get("sourceRepos");
-        List<String> namespaces = ((List<Map<String, Object>>) spec.get("destinations")).stream()
-                .map(d -> String.valueOf(d.get("namespace"))).toList();
-        for (var c : catalog("any").all()) {
-            if (c.kindEnum() != ConnectorCatalog.Kind.MANAGED) continue;
-            assertTrue(Files.isRegularFile(root.resolve(c.valuesPath())), c.id() + ": missing " + c.valuesPath());
-            if (c.extrasPath() != null)
-                assertTrue(Files.isDirectory(root.resolve(c.extrasPath())), c.id() + ": missing " + c.extrasPath());
-            assertTrue(repos.contains(c.chartRepo()), c.id() + ": " + c.chartRepo() + " not in connectors-project sourceRepos");
-            assertTrue(namespaces.contains(c.namespace()), c.id() + ": namespace " + c.namespace() + " not in connectors-project");
-        }
+    void builtInCatalogIsCoreOnly() {
+        ConnectorCatalog builtIn = new ConnectorCatalog("", "any");
+        assertFalse(builtIn.all().isEmpty());
+        assertTrue(builtIn.all().stream().allMatch(c -> c.kindEnum() == ConnectorCatalog.Kind.CORE));
+        assertTrue(builtIn.source().location().startsWith("built-in"));
+    }
+
+    @Test
+    void valuesAndExtrasComeFromTheCatalogRepoAtItsRevision() {
+        ConnectorCatalog c = new ConnectorCatalog(FIXTURE, "aks", "sarvaikam",
+                "https://github.com/example/aio-catalog.git", "v2026.11.1", "");
+        ConnectorService s = service(c, mock(ArgoCdService.class));
+        var kg = J.list(s.appSpec(c.find("kube-green").orElseThrow(), "0.7.1"), "spec", "sources");
+        assertEquals("https://github.com/example/aio-catalog.git", J.str(kg.get(1), "repoURL"));
+        assertEquals("v2026.11.1", J.str(kg.get(1), "targetRevision"));
+        assertEquals("https://github.com/example/aio-catalog.git", J.str(kg.get(2), "repoURL"));
+        var prom = J.list(s.appSpec(c.find("prometheus").orElseThrow(), "92.17.1"), "spec", "sources");
+        assertEquals(List.of("$values/values/kube-prometheus-stack/values.yaml",
+                "$values/values/kube-prometheus-stack/values-aks.yaml",
+                "$values/values/kube-prometheus-stack/site-sarvaikam.yaml"), J.get(prom.get(0), "helm", "valueFiles"));
+    }
+
+    @Test
+    void githubRepoResolvesToTheBuiltCatalogAtTheTag() {
+        assertEquals("https://raw.githubusercontent.com/satrishabh/aio-catalog/v2026.11.1/dist/catalog.yaml",
+                ConnectorCatalog.resolveLocation("", "https://github.com/satrishabh/aio-catalog.git", "v2026.11.1"));
+        assertThrows(IllegalStateException.class,
+                () -> ConnectorCatalog.resolveLocation("", "https://github.com/satrishabh/aio-catalog.git", null));
+        assertThrows(IllegalStateException.class,
+                () -> ConnectorCatalog.resolveLocation("", "https://gitlab.example.com/x/aio-catalog.git", "v1"));
+        assertThrows(IllegalStateException.class,
+                () -> ConnectorCatalog.resolveLocation("http://insecure.example.com/catalog.yaml", null, null));
+        assertThrows(IllegalStateException.class, () -> new ConnectorCatalog("", "any", "", "", "../../etc", ""));
+    }
+
+    @Test
+    void unreachableCatalogFallsBackToCoreAndReportsTheError() {
+        ConnectorCatalog c = new ConnectorCatalog("https://127.0.0.1:1/catalog.yaml", "any", "", "", "", "");
+        assertTrue(c.all().stream().allMatch(x -> x.kindEnum() == ConnectorCatalog.Kind.CORE));
+        assertNotNull(c.source().lastError());
+    }
+
+    @Test
+    void metadataAndSsoAreExposed() {
+        ConnectorService s = service(catalog("any"), mock(ArgoCdService.class));
+        Map<String, Object> harbor = s.list().stream().filter(m -> "harbor".equals(m.get("id"))).findFirst().orElseThrow();
+        assertEquals("Apache-2.0", harbor.get("license"));
+        assertEquals("CNCF (graduated)", harbor.get("foundation"));
+        assertEquals("oidc", harbor.get("sso"));
+        String base = "connectors:\n  - {id: x, name: X, category: C, kind: planned";
+        assertThrows(IllegalStateException.class, () -> parse(base + ", sso: {mode: magic}}\n"));
+        assertThrows(IllegalStateException.class, () -> parse(base + ", homepage: http://x}\n"));
     }
 }

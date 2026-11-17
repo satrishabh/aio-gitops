@@ -105,8 +105,10 @@ rules:
     resources: ["deployments"]
     resourceNames: ["tekton-pipelines-controller", "argocd-server", "argo-rollouts", "tekton-chains-controller",
                     "kyverno-admission-controller", "cert-manager", "ingress-nginx-controller",
+                    "aio-azure-ingress-traefik",
                     # managed connectors whose catalog entry names a deployment (checked by Test)
-                    "trivy-operator", "opencost", "goldilocks-controller", "kube-green-controller-manager"]
+                    "trivy-operator", "opencost", "goldilocks-controller", "kube-green-controller-manager",
+                    "velero", "keda-operator", "descheduler"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -70,6 +70,7 @@ public class ConnectorService {
         m.put("pinnedVersion", c.version());
         m.put("previousVersion", c.previousVersion());
         m.put("accessHint", c.accessHint());
+        m.putAll(ConnectorCatalog.metadata(c));
         m.put("requires", c.requiresList().stream().map(id -> catalog.find(id).map(Connector::name).orElse(id)).toList());
         TestResult t = lastTests.get(c.id());
         m.put("lastTest", t);
@@ -153,8 +154,14 @@ public class ConnectorService {
             case PLANNED -> throw new IllegalArgumentException(c.name() + " is planned and not installable yet");
             case CORE -> results.add(deploymentProbe(c));
             case MANAGED -> {
-                if (argo.getApp(c.appName(), false) == null)
-                    throw new IllegalStateException(c.name() + " is not installed; enable it first");
+                long t0 = System.nanoTime();
+                Map<String, Object> app = argo.getApp(c.appName(), false);
+                if (app == null) throw new IllegalStateException(c.name() + " is not installed; enable it first");
+                String health = J.str(app, "status", "health", "status");
+                String sync = J.str(app, "status", "sync", "status");
+                // Always reported, so tools without a Deployment or HTTP endpoint (CronJobs) still get a real check
+                results.add(new ProbeResult("Argo CD app", "Healthy".equals(health), (System.nanoTime() - t0) / 1_000_000,
+                        (health == null ? "no health yet" : health) + (sync == null ? "" : ", " + sync)));
                 if (c.deployment() != null) results.add(deploymentProbe(c));
                 for (Probe p : c.probeList()) results.add(probe(p));
             }
@@ -246,12 +253,16 @@ public class ConnectorService {
 
     Map<String, Object> appSpec(Connector c, String version) {
         var g = props.gitops();
+        // Values and extras come from the catalog repository at its pinned revision (else the GitOps repo)
+        String valuesRepo = catalog.valuesRepo() != null ? catalog.valuesRepo() : g.repoUrl();
+        String valuesRevision = catalog.revision() != null ? catalog.revision() : g.branch();
         Map<String, Object> chart = new LinkedHashMap<>();
         chart.put("repoURL", c.chartRepo());
         chart.put("chart", c.chart());
         chart.put("targetRevision", version);
-        chart.put("helm", Map.of("releaseName", c.releaseName(), "valueFiles", List.of("$values/" + c.valuesPath())));
-        Map<String, Object> values = Map.of("repoURL", g.repoUrl(), "targetRevision", g.branch(), "ref", "values");
+        chart.put("helm", Map.of("releaseName", c.releaseName(),
+                "valueFiles", c.valueFiles(catalog.cloud(), catalog.site()).stream().map(f -> "$values/" + f).toList()));
+        Map<String, Object> values = Map.of("repoURL", valuesRepo, "targetRevision", valuesRevision, "ref", "values");
 
         Map<String, Object> syncPolicy = new LinkedHashMap<>();
         syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
@@ -263,7 +274,7 @@ public class ConnectorService {
         spec.put("project", PROJECT);
         List<Map<String, Object>> sources = new ArrayList<>(List.of(chart, values));
         if (c.extrasPath() != null)
-            sources.add(Map.of("repoURL", g.repoUrl(), "targetRevision", g.branch(), "path", c.extrasPath()));
+            sources.add(Map.of("repoURL", valuesRepo, "targetRevision", valuesRevision, "path", c.extrasPath()));
         spec.put("sources", sources);
         spec.put("destination", Map.of("server", HUB, "namespace", c.namespace()));
         spec.put("syncPolicy", syncPolicy);

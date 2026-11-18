@@ -5,13 +5,13 @@ nameOverride: scalesafe-esign
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-esign
-  tag: "ec462bd15fae"
+  tag: "c34ef300fcf7"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
 envFrom:
   - secretRef:
-      name: scalesafe-esign-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
+      name: scalesafe-esign-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
 env:
   # Module entitlements per partner (docs/PARTNER-MODEL.md §3.2), read from client-service; fail closed without it.
   - name: SCALESAFE_MODULES_ENTITLEMENTS_URL
@@ -31,8 +31,8 @@ env:
   - name: SCALESAFE_ESIGN_PUBLIC_APP_URL
     value: "https://app.scalesafe.capital"
 resources:
-  requests: { cpu: 25m, memory: 256Mi }
-  limits: { cpu: 500m, memory: 512Mi }
+  requests: {cpu: 25m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
 probes:
   liveness:
     path: /health/liveness
@@ -49,7 +49,7 @@ routes:
     path: "/esign"
     tls: true
     issuer: letsencrypt-azure
-    certOwner: false   # the orchestrator's route owns the api host certificate
+    certOwner: false # the orchestrator's route owns the api host certificate
     forceHttps: true
     wwwRedirect: false
     stripPrefix: true

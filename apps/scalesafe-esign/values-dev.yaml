@@ -4,7 +4,7 @@ nameOverride: scalesafe-esign
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-esign
-  tag: "3bc8f455cfe9"
+  tag: "ab90182db8ab"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

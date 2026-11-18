@@ -10,6 +10,12 @@ data:
     {
       "realm": "scalesafe",
       "displayName": "ScaleSafe",
+      "loginTheme": "scalesafe",
+      "internationalizationEnabled": true,
+      "supportedLocales": [
+        "en"
+      ],
+      "defaultLocale": "en",
       "enabled": true,
       "sslRequired": "external",
       "registrationAllowed": true,

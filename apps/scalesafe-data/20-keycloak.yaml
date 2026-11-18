@@ -19,6 +19,8 @@ spec:
   template:
     metadata:
       labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+      # Changes with the sign-in theme files, so Argo CD rolls Keycloak and it serves the new theme.
+      annotations: { scalesafe.io/theme-checksum: "06fadf18999adfdc" }
     spec:
       securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       containers:
@@ -44,8 +46,20 @@ spec:
           startupProbe: { httpGet: { path: /health/started, port: management }, periodSeconds: 10, failureThreshold: 36 }
           readinessProbe: { httpGet: { path: /health/ready, port: management }, periodSeconds: 10 }
           livenessProbe: { httpGet: { path: /health/live, port: management }, periodSeconds: 20 }
-          volumeMounts: [{ name: realm, mountPath: /opt/keycloak/data/import, readOnly: true }]
-      volumes: [{ name: realm, configMap: { name: scalesafe-keycloak-realm } }]
+          volumeMounts:
+            - { name: realm, mountPath: /opt/keycloak/data/import, readOnly: true }
+            - { name: theme, mountPath: /opt/keycloak/themes/scalesafe/login, readOnly: true }
+      volumes:
+        - { name: realm, configMap: { name: scalesafe-keycloak-realm } }
+        - name: theme
+          configMap:
+            name: scalesafe-keycloak-theme
+            items:
+              - { key: resources__css__scalesafe.css, path: resources/css/scalesafe.css }
+              - { key: resources__fonts__inter-latin-var.woff2, path: resources/fonts/inter-latin-var.woff2 }
+              - { key: resources__fonts__source-serif-4-latin-var.woff2, path: resources/fonts/source-serif-4-latin-var.woff2 }
+              - { key: resources__img__logo.svg, path: resources/img/logo.svg }
+              - { key: theme.properties, path: theme.properties }
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

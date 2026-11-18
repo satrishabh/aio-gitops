@@ -16,6 +16,8 @@ serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the A
 
 containerPort: 8080
 
+command: []             # optional: override the image ENTRYPOINT
+args: []                # optional: override the image CMD
 env: []                 # [{ name: FOO, value: bar }]
 envFrom: []             # [{ secretRef: { name: app-secrets } }]
 

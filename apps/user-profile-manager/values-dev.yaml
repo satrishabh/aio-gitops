@@ -5,6 +5,10 @@ image:
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
 replicaCount: 1
 containerPort: 8080
+# Start Keycloak directly (the image entrypoint re-imports the realm and needs bootstrap-admin and SMTP secrets);
+# matches how the Deployment ran before it was recreated from git
+command: ["/opt/keycloak/bin/kc.sh"]
+args: ["start", "--optimized"]
 imagePullSecrets:
   - name: ghcr-pull
 pdb:

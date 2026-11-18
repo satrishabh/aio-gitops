@@ -1,0 +1,14 @@
+nameOverride: sarvaikam-home
+replicaCount: 1
+image:
+  repository: ghcr.io/satrishabh/sarvaikam-home
+  tag: sha256:e3c2bdd31be308169d9cedfc8f33e1480597964056caa56dfff89eb8cfa01983
+imagePullSecrets: [{name: ghcr-pull}]
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+ingress:
+  enabled: false
+  className: aio-azure
+routes: []

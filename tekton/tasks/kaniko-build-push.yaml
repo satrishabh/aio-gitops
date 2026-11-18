@@ -26,12 +26,19 @@ spec:
     - name: IMAGE_DIGEST
     - name: IMAGE_URL
   steps:
+    # Kaniko v1.23.2 with --cache loses COPY --from files of a multi-stage build when the earlier
+    # stage's RUN layer is restored from cache ("lstat /kaniko/0/workspace/app.jar: no such file").
+    # Any re-run of the same commit hits this. So: try with the cache; if that fails, the next step
+    # builds again without it in a fresh container. A genuine build error fails both, so the task fails.
     - name: build-and-push
-      image: gcr.io/kaniko-project/executor:v1.23.2
+      # mirrored from gcr.io/kaniko-project/executor:v1.23.2 (same digest) so CI has no Google dependency;
+      # private GHCR package, pulled with the ghcr-pull secret on SA pipeline-runner
+      image: ghcr.io/satrishabh/kaniko-executor:v1.23.2@sha256:9e69fd4330ec887829c780f5126dd80edc663df6def362cd22e79bcdf00ac53f
+      onError: continue
       workingDir: $(workspaces.source.path)
       computeResources:
         requests: { cpu: 100m, memory: 768Mi }   # low request so it fits on busy small nodes; bursts to the limit
-        limits: { cpu: 900m, memory: 2Gi }   # sized for e2-medium nodes
+        limits: { cpu: 900m, memory: 2Gi }   # sized for 2-vCPU / 8 GiB nodes (AKS B2as_v2)
       args:
         - --dockerfile=$(params.DOCKERFILE)
         - --context=$(workspaces.source.path)/$(params.CONTEXT)
@@ -39,6 +46,29 @@ spec:
         - --digest-file=$(results.IMAGE_DIGEST.path)
         - --cache=true
         - --cache-repo=$(params.IMAGE)-cache
+        - --snapshot-mode=redo
+        - $(params.EXTRA_ARGS[*])
+    - name: build-and-push-nocache
+      # mirrored from gcr.io/kaniko-project/executor:v1.23.2-debug: same executor plus busybox, for the exit-code check
+      image: ghcr.io/satrishabh/kaniko-executor:v1.23.2-debug@sha256:c3109d5926a997b100c4343944e06c6b30a6804b2f9abe0994d3de6ef92b028e
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests: { cpu: 100m, memory: 768Mi }
+        limits: { cpu: 900m, memory: 2Gi }
+      script: |
+        #!/busybox/sh
+        set -eu
+        if [ "$(cat $(steps.step-build-and-push.exitCode.path))" = "0" ]; then
+          echo "cached build succeeded"; exit 0
+        fi
+        echo "cached build failed; building again without the layer cache"
+        exec /kaniko/executor "$@"
+      args:
+        - --dockerfile=$(params.DOCKERFILE)
+        - --context=$(workspaces.source.path)/$(params.CONTEXT)
+        - --destination=$(params.IMAGE):$(params.TAG)
+        - --digest-file=$(results.IMAGE_DIGEST.path)
+        - --cache=false
         - --snapshot-mode=redo
         - $(params.EXTRA_ARGS[*])
     - name: write-url

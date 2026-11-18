@@ -1,0 +1,18 @@
+{
+  "cert-manager": {
+    "version": "v1.21.3",
+    "url": "https://github.com/cert-manager/cert-manager/releases/download/v1.21.3/cert-manager.yaml",
+    "sha256": "c04a51295adda2b1a775146751f973e787190778c7f35180861d9678876e5c74"
+  },
+  "argocd": {
+    "version": "v3.5.6",
+    "url": "https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.6/manifests/install.yaml",
+    "sha256": "846c644bc81ce5557dd9048757a9c7353378f25c5eb811c77d32a9e907823599",
+    "namespace": "argocd"
+  },
+  "tekton": {
+    "version": "v1.6.0",
+    "url": "https://infra.tekton.dev/tekton-releases/pipeline/previous/v1.6.0/release.yaml",
+    "sha256": "d0f6dc1dc7afe7f8725075ee07f6bf8eb01dd246f41ea404ed32e9ab023425ba"
+  }
+}

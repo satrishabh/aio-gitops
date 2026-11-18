@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aio-validation
+  labels:
+    app.kubernetes.io/part-of: aio-migration-validation
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sarvaikam-home
+  namespace: aio-validation
+spec:
+  # Dedicated GHCR credential and exact-image HTTP rehearsal verified on AKS.
+  replicas: 1
+  selector:
+    matchLabels: {app: sarvaikam-home}
+  template:
+    metadata:
+      labels: {app: sarvaikam-home}
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-readonly
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+      containers:
+        - name: app
+          image: ghcr.io/satrishabh/sarvaikam-home@sha256:e3c2bdd31be308169d9cedfc8f33e1480597964056caa56dfff89eb8cfa01983
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 20
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sarvaikam-home
+  namespace: aio-validation
+spec:
+  selector: {app: sarvaikam-home}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

@@ -50,6 +50,8 @@ public class ClustersController {
             m.put("issuer", c.issuer() == null ? ClusterRegistry.DEFAULT_ISSUER : c.issuer());
             m.put("dnsZone", c.dnsZone());
             m.put("tls", Boolean.TRUE.equals(c.tls()));
+            m.put("ingressClass", c.ingressClass() == null ? "nginx" : c.ingressClass());
+            m.put("ingressController", c.ingressController() == null ? "nginx" : c.ingressController());
             m.put("rollouts", c.rollouts() != null ? c.rollouts()
                     : clusters.inCluster(c) && !c.envs().isEmpty() && clusters.rolloutsFor(c.envs().get(0)));
             m.put("hub", clusters.inCluster(c));

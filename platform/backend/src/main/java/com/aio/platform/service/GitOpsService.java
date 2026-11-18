@@ -79,6 +79,8 @@ public class GitOpsService {
             if (file == null) continue;
             String updated = normalize(file.content());
             if (retarget.contains(env)) updated = withDefaultTls(retargetHosts(updated, p, env), p, env);
+            // the env's cluster decides which ingress controller serves the app (only for envs on their configured cluster)
+            if (retarget.contains(env)) updated = withIngressClass(updated, env);
             // installed() describes prod's configured cluster, so only enable blue-green once prod lives there
             if (RolloutService.ENV.equals(env) && retarget.contains(env) && rollouts.installed()) updated = withBlueGreen(updated, previewHost(p));
             if (!updated.equals(file.content())) {
@@ -163,6 +165,18 @@ public class GitOpsService {
         out = setIngressKey(out, "issuer", clusters.issuerFor(env, host));
         out = setIngressKey(out, "forceHttps", "true");
         return setIngressKey(out, "externalDns", String.valueOf(clusters.managedDns(env, host)));
+    }
+
+    /** Writes the env cluster's ingress className / controller into the ingress block (no-op when not configured). */
+    String withIngressClass(String yaml, String env) {
+        return applyIngressClass(yaml, clusters.ingressClassFor(env), clusters.ingressControllerFor(env));
+    }
+
+    static String applyIngressClass(String yaml, String ingressClass, String controller) {
+        String out = yaml;
+        if (ingressClass != null && !ingressClass.isBlank()) out = setIngressKey(out, "className", ingressClass.trim());
+        if (controller != null && !controller.isBlank()) out = setIngressKey(out, "controller", controller.trim());
+        return out;
     }
 
     /** Sets {@code key: value} inside the top-level ingress: block (replacing or appending the line). */
@@ -400,7 +414,7 @@ public class GitOpsService {
                   enabled: %s
                   host: %s
                 """.formatted(p.imageRepo, PLACEHOLDER_TAG, PULL_SECRET, ingress, ingress ? host : "example.local"), p);
-        base = withDefaultTls(base, p, env);
+        base = withIngressClass(withDefaultTls(base, p, env), env);
         return RolloutService.ENV.equals(env) && rollouts.installed() ? withBlueGreen(base, previewHost(p)) : base;
     }
 }

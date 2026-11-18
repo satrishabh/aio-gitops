@@ -1,0 +1,83 @@
+{
+    "observedAt":  "2026-11-13T22:51:55.2634333Z",
+    "http":  {
+                 "passed":  true,
+                 "categoryCount":  10,
+                 "assetCount":  5,
+                 "checks":  [
+                                {
+                                    "path":  "/health",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/ready",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/api/auth/health",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/api/progress/health",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/assets/Icon-B2f0jdVm.js",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/assets/auth-ho1X-4sI.js",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/assets/index-Btm8tmGy.css",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/assets/index-DTVa1XGA.js",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/assets/learning-DrUvbOWf.js",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/api/content/categories",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/api/content/reels",
+                                    "status":  200
+                                },
+                                {
+                                    "path":  "/api/auth/me",
+                                    "status":  401
+                                },
+                                {
+                                    "path":  "/api/progress/me",
+                                    "status":  401
+                                }
+                            ],
+                 "visualBrowserTestRun":  false,
+                 "authenticatedIdentityTestRun":  false
+             },
+    "databaseRoles":  {
+                          "learnSchemaAllowed":  true,
+                          "learnCanUseReelsSchema":  false,
+                          "reelsSchemaAllowed":  true,
+                          "reelsCanUseLearnSchema":  false,
+                          "privilegedAppRoles":  0,
+                          "unencryptedAppConnections":  0,
+                          "encryptedAppConnections":  4,
+                          "learnTables":  14,
+                          "reelsTables":  2
+                      },
+    "image":  "ghcr.io/satrishabh/sarvaikam@sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb",
+    "nginxCompatibilityOverrideRequired":  true,
+    "productionTrafficChanged":  false,
+    "sourceHealthyRevision":  "1c5de1e83581d74f276e9a01d0439d674bef6589"
+}

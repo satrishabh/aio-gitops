@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sarvaikam-learn
+  namespace: aio-validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: sarvaikam-learn}
+  template:
+    metadata:
+      labels: {app: sarvaikam-learn}
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets: [{name: ghcr-readonly}]
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: app
+          image: ghcr.io/satrishabh/sarvaikam@sha256:9b6605c124fd837aa55006ab6ef32571f97288876a0f1273968bc70ee1cb94fb
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: learn-rehearsal-runtime}}]
+          env:
+            - {name: APP_ENV, value: staging}
+            - {name: EMBEDDED_DB, value: 'false'}
+            - {name: DB_HOST, value: postgres-rehearsal.aio-validation.svc.cluster.local}
+            - {name: DB_PORT, value: '5432'}
+            - {name: DB_SSLMODE, value: verify-full}
+            - {name: POSTGRES_DB, value: aio_rehearsal}
+            - {name: POSTGRES_USER, value: learn_rehearsal}
+            - {name: DB_SYNCHRONIZE, value: 'false'}
+            - {name: DB_POOL_SIZE, value: '3'}
+            - {name: PGSSLROOTCERT, value: /etc/aio-db/ca.crt}
+            - {name: NODE_EXTRA_CA_CERTS, value: /etc/aio-db/ca.crt}
+            - {name: DB_URL, value: 'jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam'}
+            - {name: SPRING_FLYWAY_DEFAULT_SCHEMA, value: sarvaikam}
+            - {name: SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA, value: sarvaikam}
+            - {name: REELS_DB_URL, value: 'jdbc:postgresql://postgres-rehearsal.aio-validation.svc.cluster.local:5432/aio_rehearsal?sslmode=verify-full&sslrootcert=/etc/aio-db/ca.crt&currentSchema=sarvaikam_reels'}
+            - {name: REELS_DB_USER, value: reels_rehearsal}
+            - {name: PROFILE_ISSUER, value: 'http://127.0.0.1:9/realms/rehearsal'}
+            - {name: PROFILE_CLIENT_ID, value: rehearsal-disabled}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            failureThreshold: 60
+            periodSeconds: 5
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            timeoutSeconds: 3
+          resources:
+            requests: {cpu: 100m, memory: 768Mi}
+            limits: {cpu: '1', memory: 2Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: db-trust, mountPath: /etc/aio-db, readOnly: true}
+            - {name: nginx-compat, mountPath: /etc/sarvaikam/proxy_headers, subPath: proxy_headers, readOnly: true}
+      volumes:
+        - name: db-trust
+          configMap: {name: rehearsal-db-trust}
+        - name: nginx-compat
+          configMap: {name: learn-nginx-proxy-compat}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sarvaikam-learn
+  namespace: aio-validation
+spec:
+  selector: {app: sarvaikam-learn}
+  ports: [{name: http, port: 8080, targetPort: http}]

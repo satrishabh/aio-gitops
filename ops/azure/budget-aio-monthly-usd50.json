@@ -1,0 +1,7 @@
+{"properties":{"category":"Cost","amount":50,"timeGrain":"Monthly",
+ "timePeriod":{"startDate":"2026-11-01T00:00:00Z","endDate":"2028-12-31T00:00:00Z"},
+ "notifications":{
+  "actual50":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":50,"thresholdType":"Actual","contactEmails":["rishabh@scalesafe.co.in"]},
+  "actual80":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":80,"thresholdType":"Actual","contactEmails":["rishabh@scalesafe.co.in"]},
+  "actual100":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":100,"thresholdType":"Actual","contactEmails":["rishabh@scalesafe.co.in"]},
+  "forecast100":{"enabled":true,"operator":"GreaterThanOrEqualTo","threshold":100,"thresholdType":"Forecasted","contactEmails":["rishabh@scalesafe.co.in"]}}}}

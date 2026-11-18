@@ -332,6 +332,31 @@ function Config({ base, env, policy, locked, run, btn, app }) {
         </div>
       </div>
 
+      <section className="card" style={{ padding: 20 }} aria-labelledby="autoscaling-h">
+        <div className="card-head"><h3 id="autoscaling-h">Application autoscaling</h3><span className="badge gray">Opt-in per environment</span></div>
+        <p>Configure <b>{env}</b> in the Helm values below. CPU scaling uses the app container's CPU request. Hybrid scaling uses the larger CPU or HTTP traffic recommendation, within your replica limits.</p>
+        <p className="hint">Hybrid mode requires Istio HTTP metrics, Prometheus, and a working custom-metrics adapter. Confirm those prerequisites before enabling it. These examples do not indicate that autoscaling is active.</p>
+        <details>
+          <summary>CPU scaling example</summary>
+          <pre className="mono" style={{ overflowX: 'auto' }}>{`autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+  istio:
+    enabled: false`}</pre>
+        </details>
+        <details>
+          <summary>Add HTTP traffic scaling</summary>
+          <pre className="mono" style={{ overflowX: 'auto' }}>{`  # Replace the istio block above after metrics are ready:
+  istio:
+    enabled: true
+    metricName: istio_requests_per_second
+    requestsPerSecondPerReplica: 25`}</pre>
+        </details>
+        <p className="hint">Merge into a single <code>autoscaling</code> block; preserve your other values. Commit values to apply through Argo CD. While enabled, the HPA owns the replica count. Stop removes the HPA and holds zero pods; Start resumes scaling. To return to a fixed count, set <code>autoscaling.enabled: false</code> and your desired <code>replicaCount</code>. AIO itself must remain at one replica.</p>
+      </section>
+
       <form className="card form" style={{ maxWidth: 'none' }} onSubmit={saveValues} aria-labelledby="values-h">
         <div className="card-head"><h3 id="values-h">Helm values</h3>
           {values && <code className="muted">{values.path}</code>}

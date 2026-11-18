@@ -1,0 +1,41 @@
+# WARNING (live AKS): never upgrade with this file alone. Its ClusterIP service type overrides the public
+# LoadBalancer and takes every site offline (happened 2026-11-14, ~4 min). Always pass the public overlay LAST:
+#   helm upgrade aio-azure-ingress traefik --repo https://traefik.github.io/charts --version 42.4.0 -n aio-ingress \
+#     -f ops/portable/azure-ingress-values.yaml -f ops/portable/azure-ingress-public-values.yaml
+# Shared private baseline. Add the separately approved public overlay when required.
+deployment:
+  replicas: 1
+service:
+  spec:
+    type: ClusterIP
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: aio-azure
+providers:
+  kubernetesIngress:
+    enabled: true
+    ingressClass: aio-azure
+    namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform, argocd]
+  kubernetesCRD:
+    enabled: true
+    # GitHub webhooks are routed to the Azure Function webhook buffer (azure-webhook-buffer.yaml)
+    allowExternalNameServices: true
+    namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform, argocd]
+  kubernetesGateway:
+    enabled: false
+ingressRoute:
+  dashboard:
+    enabled: false
+api:
+  dashboard: false
+# Sablier scale-to-zero gate for AIO/Argo/Tekton (ops/portable/azure-hibernation.yaml).
+# abortOnPluginFailure stays false: if the plugin cannot load, only the gated routes fail.
+experimental:
+  plugins:
+    sablier:
+      moduleName: github.com/sablierapp/sablier-traefik-plugin
+      version: v1.4.0
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 200m, memory: 128Mi}

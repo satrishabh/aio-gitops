@@ -9,6 +9,7 @@ import { PRESETS, SEVERITIES } from '../projectOptions.js'
 import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/RuntimeFields.jsx'
 import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
+import CertificateManager from '../components/CertificateManager.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const NEXT = { dev: 'staging', staging: 'prod' }
@@ -147,6 +148,7 @@ export default function ProjectDetail() {
         { id: 'deploys', label: 'Deployments', icon: 'rocket', count: deployments.length },
         { id: 'promos', label: 'Promotions', icon: 'shield', count: promotions.length },
         { id: 'domains', label: 'Domains', icon: 'globe' },
+        { id: 'certificates', label: 'Certificates', icon: 'shield' },
         { id: 'settings', label: 'Settings', icon: 'settings' },
       ]} />
 
@@ -237,6 +239,7 @@ export default function ProjectDetail() {
       )}
 
       {tab === 'domains' && <DomainsTab id={id} />}
+      {tab === 'certificates' && <CertificateManager projectId={id} onDomains={() => setTab('domains')} />}
 
       {tab === 'settings' && <>
         <Settings p={p} run={run} btn={btn} />

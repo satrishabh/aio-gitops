@@ -1,0 +1,50 @@
+[
+  {
+    "sourceDatabase": "profile_manager",
+    "bytes": 15226559,
+    "schemas": [
+      "public"
+    ],
+    "tables": 101,
+    "extensions": [
+      "plpgsql"
+    ],
+    "userFunctions": 0,
+    "largeObjects": 0,
+    "proposedTargetDatabase": "aio_rehearsal",
+    "proposedTargetSchema": "profile_manager",
+    "dataTransferred": false
+  },
+  {
+    "sourceDatabase": "sarvaika_blog",
+    "bytes": 8369855,
+    "schemas": [
+      "public"
+    ],
+    "tables": 9,
+    "extensions": [
+      "plpgsql"
+    ],
+    "userFunctions": 0,
+    "largeObjects": 0,
+    "proposedTargetDatabase": "aio_rehearsal",
+    "proposedTargetSchema": "sarvaika_blog",
+    "dataTransferred": false
+  },
+  {
+    "sourceDatabase": "aio",
+    "bytes": 11179711,
+    "schemas": [
+      "public"
+    ],
+    "tables": 13,
+    "extensions": [
+      "plpgsql"
+    ],
+    "userFunctions": 0,
+    "largeObjects": 0,
+    "proposedTargetDatabase": "aio_rehearsal",
+    "proposedTargetSchema": "aio_platform",
+    "dataTransferred": false
+  }
+]

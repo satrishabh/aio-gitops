@@ -41,6 +41,12 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class ClusterService {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+    /** CI-namespace housekeeping (PipelineRun pruning); independent of delivery reconcilers. */
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.ci-workers-enabled:${app.runtime.workers-enabled:true}}")
+    boolean ciWorkersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(ClusterService.class);
     private static final int MAX_LOG_CHARS = 256 * 1024;
     private static final ResourceDefinitionContext PIPELINE_RUN = new ResourceDefinitionContext.Builder()
@@ -58,10 +64,13 @@ public class ClusterService {
     private final AuditService audit;
     private final ClusterRegistry clusters;
     private final DomainService domains;
+    private final WorkloadPullCredentials pullCredentials;
 
     public ClusterService(KubernetesClient k8s, AppProperties props, ProjectRepo projects, CiRunRepo runs,
                           RunStepRepo steps, TektonService tekton, GitOpsService gitops, ArgoCdService argo,
-                          AuditService audit, ClusterRegistry clusters, DomainService domains) {
+                          AuditService audit, ClusterRegistry clusters, DomainService domains,
+                          WorkloadPullCredentials pullCredentials) {
+        this.pullCredentials = pullCredentials;
         this.clusters = clusters;
         this.domains = domains;
         this.k8s = k8s;
@@ -112,16 +121,16 @@ public class ClusterService {
                 .addToDefaultRequest("cpu", new Quantity("50m")).addToDefaultRequest("memory", new Quantity("64Mi"))
                 .addToDefault("cpu", new Quantity("500m")).addToDefault("memory", new Quantity("512Mi"))
                 .endLimit().endSpec().build()).forceConflicts().serverSideApply();
-        String token = props.github().token();
-        if (token == null || token.isBlank()) {
-            log.warn("GITHUB_TOKEN not set; skipping {} in {}", GitOpsService.PULL_SECRET, ns);
+        String dockerConfig = pullCredentials.encodedConfig(registryHost());
+        if (dockerConfig == null) {
+            log.warn("No workload pull credential configured; skipping {} in {}", GitOpsService.PULL_SECRET, ns);
             return;
         }
         k8s.secrets().inNamespace(ns).resource(new SecretBuilder()
                 .withNewMetadata().withName(GitOpsService.PULL_SECRET).withNamespace(ns)
                 .addToLabels("aio.platform/managed", "true").endMetadata()
                 .withType("kubernetes.io/dockerconfigjson")
-                .addToData(".dockerconfigjson", b64(dockerConfig(registryHost(), props.registryUser(), token)))
+                .addToData(".dockerconfigjson", dockerConfig)
                 .build()).forceConflicts().serverSideApply();
     }
 
@@ -154,6 +163,7 @@ public class ClusterService {
     /** Runs in the background: moving apps between clusters waits on Argo CD and must not delay startup. */
     @EventListener(ApplicationReadyEvent.class)
     public void reconcileAll() {
+        if (!workersEnabled) return;
         Thread t = new Thread(() -> {
             for (Project p : projects.findAll()) {
                 try {
@@ -206,6 +216,7 @@ public class ClusterService {
 
     @Scheduled(fixedDelayString = "${app.watch.cleanup-ms:600000}", initialDelayString = "${app.watch.cleanup-initial-ms:120000}")
     public void prune() {
+        if (!ciWorkersEnabled) return;
         int keep = Math.max(1, props.cleanup().keepPerProject());
         Instant cutoff = Instant.now().minus(Duration.ofHours(Math.max(1, props.cleanup().maxAgeHours())));
         List<GenericKubernetesResource> all = k8s.genericKubernetesResources(PIPELINE_RUN)

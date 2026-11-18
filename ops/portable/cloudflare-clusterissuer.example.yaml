@@ -1,0 +1,21 @@
+# Operator example only; not installed by AIO. Replace email and zone first.
+# Provision cloudflare-dns-api-token/key api-token in cert-manager's cluster
+# resource namespace through your secret manager; never commit the token.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: aio-cloudflare-staging
+spec:
+  acme:
+    email: operator@example.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: aio-cloudflare-staging-account
+    solvers:
+      - selector:
+          dnsZones: [example.com]
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-dns-api-token
+              key: api-token

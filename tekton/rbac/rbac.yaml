@@ -10,9 +10,11 @@ metadata:
   name: pipeline-runner
   namespace: ci
 automountServiceAccountToken: false
-# Tekton Chains pushes image signatures and provenance with the credentials of the TaskRun's service account.
-# Created by bootstrap/install-supply-chain.sh; pods still run if it does not exist yet.
+# ghcr-pull: the GHCR-mirrored builder images (tekton/tasks/build-image.yaml, buildkit-build-push.yaml).
+# registry-signing: Tekton Chains pushes image signatures and provenance with the credentials of the TaskRun's
+# service account; created by bootstrap/install-supply-chain.sh, pods still run if it does not exist yet.
 imagePullSecrets:
+  - name: ghcr-pull
   - name: registry-signing
 ---
 # Used by the EventListener to create PipelineRuns

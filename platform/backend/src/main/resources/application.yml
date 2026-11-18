@@ -7,10 +7,10 @@ spring:
     name: aio-platform
   datasource:
     # Local: jdbc:postgresql://localhost:5432/aio
-    # Cloud SQL: jdbc:postgresql:///aio?cloudSqlInstance=<project>:<region>:<instance>&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    # Azure (AKS): in-cluster PostgreSQL over TLS, see ops/portable/azure-native-aio-values.yaml
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aio}
     username: ${DB_USER:aio}
-    password: ${DB_PASSWORD:aio}
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:5}   # small Cloud SQL tiers allow few connections
       connection-timeout: 20000
@@ -27,7 +27,7 @@ spring:
           profile:
             provider: profile
             client-id: ${OIDC_CLIENT_ID:aio-platform}
-            client-secret: ${OIDC_CLIENT_SECRET:changeme}
+            client-secret: ${OIDC_CLIENT_SECRET}
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: openid,profile,email
@@ -47,6 +47,11 @@ management:
         enabled: true
 
 app:
+  runtime:
+    workers-enabled: ${AIO_WORKERS_ENABLED:true}
+    # CI tracking only (Tekton run/scan status, step logs, CI PipelineRun pruning in the CI namespace).
+    # Defaults to workers-enabled; lets CI be observed while delivery reconcilers stay off.
+    ci-workers-enabled: ${AIO_CI_WORKERS_ENABLED:${AIO_WORKERS_ENABLED:true}}
   # Public URL of this portal; used to register GitHub webhooks (leave empty to skip)
   public-url: ${APP_PUBLIC_URL:}
   # Image prefix; image = <registry>/<project-name>

@@ -1,0 +1,73 @@
+# Nightly hard stop for the AIO control plane: every day at 23:00 IST, scale group "aio" (AIO, Argo CD,
+# Tekton; see azure-hibernation.yaml) to zero, whatever its session state. It stays asleep until someone
+# opens https://app.sarvaikam.com or https://argocd.sarvaikam.com, which wakes it through Sablier as usual.
+# Note: a browser tab left open on AIO keeps polling and will wake it again.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: hibernate-nightly, namespace: sablier}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: hibernate-nightly}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale", "statefulsets/scale"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: hibernate-nightly}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: hibernate-nightly}
+subjects: [{kind: ServiceAccount, name: hibernate-nightly, namespace: sablier}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: hibernate-aio-nightly, namespace: sablier}
+spec:
+  schedule: "0 23 * * *"
+  timeZone: Asia/Kolkata
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          serviceAccountName: hibernate-nightly
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile: {type: RuntimeDefault}
+          volumes: [{name: tmp, emptyDir: {}}]
+          # one container per namespace (the image has no shell; kubectl scale has no --all-namespaces)
+          containers:
+            - &scale
+              name: aio-platform
+              image: registry.k8s.io/kubectl:v1.36.5@sha256:0667e3f3e6ef435d7cd4c16684244703ebd67314c17511c2a9f87ea44f6cdf6b
+              args: [scale, "deployment,statefulset", -n, aio-platform, -l, sablier.group=aio, --replicas=0]
+              env: [{name: HOME, value: /tmp}]
+              volumeMounts: [{name: tmp, mountPath: /tmp}]
+              resources:
+                requests: {cpu: 5m, memory: 32Mi}
+                limits: {cpu: 100m, memory: 128Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+            - <<: *scale
+              name: argocd
+              args: [scale, "deployment,statefulset", -n, argocd, -l, sablier.group=aio, --replicas=0]
+            - <<: *scale
+              name: tekton
+              args: [scale, "deployment,statefulset", -n, tekton-pipelines, -l, sablier.group=aio, --replicas=0]
+            - <<: *scale
+              name: tekton-resolvers
+              args: [scale, "deployment,statefulset", -n, tekton-pipelines-resolvers, -l, sablier.group=aio, --replicas=0]

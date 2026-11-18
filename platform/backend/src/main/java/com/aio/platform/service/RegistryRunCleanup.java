@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class RegistryRunCleanup {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.ci-workers-enabled:${app.runtime.workers-enabled:true}}")
+    boolean workersEnabled = true;
+
     private final CiRunRepo runs;
     private final KubernetesClient k8s;
     private final AppProperties props;
@@ -19,6 +22,7 @@ public class RegistryRunCleanup {
     }
     @Scheduled(fixedDelayString = "${app.delivery.secret-cleanup-ms:30000}")
     public void cleanup() {
+        if (!workersEnabled) return;
         for (CiRun run : runs.findByExternalRegistryTrueAndRegistrySecretsCleanedFalseAndStatusIn(
                 Set.of(CiRun.SUCCEEDED, CiRun.FAILED, CiRun.CANCELLED), PageRequest.of(0, 50))) {
             try {

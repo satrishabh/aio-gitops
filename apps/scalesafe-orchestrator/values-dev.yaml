@@ -1,0 +1,42 @@
+# AIO dev values for scalesafe-orchestrator (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-orchestrator/values-dev.yaml in
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
+nameOverride: scalesafe-orchestrator
+replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
+image:
+  repository: ghcr.io/satrishabh/scalesafe-orchestrator
+  tag: "ec462bd15fae"
+imagePullSecrets:
+  - name: ghcr-pull
+containerPort: 8080
+envFrom:
+  - secretRef:
+      name: scalesafe-orchestrator-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
+env:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+    value: "https://app.scalesafe.capital,https://admin.scalesafe.capital,https://scalesafe.capital"
+resources:
+  requests: {cpu: 25m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+probes:
+  liveness:
+    path: /health/liveness
+    initialDelaySeconds: 180
+  readiness:
+    path: /health/readiness
+    initialDelaySeconds: 20
+ingress:
+  className: aio-azure
+  controller: traefik
+  enabled: false
+routes:
+  - host: api.scalesafe.capital
+    path: "/orchestrator"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true # one route per host owns the certificate
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: true
+    externalDns: false

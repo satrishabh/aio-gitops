@@ -1,0 +1,1 @@
+{"location": "Global", "properties": {"groupShortName": "aio-ops", "enabled": true, "emailReceivers": [{"name": "owner", "emailAddress": "rishabh@scalesafe.co.in", "useCommonAlertSchema": true}]}}

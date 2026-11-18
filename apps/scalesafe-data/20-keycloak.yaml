@@ -1,0 +1,77 @@
+# ScaleSafe Keycloak 26 (separate from Sarvaikam's production identity), backed by scalesafe-postgres.
+apiVersion: v1
+kind: Service
+metadata:
+  name: scalesafe-keycloak
+  labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+spec:
+  selector: { app.kubernetes.io/name: scalesafe-keycloak }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalesafe-keycloak
+  labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: scalesafe-keycloak } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+      # Changes with the sign-in theme files, so Argo CD rolls Keycloak and it serves the new theme.
+      annotations: { scalesafe.io/theme-checksum: "06fadf18999adfdc" }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0.7
+          args: [start, --import-realm]
+          ports: [{ name: http, containerPort: 8080 }, { name: management, containerPort: 9000 }]
+          env:
+            - { name: KC_DB, value: postgres }
+            - { name: KC_DB_URL, value: "jdbc:postgresql://scalesafe-postgres:5432/keycloak" }
+            - { name: KC_DB_USERNAME, value: keycloak }
+            - { name: KC_HOSTNAME, value: "https://id.scalesafe.capital" }
+            - { name: KC_HTTP_ENABLED, value: "true" }
+            - { name: KC_PROXY_HEADERS, value: xforwarded }
+            - { name: KC_HEALTH_ENABLED, value: "true" }
+            - { name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin }
+            - { name: JAVA_OPTS_KC_HEAP, value: "-XX:MaxRAMPercentage=65" }
+          envFrom: [{ secretRef: { name: scalesafe-keycloak } }]
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          resources:
+            requests: { cpu: 25m, memory: 384Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          startupProbe: { httpGet: { path: /health/started, port: management }, periodSeconds: 10, failureThreshold: 36 }
+          readinessProbe: { httpGet: { path: /health/ready, port: management }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health/live, port: management }, periodSeconds: 20 }
+          volumeMounts:
+            - { name: realm, mountPath: /opt/keycloak/data/import, readOnly: true }
+            - { name: theme, mountPath: /opt/keycloak/themes/scalesafe/login, readOnly: true }
+      volumes:
+        - { name: realm, configMap: { name: scalesafe-keycloak-realm } }
+        - name: theme
+          configMap:
+            name: scalesafe-keycloak-theme
+            items:
+              - { key: resources__css__scalesafe.css, path: resources/css/scalesafe.css }
+              - { key: resources__fonts__inter-latin-var.woff2, path: resources/fonts/inter-latin-var.woff2 }
+              - { key: resources__fonts__source-serif-4-latin-var.woff2, path: resources/fonts/source-serif-4-latin-var.woff2 }
+              - { key: resources__img__logo.svg, path: resources/img/logo.svg }
+              - { key: theme.properties, path: theme.properties }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: scalesafe-keycloak
+  labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-azure
+spec:
+  ingressClassName: aio-azure
+  tls: [{ hosts: ["id.scalesafe.capital"], secretName: tls-scalesafe-id-dev }]
+  rules:
+    - host: "id.scalesafe.capital"
+      http:
+        paths: [{ path: /, pathType: Prefix, backend: { service: { name: scalesafe-keycloak, port: { name: http } } } }]

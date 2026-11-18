@@ -29,6 +29,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class DomainWatcher {
+    @org.springframework.beans.factory.annotation.Value("${app.runtime.workers-enabled:true}")
+    boolean workersEnabled = true;
+
     private static final Logger log = LoggerFactory.getLogger(DomainWatcher.class);
     static final Duration READY_RECHECK = Duration.ofHours(6);
 
@@ -50,6 +53,7 @@ public class DomainWatcher {
 
     @Scheduled(fixedDelayString = "${app.watch.domains-ms:60000}", initialDelayString = "${app.watch.domains-initial-ms:45000}")
     public void poll() {
+        if (!workersEnabled) return;
         for (Domain d : domains.findByStatusIn(Set.of(Domain.PENDING_DNS, Domain.ISSUING, Domain.READY, Domain.FAILED))) {
             if (Domain.READY.equals(d.status) && d.lastCheckedAt != null && d.lastCheckedAt.plus(READY_RECHECK).isAfter(Instant.now())) continue;
             try {

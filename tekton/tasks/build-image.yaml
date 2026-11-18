@@ -4,7 +4,8 @@ metadata:
   name: build-image
 spec:
   description: >
-    Build and push an image, tagged with the git SHA. With a Dockerfile, Kaniko builds it. Without one,
+    Build and push an image, tagged with the git SHA. With a Dockerfile, rootless BuildKit builds it (no Docker
+    daemon, no privileged pod; replaces Kaniko, archived by Google in 2025). Without one,
     Cloud Native Buildpacks (Paketo) detect the language (Java, Node, Go, Python, .NET, ...) and build it,
     so no Dockerfile is needed. BUILD_STRATEGY=auto picks per run. IMAGE_URL/IMAGE_DIGEST are the results
     Tekton Chains looks for to sign the image and attach SLSA provenance; CHAINS-GIT_* tie that provenance
@@ -31,7 +32,6 @@ spec:
     - name: source
     - name: dockerconfig
       description: Secret containing config.json (registry credentials)
-      mountPath: /kaniko/.docker
   results:
     - name: IMAGE_DIGEST
     - name: IMAGE_URL
@@ -75,31 +75,42 @@ spec:
         echo "Build strategy: $STRATEGY"
 
     - name: build-and-push
-      # -debug variant: same executor plus a busybox shell, needed for the strategy check
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      # Rootless BuildKit, same image and settings as tasks/buildkit-build-push.yaml: mirrored from
+      # moby/buildkit:v0.34.1-rootless (same digest), private GHCR package pulled with ghcr-pull on pipeline-runner
+      image: ghcr.io/satrishabh/buildkit:v0.34.1-rootless@sha256:f68752a5a94acfcdad2d07867b7075601a421638e17fc5f28efc1c814d0c4f89
       workingDir: $(workspaces.source.path)
       computeResources:
         requests: { cpu: 100m, memory: 768Mi }   # low request so it fits on busy small nodes; bursts to the limit
-        limits: { cpu: 900m, memory: 2Gi }   # sized for e2-medium nodes
+        limits: { cpu: 900m, memory: 2Gi }
+      # Rootless BuildKit runs as an unprivileged user inside a user namespace. That needs the
+      # default seccomp and AppArmor profiles lifted for this container only; it is not privileged.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: Unconfined }
+        appArmorProfile: { type: Unconfined }
       env:
+        - { name: BUILDKITD_FLAGS, value: --oci-worker-no-process-sandbox }
+        - { name: DOCKER_CONFIG, value: $(workspaces.dockerconfig.path) }
+        # params go in through env, never spliced into the script, so odd values can't inject shell
         - { name: IMAGE, value: $(params.IMAGE) }
         - { name: TAG, value: $(params.TAG) }
         - { name: DOCKERFILE, value: $(params.DOCKERFILE) }
         - { name: CONTEXT, value: $(params.CONTEXT) }
+        - { name: SRC, value: $(workspaces.source.path) }
+        - { name: STRATEGY_PATH, value: $(results.BUILD_STRATEGY.path) }
+        - { name: DIGEST_PATH, value: $(results.IMAGE_DIGEST.path) }
       script: |
-        #!/busybox/sh
+        #!/bin/sh
         set -eu
-        if [ "$(cat "$(results.BUILD_STRATEGY.path)")" != dockerfile ]; then
+        if [ "$(cat "$STRATEGY_PATH")" != dockerfile ]; then
           echo "Skipped: building with buildpacks."; exit 0
         fi
-        exec /kaniko/executor \
-          --dockerfile="$DOCKERFILE" \
-          --context="$(workspaces.source.path)/$CONTEXT" \
-          --destination="$IMAGE:$TAG" \
-          --digest-file="$(results.IMAGE_DIGEST.path)" \
-          --cache=true \
-          --cache-repo="$IMAGE-cache" \
-          --snapshot-mode=redo
+        CACHE="$IMAGE-cache:buildkit"
+        buildctl-daemonless.sh build           --frontend dockerfile.v0           --local context="$SRC/$CONTEXT"           --local dockerfile="$SRC/$(dirname "$DOCKERFILE")"           --opt filename="$(basename "$DOCKERFILE")"           --output type=image,name="$IMAGE:$TAG",push=true           --import-cache type=registry,ref="$CACHE"           --export-cache type=registry,ref="$CACHE",mode=max,ignore-error=true           --metadata-file /tmp/metadata.json
+        DIGEST=$(grep -o '"containerimage.digest": *"sha256:[0-9a-f]*"' /tmp/metadata.json | grep -o 'sha256:[0-9a-f]*' || true)
+        if [ -z "$DIGEST" ]; then echo "no image digest in build metadata:"; cat /tmp/metadata.json; exit 1; fi
+        printf "%s" "$DIGEST" > "$DIGEST_PATH"
 
     - name: buildpacks
       # Paketo noble builder (lifecycle 0.21.22). Pinned; bump deliberately, it decides language runtimes.
@@ -116,7 +127,7 @@ spec:
         - { name: TAG, value: $(params.TAG) }
         - { name: CONTEXT, value: $(params.CONTEXT) }
         - { name: CNB_PLATFORM_API, value: "0.13" }
-        - { name: DOCKER_CONFIG, value: /kaniko/.docker }   # registry auth for the export and the cache image
+        - { name: DOCKER_CONFIG, value: $(workspaces.dockerconfig.path) }   # registry auth for the export and the cache image
       volumeMounts:
         - { name: cnb-app, mountPath: /aio/app }
         - { name: cnb-layers, mountPath: /layers }

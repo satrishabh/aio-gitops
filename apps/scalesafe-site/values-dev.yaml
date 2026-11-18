@@ -1,0 +1,57 @@
+# Azure AKS 'creative' (dev). scalesafe.co.in marketing site: static nginx on 8080.
+# Pre-corporate staging on indiescale.in. scalesafe.co.in DNS stays on Cloudflare until cutover.
+# Source: github.com/satrishabh/scalesafe @ 9498408a96b7, built by ci/scalesafe-site-ci-tbhx6
+# (Trivy HIGH/CRITICAL gate: critical=0 high=0 medium=0 low=0)
+nameOverride: scalesafe-site
+replicaCount: 1
+image:
+  repository: ghcr.io/satrishabh/scalesafe-site
+  tag: 188babc6e8ad
+imagePullSecrets:
+  - name: ghcr-pull
+containerPort: 8080
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+resources:
+  requests: {cpu: 25m, memory: 32Mi}
+  limits: {cpu: 250m, memory: 128Mi}
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 5
+  readiness:
+    path: /health
+    initialDelaySeconds: 2
+ingress:
+  enabled: false # served by the AIO domain route below (indiescale.in + www, own certificate)
+  className: aio-azure
+  controller: traefik
+  host: indiescale.in
+  tls: true
+  issuer: letsencrypt-azure
+  forceHttps: true
+  externalDns: false
+# Managed by the AIO platform Domains tab - edit there, not here
+routes:
+  - host: indiescale.in
+    path: "/"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: true
+    stripPrefix: false
+    externalDns: false
+  - host: scalesafe.capital
+    path: "/"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: true
+    forceHttps: true
+    wwwRedirect: true
+    stripPrefix: false
+    externalDns: false

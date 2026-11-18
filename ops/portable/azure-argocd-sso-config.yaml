@@ -1,0 +1,27 @@
+# Argo CD GitHub SSO configuration (merge-patches; apply with
+#   kubectl -n argocd patch cm argocd-cm --type merge --patch-file <argocd-cm part>
+#   kubectl -n argocd patch cm argocd-rbac-cm --type merge --patch-file <argocd-rbac-cm part>)
+# The OAuth client lives in Secret argocd-github-sso (keys clientID, clientSecret, label
+# app.kubernetes.io/part-of=argocd), created from D:/2026/AIO/.tools/argocd-github-oauth.env.
+# Never commit the secret values.
+#
+# --- argocd-cm ---
+data:
+  url: https://argocd.sarvaikam.com
+  admin.enabled: "false"
+  dex.config: |
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: $argocd-github-sso:clientID
+          clientSecret: $argocd-github-sso:clientSecret
+# --- argocd-rbac-cm ---
+# data:
+#   policy.default: ""            # signed-in GitHub users get nothing unless listed
+#   scopes: "[email, groups]"
+#   policy.github-sso.csv: |
+#     # GitHub user satrishabh (id 49035345); Dex subject is stable across email changes
+#     g, Cgg0OTAzNTM0NRIGZ2l0aHVi, role:admin
+#   policy.aio-native.csv: (AIO API account scoped to project apps; unchanged)

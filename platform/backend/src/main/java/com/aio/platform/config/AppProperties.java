@@ -27,14 +27,19 @@ public record AppProperties(
      * {@code issuer} the cert-manager ClusterIssuer (default {@code gts}: Google Trust Services, HTTP-01, plus
      * DNS-01 for the managed zone); {@code dnsZone} a domain suffix whose DNS is in Cloud DNS (external-dns creates
      * the records); {@code tls} turns on HTTPS for the generated default hosts.
+     *
+     * <p>Ingress: {@code ingressClass} is the IngressClass apps on this cluster use (unset keeps the chart default,
+     * {@code nginx}); {@code ingressController} is {@code nginx} or {@code traefik} and selects how the app chart
+     * expresses HTTPS/www redirects and prefix stripping (Traefik ignores ingress-nginx annotations).
      */
     public record Cluster(String name, String server, List<String> envs, String baseDomain, Boolean rollouts,
-                          String ingressIp, String issuer, String dnsZone, Boolean tls) {
+                          String ingressIp, String issuer, String dnsZone, Boolean tls,
+                          String ingressClass, String ingressController) {
         @org.springframework.boot.context.properties.bind.ConstructorBinding
         public Cluster {}   // the canonical constructor is the one bound from config
 
         public Cluster(String name, String server, List<String> envs, String baseDomain, Boolean rollouts) {
-            this(name, server, envs, baseDomain, rollouts, null, null, null, null);
+            this(name, server, envs, baseDomain, rollouts, null, null, null, null, null, null);
         }
     }
 

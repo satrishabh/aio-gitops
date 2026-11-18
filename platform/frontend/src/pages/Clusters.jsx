@@ -3,6 +3,7 @@ import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Empty, PageHead, Skeleton } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
+import CloudTargets from '../components/CloudTargets.jsx'
 
 const STATUS = { Successful: ['Healthy', 'Connected'], Failed: ['Degraded', 'Failed'], NotRegistered: ['Missing', 'Not registered'] }
 
@@ -38,7 +39,8 @@ export default function Clusters() {
                     <td><Badge value={tone} label={label} />
                       {c.message && <div className="muted" style={{ fontSize: '0.75rem', maxWidth: 320 }}>{c.message}</div>}</td>
                     <td className="mono">{c.version || '—'}</td>
-                    <td>{c.baseDomain ? <code>{c.baseDomain}</code> : <span className="muted">none (no ingress)</span>}</td>
+                    <td>{c.baseDomain ? <code>{c.baseDomain}</code> : <span className="muted">none (no ingress)</span>}
+                      {c.ingressClass && <div className="muted mono" style={{ fontSize: '0.75rem' }}>class {c.ingressClass} · {c.ingressController}</div>}</td>
                     <td>{c.rollouts ? <span className="badge green quiet">Argo Rollouts</span> : <span className="muted">rolling update</span>}</td>
                     <td className="mono">{c.argoApps ?? '—'}</td>
                   </tr>
@@ -52,6 +54,7 @@ export default function Clusters() {
         Changing which cluster an environment maps to moves its apps on the next platform start (dev, staging) — the old copy is
         deleted from the previous cluster. Prod only moves when an approver clicks <b>Repair environments</b> on a project.
       </p>
+      <CloudTargets />
     </>
   )
 }

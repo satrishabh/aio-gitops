@@ -74,10 +74,10 @@ public class ProfileOidcUserService extends OidcUserService {
         }
         boolean noPolicy = security.allowedUsers().isEmpty() && security.allowedRoles().isEmpty();
         if (noPolicy) {
-            if (!security.allowedOrgs().isEmpty()) return false;
-            log.warn("No allowed-users/allowed-roles configured; allowing OIDC user {}",
+            // Fail closed: with no allowlist configured, nobody gets in. Set ALLOWED_ROLES (or ALLOWED_USERS) to enable login.
+            log.warn("No allowed-users/allowed-roles configured; denying OIDC user {}",
                     ProfileIdentity.login(user));
-            return true;
+            return false;
         }
         boolean userAllowed = ProfileIdentity.allowlistCandidates(user).stream()
                 .anyMatch(security.allowedUsers()::contains);

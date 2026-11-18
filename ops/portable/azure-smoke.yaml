@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aio-migration-test
+  labels:
+    app.kubernetes.io/part-of: aio-migration-validation
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smoke-data
+  namespace: aio-migration-test
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: managed-csi
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: network-storage-smoke
+  namespace: aio-migration-test
+  labels:
+    app: aio-network-storage-smoke
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: smoke
+      image: registry.k8s.io/e2e-test-images/agnhost:2.53
+      args: [netexec, '--http-port=8080']
+      ports:
+        - containerPort: 8080
+      readinessProbe:
+        httpGet:
+          path: /hostname
+          port: 8080
+      resources:
+        requests: {cpu: 25m, memory: 32Mi}
+        limits: {cpu: 100m, memory: 128Mi}
+      volumeMounts:
+        - {name: data, mountPath: /data}
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: smoke-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smoke
+  namespace: aio-migration-test
+spec:
+  selector:
+    app: aio-network-storage-smoke
+  ports:
+    - {port: 8080, targetPort: 8080}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aio-image-check
+  namespace: aio-migration-test
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  containers:
+    - name: image-check
+      image: asia-south1-docker.pkg.dev/project-d28840cd-be2f-4901-85e/aio/aio-platform@sha256:6aeb3f6bdf3f8d21b933903aea5cc12a667a2fedbc58f9697367d880ec103805
+      command: [java, '-version']
+      resources:
+        requests: {cpu: 25m, memory: 64Mi}
+        limits: {cpu: 100m, memory: 128Mi}

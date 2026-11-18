@@ -1,0 +1,19 @@
+# Scheduling priority for user-facing AIO workloads and their database (14 Nov 2026).
+# On the Free Trial (4 vCPU cap = 2 nodes, no surge capacity) CPU requests are near full;
+# with this class, CI/tooling pods (priority 0) yield first instead of the sites or PostgreSQL.
+# Kubernetes/AKS system pods (system-cluster-critical, 2e9) still rank higher.
+#
+# Applied live (kubectl patch spec.template.spec.priorityClassName=aio-critical) to:
+#   aio-ingress/aio-azure-ingress-traefik, aio-platform/aio-platform,
+#   aio-validation/postgres-rehearsal (StatefulSet), dev/sarvaikam, dev/sarvaikam-home,
+#   dev/sarvaika-blog, dev/user-profile-manager.
+# Follow-up: add priorityClassName to helm/app and helm/aio-platform values and the Traefik
+# values so Helm/Argo renders carry it (Argo shows Synced because the chart does not set the field).
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: aio-critical
+value: 100000
+preemptionPolicy: PreemptLowerPriority
+globalDefault: false
+description: "User-facing AIO workloads and their database; scheduled before CI/tooling pods when capacity is short."

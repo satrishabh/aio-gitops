@@ -1,0 +1,613 @@
+﻿{
+  "observedAt": "2026-11-14T07:31:46.011742+00:00",
+  "backupSchemaSuffix": "_before_20261114073054",
+  "schemas": [
+    {
+      "sourceDatabase": "sarvaikam",
+      "targetSchema": "sarvaikam",
+      "snapshot": "000000EC-0000B4CB-1",
+      "tableCount": 14,
+      "rows": 320,
+      "snapshotFingerprintsMatched": true,
+      "tables": {
+        "access_audit": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "categories": {
+          "rows": 10,
+          "contentMatched": true
+        },
+        "content_documents": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "content_flyway_history": {
+          "rows": 7,
+          "contentMatched": true
+        },
+        "learning_path_outcomes": {
+          "rows": 18,
+          "contentMatched": true
+        },
+        "learning_path_topics": {
+          "rows": 41,
+          "contentMatched": true
+        },
+        "learning_paths": {
+          "rows": 6,
+          "contentMatched": true
+        },
+        "lesson_assets": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "lesson_bookmarks": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "lesson_progress": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "lessons": {
+          "rows": 202,
+          "contentMatched": true
+        },
+        "role_policies": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "topics": {
+          "rows": 34,
+          "contentMatched": true
+        },
+        "users": {
+          "rows": 1,
+          "contentMatched": true
+        }
+      }
+    },
+    {
+      "sourceDatabase": "sarvaikam_reels",
+      "targetSchema": "sarvaikam_reels",
+      "snapshot": "00000041-000066E3-1",
+      "tableCount": 2,
+      "rows": 1,
+      "snapshotFingerprintsMatched": true,
+      "tables": {
+        "flyway_schema_history": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "reels": {
+          "rows": 0,
+          "contentMatched": true
+        }
+      }
+    },
+    {
+      "sourceDatabase": "profile_manager",
+      "targetSchema": "profile_manager",
+      "snapshot": "00000086-000080F1-1",
+      "tableCount": 101,
+      "rows": 2517,
+      "snapshotFingerprintsMatched": true,
+      "tables": {
+        "admin_event_entity": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "associated_policy": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "auth_session": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "authentication_execution": {
+          "rows": 161,
+          "contentMatched": true
+        },
+        "authentication_flow": {
+          "rows": 60,
+          "contentMatched": true
+        },
+        "authenticator_config": {
+          "rows": 12,
+          "contentMatched": true
+        },
+        "authenticator_config_entry": {
+          "rows": 12,
+          "contentMatched": true
+        },
+        "broker_link": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "client": {
+          "rows": 25,
+          "contentMatched": true
+        },
+        "client_attributes": {
+          "rows": 38,
+          "contentMatched": true
+        },
+        "client_auth_flow_bindings": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "client_initial_access": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "client_node_registrations": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "client_scope": {
+          "rows": 45,
+          "contentMatched": true
+        },
+        "client_scope_attributes": {
+          "rows": 99,
+          "contentMatched": true
+        },
+        "client_scope_client": {
+          "rows": 254,
+          "contentMatched": true
+        },
+        "client_scope_role_mapping": {
+          "rows": 3,
+          "contentMatched": true
+        },
+        "cluster_event": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "component": {
+          "rows": 43,
+          "contentMatched": true
+        },
+        "component_config": {
+          "rows": 112,
+          "contentMatched": true
+        },
+        "composite_role": {
+          "rows": 144,
+          "contentMatched": true
+        },
+        "credential": {
+          "rows": 12,
+          "contentMatched": true
+        },
+        "databasechangelog": {
+          "rows": 237,
+          "contentMatched": true
+        },
+        "databasechangeloglock": {
+          "rows": 2,
+          "contentMatched": true
+        },
+        "default_client_scope": {
+          "rows": 42,
+          "contentMatched": true
+        },
+        "event_entity": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_issued_ver_credential": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_attribute": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_consent": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_consent_cl_scope": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_credential": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_group_membership": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_required_action": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_role_mapping": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "fed_user_ver_credential": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "federated_identity": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "federated_user": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "group_attribute": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "group_role_mapping": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "identity_provider": {
+          "rows": 3,
+          "contentMatched": true
+        },
+        "identity_provider_config": {
+          "rows": 11,
+          "contentMatched": true
+        },
+        "identity_provider_mapper": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "idp_mapper_config": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "issued_ver_credential": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "jgroups_ping": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "keycloak_group": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "keycloak_role": {
+          "rows": 155,
+          "contentMatched": true
+        },
+        "login_failure": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "migration_model": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "offline_client_session": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "offline_user_session": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "org": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "org_domain": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "org_identity_provider": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "org_invitation": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "outbox_entry": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "policy_config": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "protocol_mapper": {
+          "rows": 113,
+          "contentMatched": true
+        },
+        "protocol_mapper_config": {
+          "rows": 638,
+          "contentMatched": true
+        },
+        "realm": {
+          "rows": 3,
+          "contentMatched": true
+        },
+        "realm_attribute": {
+          "rows": 138,
+          "contentMatched": true
+        },
+        "realm_default_groups": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "realm_enabled_event_types": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "realm_events_listeners": {
+          "rows": 3,
+          "contentMatched": true
+        },
+        "realm_localizations": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "realm_required_credential": {
+          "rows": 3,
+          "contentMatched": true
+        },
+        "realm_smtp_config": {
+          "rows": 14,
+          "contentMatched": true
+        },
+        "realm_supported_locales": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "redirect_uris": {
+          "rows": 14,
+          "contentMatched": true
+        },
+        "required_action_config": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "required_action_provider": {
+          "rows": 42,
+          "contentMatched": true
+        },
+        "resource_attribute": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_policy": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_scope": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_server": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_server_perm_ticket": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_server_policy": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_server_resource": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_server_scope": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "resource_uris": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "revoked_token": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "role_attribute": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "root_auth_session": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "scope_mapping": {
+          "rows": 8,
+          "contentMatched": true
+        },
+        "scope_policy": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "server_config": {
+          "rows": 5,
+          "contentMatched": true
+        },
+        "single_use_object": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_attribute": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_consent": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_consent_client_scope": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_entity": {
+          "rows": 16,
+          "contentMatched": true
+        },
+        "user_federation_config": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_federation_mapper": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_federation_mapper_config": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_federation_provider": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "user_group_membership": {
+          "rows": 9,
+          "contentMatched": true
+        },
+        "user_required_action": {
+          "rows": 2,
+          "contentMatched": true
+        },
+        "user_role_mapping": {
+          "rows": 26,
+          "contentMatched": true
+        },
+        "user_ver_credential": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "web_origins": {
+          "rows": 8,
+          "contentMatched": true
+        },
+        "workflow_state": {
+          "rows": 0,
+          "contentMatched": true
+        }
+      }
+    },
+    {
+      "sourceDatabase": "sarvaika_blog",
+      "targetSchema": "sarvaika_blog",
+      "snapshot": "0000005A-0000B042-1",
+      "tableCount": 9,
+      "rows": 7,
+      "snapshotFingerprintsMatched": true,
+      "tables": {
+        "article": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "audit_event": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "distribution_draft": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "flyway_schema_history": {
+          "rows": 6,
+          "contentMatched": true
+        },
+        "idea": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "media_asset": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "page_layout": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "revision": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "site_settings": {
+          "rows": 1,
+          "contentMatched": true
+        }
+      }
+    },
+    {
+      "sourceDatabase": "aio",
+      "targetSchema": "aio_platform",
+      "snapshot": "0000005D-00009355-1",
+      "tableCount": 13,
+      "rows": 2248,
+      "snapshotFingerprintsMatched": true,
+      "tables": {
+        "app_users": {
+          "rows": 6,
+          "contentMatched": true
+        },
+        "audit_log": {
+          "rows": 732,
+          "contentMatched": true
+        },
+        "ci_runs": {
+          "rows": 185,
+          "contentMatched": true
+        },
+        "deployments": {
+          "rows": 130,
+          "contentMatched": true
+        },
+        "domains": {
+          "rows": 2,
+          "contentMatched": true
+        },
+        "env_status": {
+          "rows": 33,
+          "contentMatched": true
+        },
+        "flyway_schema_history": {
+          "rows": 9,
+          "contentMatched": true
+        },
+        "projects": {
+          "rows": 11,
+          "contentMatched": true
+        },
+        "promotions": {
+          "rows": 1,
+          "contentMatched": true
+        },
+        "run_steps": {
+          "rows": 1139,
+          "contentMatched": true
+        },
+        "scan_findings": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "scan_runs": {
+          "rows": 0,
+          "contentMatched": true
+        },
+        "scan_steps": {
+          "rows": 0,
+          "contentMatched": true
+        }
+      }
+    }
+  ],
+  "trafficCutoverComplete": false
+}

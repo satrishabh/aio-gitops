@@ -1,0 +1,42 @@
+# Temporary source-side PG18 client. Credentials remain in their existing GCP namespace.
+# Delete this pod after exports; it does not run a database server or application.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: aio-learn-export-client
+  namespace: dev
+  labels:
+    app.kubernetes.io/part-of: aio-migration-validation
+spec:
+  restartPolicy: Never
+  activeDeadlineSeconds: 3600
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    seccompProfile: {type: RuntimeDefault}
+  containers:
+    - name: exporter
+      image: postgres@sha256:a197bcc7150b0a7e35796ef0c110693cba6edd41e92b564cc50b976f17532423
+      command: [sleep, '3600']
+      env:
+        - {name: PGHOST, value: sarvaikam-cloudsql-proxy}
+        - {name: PGPORT, value: '5432'}
+        - {name: PGUSER, value: sarvaikam_app}
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sarvaikam-db
+              key: POSTGRES_PASSWORD
+        - name: REELS_PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: sarvaikam-db
+              key: REELS_DB_PASSWORD
+      resources:
+        requests: {cpu: 25m, memory: 64Mi}
+        limits: {cpu: 500m, memory: 256Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}

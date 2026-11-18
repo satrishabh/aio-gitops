@@ -1,0 +1,50 @@
+{
+  "observedAt": "2026-11-14T08:21:50.129821+00:00",
+  "nativeAzureRouting": true,
+  "writeAuthority": "Azure",
+  "azureToGcpForwardingRemoved": true,
+  "sourceApplicationWritersPaused": true,
+  "sourceArgoReconciliationPaused": true,
+  "aioWorkersEnabled": false,
+  "authenticatedBrowserAcceptanceRun": false,
+  "checks": [
+    {
+      "hostname": "sarvaikam.com",
+      "path": "/",
+      "route": "Azure direct",
+      "httpStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "hostname": "learn.sarvaikam.com",
+      "path": "/ready",
+      "route": "Azure direct",
+      "httpStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "hostname": "profile.sarvaikam.com",
+      "path": "/realms/sarvaikam/.well-known/openid-configuration",
+      "route": "Azure direct",
+      "httpStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "hostname": "blog.sarvaikam.com",
+      "path": "/",
+      "route": "Azure direct",
+      "httpStatus": 200,
+      "tlsVerified": true
+    },
+    {
+      "hostname": "app.sarvaikam.com",
+      "path": "/login",
+      "route": "Azure direct",
+      "httpStatus": 200,
+      "tlsVerified": true
+    }
+  ],
+  "azureRunningPodsNotReady": [],
+  "gcpCachedDnsForwardingActive": false,
+  "normalDnsMayUseRetiredGcpIp": true
+}

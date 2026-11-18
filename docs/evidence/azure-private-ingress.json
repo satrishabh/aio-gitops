@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "serviceType": "ClusterIP",
+  "testCertificate": "self-signed explicitly trusted for test only",
+  "publicDNSChanged": false,
+  "checks": [
+    {
+      "host": "learn.sarvaikam.com",
+      "path": "/ready",
+      "status": 200
+    },
+    {
+      "host": "learn.sarvaikam.com",
+      "path": "/api/content/reels",
+      "status": 200
+    },
+    {
+      "host": "sarvaikam.com",
+      "path": "/",
+      "status": 200
+    },
+    {
+      "host": "unmapped.sarvaikam.com",
+      "path": "/",
+      "status": 404
+    }
+  ]
+}

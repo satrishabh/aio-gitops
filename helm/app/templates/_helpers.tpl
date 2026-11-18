@@ -73,6 +73,13 @@ nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
 nginx.ingress.kubernetes.io/use-regex: "true"
 nginx.ingress.kubernetes.io/rewrite-target: /$2
 {{- end }}
+{{- with .rateLimit }}{{ if .enabled }}
+nginx.ingress.kubernetes.io/limit-rps: {{ .average | quote }}
+nginx.ingress.kubernetes.io/limit-burst-multiplier: {{ max 1 (div (add .burst .average -1) .average) | quote }}
+{{- if gt (int .maxConcurrent) 0 }}
+nginx.ingress.kubernetes.io/limit-connections: {{ .maxConcurrent | quote }}
+{{- end }}
+{{- end }}{{ end }}
 {{- end }}
 {{- if and .externalDns .host }}
 external-dns.alpha.kubernetes.io/hostname: {{ if .wwwRedirect }}{{ printf "%s,www.%s" .host .host | quote }}{{ else }}{{ .host | quote }}{{ end }}
@@ -95,9 +102,11 @@ annotations silently, so a cluster running Traefik must set ingress.controller: 
 {{- $c -}}
 {{- end -}}
 
-{{- /* Traefik middleware names for one Ingress (dict: name tls forceHttps wwwRedirect strip). */ -}}
+{{- /* Traefik middleware names for one Ingress (dict: name tls forceHttps wwwRedirect strip; app rateLimit for the
+       app-wide rate limit Middlewares, shared by all of the app's Ingresses). */ -}}
 {{- define "app.traefikMiddlewareNames" -}}
 {{- $names := list -}}
+{{- with .rateLimit }}{{ if .enabled }}{{ $names = append $names (printf "%s-ratelimit" $.app) }}{{ if gt (int .maxConcurrent) 0 }}{{ $names = append $names (printf "%s-inflight" $.app) }}{{ end }}{{ end }}{{ end -}}
 {{- if and .tls .forceHttps }}{{ $names = append $names (printf "%s-https" .name) }}{{ end -}}
 {{- if .wwwRedirect }}{{ $names = append $names (printf "%s-www" .name) }}{{ end -}}
 {{- if .strip }}{{ $names = append $names (printf "%s-strip" .name) }}{{ end -}}
@@ -147,5 +156,33 @@ spec:
   stripPrefix:
     prefixes: [{{ trimSuffix "/" .path | quote }}]
 ---
+{{- end }}
+{{- end -}}
+
+{{- /* App-wide Traefik rate limit Middlewares (rendered once; every Ingress of the app refers to them). */ -}}
+{{- define "app.traefikRateLimit" -}}
+{{- if .Values.rateLimit.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "app.name" . }}-ratelimit
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  rateLimit:
+    average: {{ int .Values.rateLimit.average }}
+    period: 1s
+    burst: {{ int .Values.rateLimit.burst }}
+---
+{{- if gt (int .Values.rateLimit.maxConcurrent) 0 }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "app.name" . }}-inflight
+  labels: {{- include "app.labels" . | nindent 4 }}
+spec:
+  inFlightReq:
+    amount: {{ int .Values.rateLimit.maxConcurrent }}
+---
+{{- end }}
 {{- end }}
 {{- end -}}

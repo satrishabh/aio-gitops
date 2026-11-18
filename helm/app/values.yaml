@@ -58,6 +58,16 @@ ingress:
   externalDns: false  # let external-dns create the DNS record (cluster has a managed zone)
   annotations: {}
 
+# Per-client-IP rate limiting at the ingress (off by default). Applies to the main host and every route.
+# Traefik: RateLimit / InFlightReq Middlewares; ingress-nginx: limit-rps / limit-connections annotations.
+# Needs real client IPs at the ingress controller (Service externalTrafficPolicy: Local), otherwise every
+# visitor arriving through the same node shares one bucket. Over the limit: HTTP 429 (Traefik) / 503 (nginx).
+rateLimit:
+  enabled: false
+  average: 20         # requests per second per client IP, sustained
+  burst: 50           # extra requests allowed in a short spike
+  maxConcurrent: 0    # requests open at the same time per client IP; 0 = no limit
+
 # Custom domains / path routes (written by the platform's Domains tab):
 # - { host: shop.example.com, path: /, tls: true, issuer: gts, certOwner: true,
 #     forceHttps: true, wwwRedirect: false, stripPrefix: false, externalDns: false }

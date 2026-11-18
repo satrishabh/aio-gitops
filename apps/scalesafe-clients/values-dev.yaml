@@ -4,7 +4,7 @@ nameOverride: scalesafe-clients
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-clients
-  tag: "e0677f6ff81d"
+  tag: "ec462bd15fae"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -16,7 +16,7 @@ envFrom:
       name: scalesafe-clients-pii
 env:
   - name: SCALESAFE_PII_KEK_PROVIDER
-    value: "local"   # dev: KEK from scalesafe-clients-pii; production: azure-key-vault
+    value: "local" # dev: KEK from scalesafe-clients-pii; production: azure-key-vault
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
   - name: SCALESAFE_CORS_ALLOWED_ORIGINS
@@ -28,7 +28,7 @@ env:
   - name: SCALESAFE_SAGA_BASE_URL
     value: "http://scalesafe-clients"
   - name: SCALESAFE_CONTACT_BASE_URL
-    value: "http://scalesafe-contact"   # submit needs the mobile verified (deploy scalesafe-contact first)
+    value: "http://scalesafe-contact" # submit needs the mobile verified (deploy scalesafe-contact first)
 resources:
   requests: {cpu: 25m, memory: 256Mi}
   limits: {cpu: 500m, memory: 512Mi}

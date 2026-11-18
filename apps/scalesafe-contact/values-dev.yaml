@@ -1,17 +1,49 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
+# AIO dev values for scalesafe-contact (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-contact/values-dev.yaml in
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
+# Mobile number verification (OTP). Dev runs the SANDBOX SMS provider: nothing is sent and the code is always 123456.
+nameOverride: scalesafe-contact
+replicaCount: 0   # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-contact
   tag: "0.0.0"
-# 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 0
 imagePullSecrets:
   - name: ghcr-pull
-pdb:
-  enabled: false
-ingress:
-  enabled: true
-  host: scalesafe-contact-dev.52.140.55.184.nip.io
-env: []
+containerPort: 8080
+envFrom:
+  - secretRef:
+      # SPRING_DATASOURCE_URL/_USERNAME/_PASSWORD (schema and role `contact`), SCALESAFE_SECURITY_ISSUER and
+      # SCALESAFE_SECURITY_JWKS_URI. No Keycloak client secret: contact-service makes no outbound service calls.
+      # Created in-cluster, never in git. A real SMS provider later adds its API key and DLT ids here.
+      name: scalesafe-contact-runtime
+env:
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+    value: "https://app.scalesafe.capital"
+  - name: SCALESAFE_PROVIDERS_MODE
+    value: "sandbox"
 resources:
-  requests: { cpu: "50m", memory: "128Mi" }
-  limits: { cpu: "500m", memory: "512Mi" }
+  requests: { cpu: 25m, memory: 256Mi }
+  limits: { cpu: 500m, memory: 512Mi }
+probes:
+  liveness:
+    path: /health/liveness
+    initialDelaySeconds: 180
+  readiness:
+    path: /health/readiness
+    initialDelaySeconds: 20
+ingress:
+  className: aio-azure
+  controller: traefik
+  enabled: false
+routes:
+  - host: api.scalesafe.capital
+    path: "/contact"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: false   # the orchestrator's route owns the api host certificate
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: true
+    externalDns: false

@@ -5,6 +5,9 @@ kind: ConfigMap
 metadata:
   name: scalesafe-keycloak-theme
   labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
+  # ~280 KB with the fonts: client-side apply would copy it into the last-applied-configuration annotation,
+  # which Kubernetes caps at 256 KB. Server-side apply keeps no such copy.
+  annotations: { argocd.argoproj.io/sync-options: ServerSideApply=true }
 data:
   resources__css__scalesafe.css: |
     /* ScaleSafe sign-in: same type, colours and controls as scalesafe.capital and the portals.

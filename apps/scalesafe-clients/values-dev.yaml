@@ -6,13 +6,13 @@ nameOverride: scalesafe-clients
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-clients
-  tag: "ec462bd15fae"
+  tag: "c34ef300fcf7"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
 envFrom:
   - secretRef:
-      name: scalesafe-clients-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
+      name: scalesafe-clients-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
 env:
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
@@ -37,8 +37,8 @@ env:
   - name: SCALESAFE_PARTNER_SERVICE_PUBLIC_URL
     value: "https://api.scalesafe.capital/partners"
 resources:
-  requests: { cpu: 25m, memory: 256Mi }
-  limits: { cpu: 500m, memory: 512Mi }
+  requests: {cpu: 25m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
 probes:
   liveness:
     path: /health/liveness
@@ -55,7 +55,7 @@ routes:
     path: "/clients"
     tls: true
     issuer: letsencrypt-azure
-    certOwner: false   # the orchestrator's route owns the api host certificate
+    certOwner: false # the orchestrator's route owns the api host certificate
     forceHttps: true
     wwwRedirect: false
     stripPrefix: true

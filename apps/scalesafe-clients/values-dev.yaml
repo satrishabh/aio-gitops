@@ -1,7 +1,9 @@
-# AIO dev values for scalesafe-clients (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-clients/values-dev.yaml in
+# Managed by AIO platform - image.tag is updated by CI / promotions
+# AIO dev values for scalesafe-clients (Azure AKS 'creative', namespace dev). Since the partner-model rename
+# (docs/PARTNER-MODEL.md) this is client-service, the old investor-service; the old client-service is scalesafe-partners. Copy to apps/scalesafe-clients/values-dev.yaml in
 # satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
 nameOverride: scalesafe-clients
-replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
+replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-clients
   tag: "ec462bd15fae"
@@ -10,28 +12,33 @@ imagePullSecrets:
 containerPort: 8080
 envFrom:
   - secretRef:
-      name: scalesafe-clients-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
-  # Personal-data keys (scalesafe-platform docs/DATA-PROTECTION.md); created in-cluster, never in git.
-  - secretRef:
-      name: scalesafe-clients-pii
+      name: scalesafe-clients-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
 env:
-  - name: SCALESAFE_PII_KEK_PROVIDER
-    value: "local" # dev: KEK from scalesafe-clients-pii; production: azure-key-vault
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
-  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
-    value: "https://app.scalesafe.capital,https://admin.scalesafe.capital,https://scalesafe.capital"
   - name: SCALESAFE_SAGA_ORCHESTRATOR_URL
     value: "http://scalesafe-orchestrator"
   - name: SCALESAFE_SAGA_SERVICE_NAME
     value: "client-service"
   - name: SCALESAFE_SAGA_BASE_URL
     value: "http://scalesafe-clients"
-  - name: SCALESAFE_CONTACT_BASE_URL
-    value: "http://scalesafe-contact" # submit needs the mobile verified (deploy scalesafe-contact first)
+  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+    # scalesafe.capital: the corporate site's newsletter form still posts to /clients/api/v1/public/** until it is
+    # updated; client-service answers it with a 308 to partner-service (docs/PARTNER-MODEL.md §6).
+    value: "https://app.scalesafe.capital,https://admin.scalesafe.capital,https://scalesafe.capital"
+  - name: SCALESAFE_CLIENT_PUBLIC_APP_URL
+    value: "https://app.scalesafe.capital"
+  - name: SCALESAFE_CLIENT_VERIFICATION_URL
+    value: "http://scalesafe-verification"
+  # partner-service: confirms a partner application is ACTIVE before ScaleSafe approves a partner workspace.
+  - name: SCALESAFE_PARTNER_SERVICE_URL
+    value: "http://scalesafe-partners"
+  # Old /clients/api/v1/public/** links (corporate site, confirmation e-mails) are redirected here.
+  - name: SCALESAFE_PARTNER_SERVICE_PUBLIC_URL
+    value: "https://api.scalesafe.capital/partners"
 resources:
-  requests: {cpu: 25m, memory: 256Mi}
-  limits: {cpu: 500m, memory: 512Mi}
+  requests: { cpu: 25m, memory: 256Mi }
+  limits: { cpu: 500m, memory: 512Mi }
 probes:
   liveness:
     path: /health/liveness
@@ -48,7 +55,7 @@ routes:
     path: "/clients"
     tls: true
     issuer: letsencrypt-azure
-    certOwner: false # one route per host owns the certificate
+    certOwner: false   # the orchestrator's route owns the api host certificate
     forceHttps: true
     wwwRedirect: false
     stripPrefix: true

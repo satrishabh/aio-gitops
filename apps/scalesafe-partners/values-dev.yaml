@@ -1,17 +1,57 @@
 # Managed by AIO platform - image.tag is updated by CI / promotions
+# AIO dev values for scalesafe-partners (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-partners/values-dev.yaml in
+# satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
+nameOverride: scalesafe-partners
+replicaCount: 0
 image:
   repository: ghcr.io/satrishabh/scalesafe-partners
   tag: "0.0.0"
-# 0 until a real image is deployed (avoids pulling the placeholder tag)
-replicaCount: 0
 imagePullSecrets:
   - name: ghcr-pull
-pdb:
-  enabled: false
-ingress:
-  enabled: true
-  host: scalesafe-partners-dev.52.140.55.184.nip.io
-env: []
+containerPort: 8080
+envFrom:
+  - secretRef:
+      name: scalesafe-partners-runtime   # DB credentials + Keycloak client secret; created in-cluster, never in git
+  # Personal-data keys (docs/DATA-PROTECTION.md §4): SCALESAFE_PII_KEK_LOCAL_KEYS, SCALESAFE_PII_KEK_LOCAL_CURRENT_KEY_ID,
+  # SCALESAFE_PII_BLIND_INDEX_KEY. Created in-cluster, never in git. The service does not start without it.
+  - secretRef:
+      name: scalesafe-partners-pii
+env:
+  # dev/preview: KEK from the Secret above. Production: azure-key-vault + SCALESAFE_PII_KEK_AZURE_KEY_ID +
+  # SCALESAFE_PII_REQUIRE_KMS=true + workload identity (docs/DATA-PROTECTION.md §4).
+  - name: SCALESAFE_PII_KEK_PROVIDER
+    value: "local"
+  - name: JAVA_TOOL_OPTIONS
+    value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+  - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+    value: "https://app.scalesafe.capital,https://admin.scalesafe.capital,https://scalesafe.capital"
+  - name: SCALESAFE_SAGA_ORCHESTRATOR_URL
+    value: "http://scalesafe-orchestrator"
+  - name: SCALESAFE_SAGA_SERVICE_NAME
+    value: "partner-service"
+  - name: SCALESAFE_SAGA_BASE_URL
+    value: "http://scalesafe-partners"
 resources:
-  requests: { cpu: "50m", memory: "128Mi" }
-  limits: { cpu: "500m", memory: "512Mi" }
+  requests: { cpu: 25m, memory: 256Mi }
+  limits: { cpu: 500m, memory: 512Mi }
+probes:
+  liveness:
+    path: /health/liveness
+    initialDelaySeconds: 180
+  readiness:
+    path: /health/readiness
+    initialDelaySeconds: 20
+ingress:
+  className: aio-azure
+  controller: traefik
+  enabled: false
+routes:
+  - host: api.scalesafe.capital
+    path: "/partners"
+    tls: true
+    issuer: letsencrypt-azure
+    certOwner: false   # one route per host owns the certificate
+    forceHttps: true
+    wwwRedirect: false
+    stripPrefix: true
+    externalDns: false

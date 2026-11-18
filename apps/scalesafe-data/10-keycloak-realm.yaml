@@ -28,8 +28,8 @@ data:
       "roles": {
         "realm": [
           {
-            "name": "client",
-            "description": "Client portal user (own data only)"
+            "name": "partner",
+            "description": "Partner portal user: own partner application and KYC only (self-registration default)"
           },
           {
             "name": "ops",
@@ -48,16 +48,16 @@ data:
             "description": "Orchestrator calling participant saga actions"
           },
           {
-            "name": "firm-maker",
-            "description": "Firm staff: create and prepare investor cases"
+            "name": "partner-maker",
+            "description": "Partner staff: create and prepare client cases"
           },
           {
-            "name": "firm-checker",
-            "description": "Firm staff: approve or return investor cases (not their own)"
+            "name": "partner-checker",
+            "description": "Partner staff: approve or return client cases (not their own)"
           },
           {
-            "name": "firm-admin",
-            "description": "Firm admin: dashboard, rules overrides"
+            "name": "partner-manager",
+            "description": "Partner manager: dashboard, rules overrides"
           },
           {
             "name": "default-roles-scalesafe",
@@ -65,7 +65,7 @@ data:
             "composite": true,
             "composites": {
               "realm": [
-                "client"
+                "partner"
               ]
             }
           }
@@ -77,7 +77,7 @@ data:
       "clients": [
         {
           "clientId": "scalesafe-app",
-          "name": "ScaleSafe client portal",
+          "name": "ScaleSafe partner portal",
           "enabled": true,
           "publicClient": true,
           "standardFlowEnabled": true,
@@ -153,10 +153,10 @@ data:
           "serviceAccountsEnabled": true
         },
         {
-          "clientId": "client-service",
+          "clientId": "partner-service",
           "enabled": true,
           "publicClient": false,
-          "secret": "${SCALESAFE_CS_CLIENT_SERVICE}",
+          "secret": "${SCALESAFE_CS_PARTNER_SERVICE}",
           "standardFlowEnabled": false,
           "directAccessGrantsEnabled": false,
           "serviceAccountsEnabled": true
@@ -171,10 +171,10 @@ data:
           "serviceAccountsEnabled": true
         },
         {
-          "clientId": "investor-service",
+          "clientId": "client-service",
           "enabled": true,
           "publicClient": false,
-          "secret": "${SCALESAFE_CS_INVESTOR_SERVICE}",
+          "secret": "${SCALESAFE_CS_CLIENT_SERVICE}",
           "standardFlowEnabled": false,
           "directAccessGrantsEnabled": false,
           "serviceAccountsEnabled": true
@@ -208,9 +208,9 @@ data:
           ]
         },
         {
-          "username": "service-account-client-service",
+          "username": "service-account-partner-service",
           "enabled": true,
-          "serviceAccountClientId": "client-service",
+          "serviceAccountClientId": "partner-service",
           "realmRoles": [
             "saga-participant"
           ]
@@ -224,9 +224,9 @@ data:
           ]
         },
         {
-          "username": "service-account-investor-service",
+          "username": "service-account-client-service",
           "enabled": true,
-          "serviceAccountClientId": "investor-service",
+          "serviceAccountClientId": "client-service",
           "realmRoles": [
             "saga-participant"
           ]

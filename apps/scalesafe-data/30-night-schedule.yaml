@@ -28,7 +28,7 @@ rules:
   - apiGroups: [apps]
     resources: [deployments, deployments/scale]
     verbs: [get, patch]
-    resourceNames: [scalesafe-keycloak, scalesafe-orchestrator, scalesafe-clients, scalesafe-kyc, scalesafe-investors,
+    resourceNames: [scalesafe-keycloak, scalesafe-orchestrator, scalesafe-partners, scalesafe-kyc, scalesafe-clients,
                     scalesafe-verification, scalesafe-esign, scalesafe-app, scalesafe-admin, scalesafe-site]
   - apiGroups: [apps]
     resources: [statefulsets, statefulsets/scale]
@@ -61,7 +61,7 @@ data:
     NS = "dev"
     SAVED = "scalesafe.co.in/night-saved-autosync"
     DEFAULT_AUTOSYNC = {"prune": True, "selfHeal": True}  # what AIO sets on every new dev app
-    APPS = ["scalesafe-orchestrator", "scalesafe-clients", "scalesafe-kyc", "scalesafe-investors",
+    APPS = ["scalesafe-orchestrator", "scalesafe-partners", "scalesafe-kyc", "scalesafe-clients",
             "scalesafe-verification", "scalesafe-esign", "scalesafe-app", "scalesafe-admin", "scalesafe-site"]
     TOKEN = open(SA + "/token").read().strip()
     CTX = ssl.create_default_context(cafile=SA + "/ca.crt")

@@ -1,7 +1,8 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
 # AIO dev values for scalesafe-admin (Azure AKS 'creative', namespace dev). Copy to apps/scalesafe-admin/values-dev.yaml in
 # satrishabh/aio-gitops. image.tag is set by CI/release to the scanned digest. Pre-corporate staging on scalesafe.capital.
 nameOverride: scalesafe-admin
-replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
+replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-admin
   tag: "ec462bd15fae"
@@ -13,27 +14,27 @@ env:
     value: "scalesafe-admin"
   - name: SCALESAFE_API_ORCHESTRATOR
     value: "https://api.scalesafe.capital/orchestrator"
-  - name: SCALESAFE_API_CLIENTS
-    value: "https://api.scalesafe.capital/clients"
+  - name: SCALESAFE_API_PARTNERS
+    value: "https://api.scalesafe.capital/partners"
   - name: SCALESAFE_API_KYC
     value: "https://api.scalesafe.capital/kyc"
-  - name: SCALESAFE_API_INVESTORS
-    value: "https://api.scalesafe.capital/investors"
+  - name: SCALESAFE_API_CLIENTS
+    value: "https://api.scalesafe.capital/clients"
   - name: SCALESAFE_API_VERIFICATION
     value: "https://api.scalesafe.capital/verification"
   - name: SCALESAFE_API_ESIGN
     value: "https://api.scalesafe.capital/esign"
   - name: SCALESAFE_LEGAL_SITE
-    value: "https://scalesafe.capital" # footer legal links; production leaves this unset (scalesafe.co.in)
+    value: "https://scalesafe.capital"   # footer legal links; production leaves this unset (scalesafe.co.in)
   - name: SCALESAFE_OIDC_AUTHORITY
-    value: "https://id.scalesafe.capital/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
+    value: "https://id.scalesafe.capital/realms/scalesafe"   # open decision: see docs/ARCHITECTURE.md section 9
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 101
   fsGroup: 101
 resources:
-  requests: {cpu: 10m, memory: 16Mi}
-  limits: {cpu: 100m, memory: 64Mi}
+  requests: { cpu: 10m, memory: 16Mi }
+  limits: { cpu: 100m, memory: 64Mi }
 probes:
   liveness:
     path: /health

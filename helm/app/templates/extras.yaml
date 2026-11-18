@@ -1,4 +1,7 @@
 {{- $controller := include "app.ingressController" .Values.ingress.controller }}
+{{- if and (eq $controller "traefik") (or .Values.ingress.enabled .Values.routes) }}
+{{- include "app.traefikRateLimit" . }}
+{{- end }}
 {{- if .Values.ingress.enabled }}
 {{- if eq $controller "traefik" }}
 {{- include "app.traefikMiddlewares" (dict "name" (include "app.name" .) "labels" (include "app.labels" .)
@@ -12,7 +15,7 @@ metadata:
   {{- with (include "app.ingressAnnotations" (dict "tls" .Values.ingress.tls "issuer" .Values.ingress.issuer "certOwner" true
         "forceHttps" .Values.ingress.forceHttps "externalDns" .Values.ingress.externalDns "host" .Values.ingress.host
         "extra" .Values.ingress.annotations "controller" $controller "name" (include "app.name" .)
-        "namespace" .Release.Namespace)) }}
+        "namespace" .Release.Namespace "rateLimit" .Values.rateLimit "app" (include "app.name" .))) }}
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:
@@ -54,7 +57,8 @@ metadata:
     aio.platform/route-host: {{ .host | replace "." "-" | trunc 63 | trimSuffix "-" | quote }}
   {{- with (include "app.ingressAnnotations" (dict "tls" .tls "issuer" .issuer "certOwner" .certOwner "forceHttps" .forceHttps
         "externalDns" .externalDns "host" .host "wwwRedirect" .wwwRedirect "strip" $strip
-        "controller" $controller "name" $ing "namespace" $.Release.Namespace)) }}
+        "controller" $controller "name" $ing "namespace" $.Release.Namespace
+        "rateLimit" $.Values.rateLimit "app" (include "app.name" $))) }}
   annotations: {{- . | nindent 4 }}
   {{- end }}
 spec:

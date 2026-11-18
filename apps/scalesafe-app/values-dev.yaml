@@ -25,6 +25,10 @@ env:
     value: "https://api.scalesafe.capital/esign"
   - name: SCALESAFE_LEGAL_SITE
     value: "https://scalesafe.capital" # footer legal links; production leaves this unset (scalesafe.co.in)
+  - name: SCALESAFE_ADMIN_SITE
+    value: "https://admin.scalesafe.capital" # app./admin and staff sign-ins redirect here
+  - name: SCALESAFE_API_CONTACT
+    value: "https://api.scalesafe.capital/contact"
   - name: SCALESAFE_OIDC_AUTHORITY
     value: "https://id.scalesafe.capital/realms/scalesafe" # open decision: see docs/ARCHITECTURE.md section 9
 podSecurityContext:

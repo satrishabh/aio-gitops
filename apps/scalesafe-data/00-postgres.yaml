@@ -61,14 +61,16 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, fsGroup: 70, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: postgres
-          image: postgres:17-alpine
+          # Pinned (was the floating 17-alpine). Runs as uid 70, so the entrypoint never uses gosu (its Go stdlib
+          # CVEs are not reachable here); read-only root with /tmp and the socket directory as emptyDirs.
+          image: postgres:17.12-alpine
           ports: [{ name: postgres, containerPort: 5432 }]
           env:
             - { name: POSTGRES_DB, value: scalesafe }
             - { name: POSTGRES_USER, value: postgres }
             - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
           envFrom: [{ secretRef: { name: scalesafe-postgres } }]
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
           resources:
             requests: { cpu: 25m, memory: 128Mi }
             limits: { cpu: 500m, memory: 512Mi }
@@ -78,9 +80,11 @@ spec:
             - { name: data, mountPath: /var/lib/postgresql/data }
             - { name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
             - { name: run, mountPath: /var/run/postgresql }
+            - { name: tmp, mountPath: /tmp }
       volumes:
         - { name: init, configMap: { name: scalesafe-postgres-init } }
         - { name: run, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
   volumeClaimTemplates:
     - metadata: { name: data }
       spec: { accessModes: [ReadWriteOnce], storageClassName: managed-csi, resources: { requests: { storage: 8Gi } } }

@@ -181,7 +181,7 @@ spec:
           securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile: { type: RuntimeDefault } }
           containers:
             - name: scale
-              image: python:3.13.1-alpine3.21
+              image: cgr.dev/chainguard/python@sha256:d2711a21a494fa5c2efbfcf4226268395bad5d03406083ed0f3e7bed5199cfb2  # Chainguard Python (no pip/setuptools, 0 HIGH/CRITICAL on 2026-11-19); stdlib-only script
               command: [python, -I, -B, -u, /script/night.py, down]
               securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
               resources:
@@ -218,7 +218,7 @@ spec:
           securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, seccompProfile: { type: RuntimeDefault } }
           containers:
             - name: scale
-              image: python:3.13.1-alpine3.21
+              image: cgr.dev/chainguard/python@sha256:d2711a21a494fa5c2efbfcf4226268395bad5d03406083ed0f3e7bed5199cfb2  # Chainguard Python (no pip/setuptools, 0 HIGH/CRITICAL on 2026-11-19); stdlib-only script
               command: [python, -I, -B, -u, /script/night.py, up]
               securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
               resources:

@@ -12,7 +12,13 @@ containerPort: 8080
 envFrom:
   - secretRef:
       name: scalesafe-esign-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
+  # Personal-data keys of THIS service (docs/DATA-PROTECTION.md §4); created in-cluster by
+  # deploy/infra/create_pii_secrets.py, never in git, never shared with another service.
+  - secretRef:
+      name: scalesafe-esign-pii
 env:
+  - name: SCALESAFE_PII_KEK_PROVIDER   # dev: KEK from the Secret above; production: azure-key-vault
+    value: "local"
   # Module entitlements per partner (docs/PARTNER-MODEL.md §3.2), read from client-service; fail closed without it.
   - name: SCALESAFE_MODULES_ENTITLEMENTS_URL
     value: "http://scalesafe-clients"

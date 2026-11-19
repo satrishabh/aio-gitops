@@ -13,7 +13,13 @@ containerPort: 8080
 envFrom:
   - secretRef:
       name: scalesafe-clients-runtime # DB credentials + Keycloak client secret; created in-cluster, never in git
+  # Personal-data keys of THIS service (docs/DATA-PROTECTION.md §4); created in-cluster by
+  # deploy/infra/create_pii_secrets.py, never in git, never shared with another service.
+  - secretRef:
+      name: scalesafe-clients-pii-v2
 env:
+  - name: SCALESAFE_PII_KEK_PROVIDER   # dev: KEK from the Secret above; production: azure-key-vault
+    value: "local"
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
   - name: SCALESAFE_SAGA_ORCHESTRATOR_URL

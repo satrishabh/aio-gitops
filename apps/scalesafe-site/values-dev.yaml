@@ -6,7 +6,7 @@ nameOverride: scalesafe-site
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-site
-  tag: sha256:f2b9dfe25a47164a46c6e190175d6121fc9a85e6b7bdb2d51e455815974256b4
+  tag: "8949864314e5"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

@@ -31,6 +31,9 @@ env:
     value: "partner-service"
   - name: SCALESAFE_SAGA_BASE_URL
     value: "http://scalesafe-partners"
+  # Retention cleanup (docs/DATA-PROTECTION.md §7a): the dev cluster sleeps 23:00-08:00 IST, so 22:30 IST here.
+  - name: SCALESAFE_DATA_PROTECTION_RETENTION_JOB_CRON
+    value: "0 30 22 * * *"
 resources:
   requests: {cpu: 25m, memory: 256Mi}
   limits: {cpu: 500m, memory: 512Mi}

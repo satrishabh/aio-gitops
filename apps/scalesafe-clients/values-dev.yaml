@@ -6,7 +6,7 @@ nameOverride: scalesafe-clients
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-clients
-  tag: "c34ef300fcf7"
+  tag: "d1fbbf4c7428"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

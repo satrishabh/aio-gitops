@@ -25,7 +25,7 @@ spec:
       securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:26.0.7
+          image: quay.io/keycloak/keycloak:26.8.2
           args: [start, --import-realm]
           ports: [{ name: http, containerPort: 8080 }, { name: management, containerPort: 9000 }]
           env:

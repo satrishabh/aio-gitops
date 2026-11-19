@@ -120,6 +120,9 @@ app:
     cloud: ${CLOUD_PROVIDER:any}
     # installation name selecting site-<site>.yaml overlays (domains, issuer, ingress), e.g. sarvaikam
     site: ${CONNECTORS_SITE:}
+    # New apps' dev/staging values get spot.enabled when the node-autoprovisioning connector is installed on
+    # this cluster (CLOUD_PROVIDER aks or gke). auto | off. Existing apps are never changed.
+    spot-for-new-apps: ${SPOT_FOR_NEW_APPS:auto}
   security:
     # Comma-separated OIDC usernames/emails and/or AIO client roles. If all are empty, any realm user can log in.
     allowed-users: ${ALLOWED_USERS:}

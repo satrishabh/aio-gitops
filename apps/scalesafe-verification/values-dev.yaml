@@ -5,7 +5,7 @@ nameOverride: scalesafe-verification
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-verification
-  tag: "f3ea7013397c"
+  tag: "58fb70681f9c"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -17,7 +17,7 @@ envFrom:
   - secretRef:
       name: scalesafe-verification-pii
 env:
-  - name: SCALESAFE_PII_KEK_PROVIDER   # dev: KEK from the Secret above; production: azure-key-vault
+  - name: SCALESAFE_PII_KEK_PROVIDER # dev: KEK from the Secret above; production: azure-key-vault
     value: "local"
   # Module entitlements per partner (docs/PARTNER-MODEL.md §3.2), read from client-service; fail closed without it.
   - name: SCALESAFE_MODULES_ENTITLEMENTS_URL

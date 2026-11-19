@@ -4,7 +4,7 @@ nameOverride: scalesafe-kyc
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-kyc
-  tag: "a2d68683c0cb"
+  tag: "f3ea7013397c"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

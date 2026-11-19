@@ -50,3 +50,5 @@ routes:
     wwwRedirect: false
     stripPrefix: true
     externalDns: false
+replicaCount: 0
+scaledDown: true

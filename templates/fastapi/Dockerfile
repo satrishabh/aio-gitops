@@ -7,6 +7,8 @@ COPY . .
 RUN python -m pytest -q && touch /tests-passed
 
 FROM python:3.12-alpine
+# Changes daily (set by AIO CI) so this layer is never served stale from the build cache.
+ARG AIO_PATCH_DATE
 RUN apk upgrade --no-cache && addgroup -S app -g 10001 && adduser -S app -u 10001 -G app
 WORKDIR /app
 COPY requirements.txt .

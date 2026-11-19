@@ -107,7 +107,10 @@ spec:
           echo "Skipped: building with buildpacks."; exit 0
         fi
         CACHE="$IMAGE-cache:buildkit"
-        buildctl-daemonless.sh build           --frontend dockerfile.v0           --local context="$SRC/$CONTEXT"           --local dockerfile="$SRC/$(dirname "$DOCKERFILE")"           --opt filename="$(basename "$DOCKERFILE")"           --output type=image,name="$IMAGE:$TAG",push=true           --import-cache type=registry,ref="$CACHE"           --export-cache type=registry,ref="$CACHE",mode=max,ignore-error=true           --metadata-file /tmp/metadata.json
+        # Dockerfiles declare `ARG AIO_PATCH_DATE` before `RUN apk upgrade`; a new value each day stops the
+        # registry cache from serving a stale upgrade layer (see buildkit-build-push.yaml).
+        PATCH_DATE=$(date -u +%Y-%m-%d)
+        buildctl-daemonless.sh build           --opt build-arg:AIO_PATCH_DATE="$PATCH_DATE"           --frontend dockerfile.v0           --local context="$SRC/$CONTEXT"           --local dockerfile="$SRC/$(dirname "$DOCKERFILE")"           --opt filename="$(basename "$DOCKERFILE")"           --output type=image,name="$IMAGE:$TAG",push=true           --import-cache type=registry,ref="$CACHE"           --export-cache type=registry,ref="$CACHE",mode=max,ignore-error=true           --metadata-file /tmp/metadata.json
         DIGEST=$(grep -o '"containerimage.digest": *"sha256:[0-9a-f]*"' /tmp/metadata.json | grep -o 'sha256:[0-9a-f]*' || true)
         if [ -z "$DIGEST" ]; then echo "no image digest in build metadata:"; cat /tmp/metadata.json; exit 1; fi
         printf "%s" "$DIGEST" > "$DIGEST_PATH"

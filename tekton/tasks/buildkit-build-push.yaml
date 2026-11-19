@@ -63,7 +63,12 @@ spec:
         #!/bin/sh
         set -eu
         CACHE="$IMAGE-cache:buildkit"
+        # The registry cache keys `RUN apk upgrade` only on the base layer + command text, so it kept serving the
+        # first upgraded layer forever and new OS fixes (e.g. openssl 3.5.9-r1) never reached the image.
+        # Dockerfiles declare `ARG AIO_PATCH_DATE` before that RUN; a new value each day forces it to re-run.
+        PATCH_DATE=$(date -u +%Y-%m-%d)
         buildctl-daemonless.sh build \
+          --opt build-arg:AIO_PATCH_DATE="$PATCH_DATE" \
           --frontend dockerfile.v0 \
           --local context="$SRC/$CONTEXT" \
           --local dockerfile="$SRC/$(dirname "$DOCKERFILE")" \

@@ -1,12 +1,12 @@
 # Azure AKS 'creative' (dev). scalesafe.co.in marketing site: static nginx on 8080.
 # Pre-corporate staging on indiescale.in. scalesafe.co.in DNS stays on Cloudflare until cutover.
-# Source: github.com/satrishabh/scalesafe @ e370a78bd704, built by ci/scalesafe-site-ci-lbx5g
+# Source: github.com/satrishabh/scalesafe @ 0ab0c54effef, built by ci/scalesafe-site-ci-tm2sv
 # (Trivy HIGH/CRITICAL gate: critical=0 high=0 medium=0 low=0)
 nameOverride: scalesafe-site
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-site
-  tag: 0ab0c54effef
+  tag: sha256:f2b9dfe25a47164a46c6e190175d6121fc9a85e6b7bdb2d51e455815974256b4
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

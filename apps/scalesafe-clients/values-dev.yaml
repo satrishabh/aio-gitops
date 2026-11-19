@@ -6,7 +6,7 @@ nameOverride: scalesafe-clients
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-clients
-  tag: "f3ea7013397c"
+  tag: "58fb70681f9c"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -18,7 +18,7 @@ envFrom:
   - secretRef:
       name: scalesafe-clients-pii-v2
 env:
-  - name: SCALESAFE_PII_KEK_PROVIDER   # dev: KEK from the Secret above; production: azure-key-vault
+  - name: SCALESAFE_PII_KEK_PROVIDER # dev: KEK from the Secret above; production: azure-key-vault
     value: "local"
   - name: JAVA_TOOL_OPTIONS
     value: "-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"

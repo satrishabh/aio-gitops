@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api.js'
+import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { useToast } from '../components/Toast.jsx'
-import { Avatar, Empty, PageHead, Skeleton, Tabs, ago } from '../components/ui.jsx'
+import { Avatar, Empty, Loading, PageHead, Skeleton, Tabs, ago } from '../components/ui.jsx'
 
 const CATEGORIES = [
   ['ui-dashboard', 'UI dashboards'], ['admin', 'Admin panels'], ['landing', 'Landing pages'],
@@ -12,6 +13,23 @@ const CATEGORIES = [
 ]
 const LANGS = ['', 'TypeScript', 'JavaScript', 'Java', 'Python', 'Go', 'Vue', 'HTML']
 const STEPS = ['Create repository from template', 'Add Dockerfile if needed', 'Onboard project (GitOps + Argo CD)', 'Start first CI run']
+
+/** Card-shaped placeholders matching a template card: avatar + name, description lines, tags, actions. */
+function TemplatesSkeleton() {
+  return (
+    <Loading label="Loading templates" className="tpl-grid">
+      {[0, 1, 2, 3, 4, 5].map(i => (
+        <div key={i} className="card tpl sk-tpl">
+          <div className="tpl-head"><Skeleton bare h={34} w={34} className="round" />
+            <div className="sk-stack"><Skeleton bare h={13} w="60%" className="line" /><Skeleton bare h={10} w="35%" className="line" /></div></div>
+          <div className="sk-stack"><Skeleton bare h={10} className="line" /><Skeleton bare h={10} w="85%" className="line" /></div>
+          <div className="sk-row"><Skeleton bare h={20} w={70} className="line" /><Skeleton bare h={20} w={56} className="line" /></div>
+          <div className="sk-row sk-end"><Skeleton bare h={30} w={110} /></div>
+        </div>
+      ))}
+    </Loading>
+  )
+}
 
 export default function Templates() {
   const [source, setSource] = useState('starters')
@@ -44,37 +62,37 @@ export default function Templates() {
       ]} />
 
       {source === 'community' && (
-        <div className="card" style={{ marginBottom: 18 }}>
+        <div className="card tpl-filters">
           <div className="chips">
             {CATEGORIES.map(([id, label]) => (
               <button key={id} type="button" aria-pressed={category === id} className={`chip${category === id ? ' active' : ''}`} onClick={() => setCategory(category === id ? '' : id)}>{label}</button>
             ))}
           </div>
-          <form className="row" style={{ marginTop: 12, gap: 10 }} onSubmit={e => { e.preventDefault(); setQuery(q) }}>
-            <div className="search" style={{ flex: 1, margin: 0 }}><Icon name="search" size={15} />
+          <form className="row tpl-search" onSubmit={e => { e.preventDefault(); setQuery(q) }}>
+            <div className="search"><Icon name="search" size={15} />
               <input type="search" aria-label="Search open-source templates" placeholder="Search open-source templates, e.g. tailwind, shadcn, material…" value={q} onChange={e => setQ(e.target.value)} />
             </div>
-            <select aria-label="Language" value={language} onChange={e => setLanguage(e.target.value)} style={{ width: 160 }}>
+            <select aria-label="Language" value={language} onChange={e => setLanguage(e.target.value)}>
               {LANGS.map(l => <option key={l} value={l}>{l || 'Any language'}</option>)}
             </select>
             <button className="btn">Search</button>
           </form>
-          <p className="muted" style={{ marginTop: 10, fontSize: '0.8rem' }}>
+          <p className="muted small-print tpl-note">
             Live results from GitHub repositories marked as templates, sorted by stars. Each keeps its own license — check it before use.
           </p>
         </div>
       )}
 
       {source === 'mine' && (
-        <p className="muted" style={{ marginBottom: 14 }}>
+        <p className="muted tpl-note-mine">
           Repos you mark as templates with the <code>aio-template</code> topic. Use <b>Save as template</b> in a project's Settings to add one.
         </p>
       )}
 
       {error && <p className="error">{error}</p>}
-      {items == null ? <div className="tpl-grid"><Skeleton h={170} count={6} /></div>
+      {items == null ? <TemplatesSkeleton />
         : items.length === 0 ? (
-          <div className="card"><Empty icon="box" title="No templates found">
+          <div className="card"><Empty icon={source === 'community' ? 'search' : 'layers'} title="No templates found">
             {source === 'mine' ? 'Save one of your projects as a template to reuse it here.' : 'Try another category or search term.'}
           </Empty></div>
         ) : (
@@ -83,18 +101,17 @@ export default function Templates() {
               <div key={t.fullName} className="card tpl">
                 <div className="tpl-head">
                   {t.avatarUrl ? <img src={t.avatarUrl} alt="" /> : <Avatar name={t.name} size={34} />}
-                  <div style={{ minWidth: 0 }}>
+                  <div className="tpl-name">
                     <b title={t.fullName}>{t.source === 'starters' ? t.name.replace('aio-template-', '') : t.name}</b>
                     <span className="muted">{t.owner}</span>
                   </div>
                 </div>
                 <p className="tpl-desc">{t.description || 'No description.'}</p>
                 <div className="tpl-meta">
-                  {t.aioReady && <span className="badge green">AIO-ready</span>}
-                  {t.language && <span className="badge gray">{t.language}</span>}
-                  {t.license && t.license !== 'NOASSERTION' && <span className="badge gray">{t.license}</span>}
-                  <span className="muted"><Icon name="star" size={12} /> {t.stars}</span>
-                  <span className="muted">· {ago(t.pushedAt)}</span>
+                  {t.aioReady && <Badge tone="green" label="AIO-ready" />}
+                  {t.language && <Badge tone="gray" label={t.language} quiet />}
+                  {t.license && t.license !== 'NOASSERTION' && <Badge tone="gray" label={t.license} quiet />}
+                  <span className="muted tpl-stats"><Icon name="star" size={12} /><span className="sr-only">Stars:</span> {t.stars} · {ago(t.pushedAt)}</span>
                 </div>
                 <div className="tpl-actions">
                   <a className="btn small ghost" href={t.url} target="_blank" rel="noreferrer"><Icon name="external" size={13} />View</a>
@@ -175,17 +192,17 @@ function UsePanel({ template, onClose }) {
         {ins && (
           <div className="inspect">
             <div className="tpl-meta">
-              <span className="badge gray">{ins.stack}</span>
-              {ins.hasDockerfile ? <span className="badge green">Dockerfile included</span>
-                : ins.canContainerize ? <span className="badge blue">Dockerfile will be added</span>
-                  : <span className="badge red">Not auto-deployable</span>}
-              {!ins.isTemplate && <span className="badge red">not a template repo</span>}
-              {ins.license && <span className="badge gray">{ins.license}</span>}
+              <Badge tone="gray" label={ins.stack} quiet />
+              {ins.hasDockerfile ? <Badge tone="green" label="Dockerfile included" />
+                : ins.canContainerize ? <Badge tone="blue" label="Dockerfile will be added" quiet />
+                  : <Badge tone="red" label="Not auto-deployable" />}
+              {!ins.isTemplate && <Badge tone="red" label="not a template repo" />}
+              {ins.license && <Badge tone="gray" label={ins.license} quiet />}
             </div>
-            <p className="muted" style={{ fontSize: '0.84rem' }}>{ins.note}</p>
+            <p className="muted small-print">{ins.note}</p>
           </div>
         )}
-        <form className="form" style={{ maxWidth: 'none', margin: 0, padding: 0 }} onSubmit={create}>
+        <form className="form tpl-form" onSubmit={create}>
           <label>New repository / project name
             <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} disabled={busy} />
           </label>
@@ -208,11 +225,10 @@ function UsePanel({ template, onClose }) {
             ))}
           </ol>
           {error && <p className="error">{error}</p>}
-          <button className={`btn primary${busy ? ' busy' : ''}`} disabled={busy || !ins || !ins.canContainerize || !ins.isTemplate}
-                  style={{ width: '100%', justifyContent: 'center', padding: 11 }}>
+          <button className={`btn primary block${busy ? ' busy' : ''}`} disabled={busy || !ins || !ins.canContainerize || !ins.isTemplate}>
             <Icon name="rocket" size={15} />{busy ? 'Creating…' : 'Create repo & deploy'}
           </button>
-          <p className="muted" style={{ fontSize: '0.78rem', marginTop: 8 }}>
+          <p className="muted small-print tpl-alt">
             Prefer an existing repo? <Link to="/new">Onboard it instead</Link>.
           </p>
         </form>

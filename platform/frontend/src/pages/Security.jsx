@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, duration } from '../api.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
-import { Empty, PageHead, Skeleton, ago } from '../components/ui.jsx'
+import { Empty, PageHead, SkeletonTable, ago } from '../components/ui.jsx'
 import { Stale, useAction, usePoll } from '../hooks.jsx'
 
 export const SCANNERS = [
@@ -36,31 +36,31 @@ export default function Security() {
   const [open, setOpen] = useState(!!params.get('project') || !!params.get('repo'))
   return (
     <>
+      <Stale stale={stale} error={error} onRetry={refresh} />
       <PageHead title="Security scans" sub="Trivy scans of any GitHub repository or image — independent of CI/CD. Scanners run in parallel.">
         <button className="btn primary" onClick={() => setOpen(o => !o)} aria-expanded={open}><Icon name="shield" size={14} />New scan</button>
       </PageHead>
-      <Stale stale={stale} error={error} onRetry={refresh} />
       {open && <NewScan onClose={() => setOpen(false)} />}
-      {!data ? <Skeleton h={260} /> : data.length === 0 ? (
-        <Empty icon="shield" title="No scans yet" action={<button className="btn primary" onClick={() => setOpen(true)}>Scan a repository</button>}>
+      {!data ? (error ? null : <SkeletonTable rows={6} cols={7} label="Loading scans" />) : data.length === 0 ? (
+        <div className="card"><Empty icon="shield" title="No scans yet" action={<button className="btn primary" onClick={() => setOpen(true)}><Icon name="shield" size={14} />Scan a repository</button>}>
           Scan any public GitHub repository, or a private one the platform's token can read.
-        </Empty>
+        </Empty></div>
       ) : (
         <div className="card flush">
-          <table>
+          <table className="stack-table scans-table">
             <thead><tr><th>Scan</th><th>Repository</th><th>Status</th><th>Scanners</th><th>Findings</th><th>By</th><th>Duration</th></tr></thead>
             <tbody>
               {data.map(({ scan: s, summary, repo, project }) => (
                 <tr key={s.id}>
-                  <td><Link to={`/scans/${s.id}`}><b>#{s.id}</b></Link><div className="muted" style={{ fontSize: '0.75rem' }}>{ago(s.createdAt)}</div></td>
-                  <td><code>{repo}</code> <span className="muted">@ {s.gitRef}</span>
-                    {project && <div style={{ fontSize: '0.75rem' }}><Link to={`/projects/${project.id}`}>{project.name}</Link></div>}
-                    {s.image && <div className="muted mono" style={{ fontSize: '0.72rem' }}>{s.image.split('/').pop()}</div>}</td>
-                  <td><Badge value={s.status} /></td>
-                  <td className="muted" style={{ fontSize: '0.8rem' }}>{s.scanners.split(',').join(' · ')}</td>
-                  <td><Counts summary={summary} />{s.findingsCount != null && <div className="muted" style={{ fontSize: '0.72rem' }}>{s.findingsCount} findings</div>}</td>
-                  <td className="muted">{s.triggeredBy}</td>
-                  <td className="mono">{duration(s.startedAt, s.finishedAt)}</td>
+                  <td className="stack-title"><span className="scan-id"><Link to={`/scans/${s.id}`}><b>#{s.id}</b></Link><span className="muted small-print">{ago(s.createdAt)}</span></span></td>
+                  <td data-label="Repository" className="stack-wide"><code>{repo}</code> <span className="muted">@ {s.gitRef}</span>
+                    {project && <div className="small-print"><Link to={`/projects/${project.id}`}>{project.name}</Link></div>}
+                    {s.image && <div className="muted mono small-print">{s.image.split('/').pop()}</div>}</td>
+                  <td data-label="Status"><Badge value={s.status} /></td>
+                  <td data-label="Scanners" className="muted small-print">{s.scanners.split(',').join(' · ')}</td>
+                  <td data-label="Findings"><Counts summary={summary} />{s.findingsCount != null && <div className="muted small-print">{s.findingsCount} findings</div>}</td>
+                  <td data-label="By" className="muted">{s.triggeredBy}</td>
+                  <td data-label="Duration" className="mono">{duration(s.startedAt, s.finishedAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -105,10 +105,10 @@ function NewScan({ onClose }) {
   }
 
   return (
-    <form className="card form" style={{ maxWidth: 'none' }} onSubmit={submit} aria-labelledby="newscan-h">
+    <form className="card form new-scan" onSubmit={submit} aria-labelledby="newscan-h">
       <div className="card-head"><h3 id="newscan-h">New security scan</h3>
         <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="x" size={15} /></button></div>
-      <div className="chips" role="radiogroup" aria-label="What to scan" style={{ marginBottom: 12 }}>
+      <div className="chips new-scan-source" role="radiogroup" aria-label="What to scan">
         {[['repo', 'Any GitHub repository'], ['project', 'A platform project']].map(([v, l]) => (
           <button key={v} type="button" role="radio" aria-checked={form.source === v} className={`chip${form.source === v ? ' active' : ''}`}
                   onClick={() => setForm({ ...form, source: v })}>{l}</button>
@@ -139,11 +139,11 @@ function NewScan({ onClose }) {
       </fieldset>
       <div className="row">
         <label>Result<select value={form.failOn} onChange={set('failOn')}>{FAIL_ON.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
-        <label className="check" style={{ alignSelf: 'end' }}><input type="checkbox" checked={form.ignoreUnfixed} onChange={set('ignoreUnfixed')} />
+        <label className="check align-end"><input type="checkbox" checked={form.ignoreUnfixed} onChange={set('ignoreUnfixed')} />
           Hide vulnerabilities without a fix</label>
       </div>
       <p className="hint">Private repositories work when the platform's GitHub token can read them. Secret values are never stored — only the rule, file and line.</p>
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div className="form-actions">
         <button type="submit" {...{ className: `btn primary${busy === 'scan' ? ' busy' : ''}` }} disabled={!!busy || !form.scanners.length || imageNeeded}>
           <Icon name="play" size={14} />Start scan</button>
         <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>

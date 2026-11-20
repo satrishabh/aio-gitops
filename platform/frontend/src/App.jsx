@@ -24,6 +24,7 @@ import PipelinesCi from './pages/PipelinesCi.jsx'
 import PipelinesCd from './pages/PipelinesCd.jsx'
 import Security from './pages/Security.jsx'
 import ScanDetail from './pages/ScanDetail.jsx'
+import NotFound from './pages/NotFound.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
@@ -256,7 +257,7 @@ export default function App() {
           </nav>}
           <main id="main" ref={mainRef} tabIndex={-1}>
             <Routes>
-              <Route path="*" element={<div className="empty-state"><h1>Page not found</h1><p>This address does not match an AIO page.</p><Link className="btn primary" to="/">Back to overview</Link></div>} />
+              <Route path="*" element={<NotFound />} />
               <Route path="/" element={<Dashboard me={me} />} />
               <Route path="/projects" element={<Projects me={me} />} />
               <Route path="/new" element={<NewProject />} />

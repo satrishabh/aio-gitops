@@ -133,12 +133,59 @@ tbody tr:hover { background: var(--fill-2); }
 tbody tr:last-child td { border-bottom: none; }
 .card:not(.flush) table th:first-child, .card:not(.flush) table td:first-child { padding-left: 4px; }
 .empty { text-align: center; color: var(--muted); padding: 36px 10px !important; }
+/* Tables that stack on phones: add className="stack-table", a data-label on each <td>, and "stack-title" on the cell
+   that names the row (it becomes the card heading); "stack-wide" spans a cell across the card. */
+@media (max-width: 760px) {
+  .stack-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .stack-table, .stack-table tbody { display: block; width: 100%; }
+  .stack-table tbody tr {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px;
+    margin: 0 12px 10px; padding: 4px 14px; border: var(--border-w) solid var(--line); border-radius: var(--radius-sm); background: var(--panel);
+  }
+  .stack-table tbody tr:first-child { margin-top: 12px; }
+  .card:not(.flush) .stack-table tbody tr { margin-right: 0; margin-left: 0; }
+  .stack-table tbody tr:hover { background: var(--panel); }
+  .stack-table tbody td { display: block; min-width: 0; padding: 8px 0; border: 0; overflow-wrap: anywhere; max-width: none !important; }
+  .card:not(.flush) .stack-table td:first-child { padding-left: 0; }
+  .stack-table tbody td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 3px; color: var(--muted); font-size: .68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-body);
+  }
+  .stack-table tbody td.stack-title { grid-column: 1 / -1; order: -1; padding: 10px 0 9px; border-bottom: 1px solid var(--line); }
+  .stack-table tbody td.stack-title::before { display: none; }
+  .stack-table tbody td.stack-wide, .stack-table tbody td.empty { grid-column: 1 / -1; }
+  .stack-table tbody tr:has(> td.empty) { display: block; border: 0; background: none; }
+  .stack-table code { white-space: normal; overflow-wrap: anywhere; }
+}
 /* empty state: one tinted glyph, a title, one line of guidance, optional action */
 .empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s-2); padding: var(--s-7) var(--s-4); color: var(--text-2); }
 .empty-state .glyph { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: var(--accent-tint); color: var(--accent); margin-bottom: var(--s-1); }
-.empty-state h3 { margin: 0; }
+.empty-state h3, .empty-state .empty-title { margin: 0; }
 .empty-state .muted { max-width: 420px; }
-.empty-state .actions { margin-top: var(--s-2); display: flex; gap: var(--s-2); }
+.empty-state .actions { margin-top: var(--s-2); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-2); }
+.empty-state.compact { padding: var(--s-6) var(--s-4); }
+/* empty-state illustration: decorative SVG drawn only with theme tokens */
+.empty-art { display: block; width: 168px; max-width: 70%; height: auto; margin-bottom: var(--s-1); overflow: visible; }
+.empty-art .ea-blob { fill: var(--accent-tint); }
+.empty-art .ea-card { fill: var(--panel); stroke: var(--line-2); stroke-width: 1.5; }
+.empty-art .ea-back { fill: var(--panel-2); }
+.empty-art .ea-line { fill: var(--fill); }
+.empty-art .ea-strong { fill: var(--accent); opacity: .4; }
+.empty-art .ea-ok { fill: var(--ok-fill); } .empty-art .ea-warn { fill: var(--warn-fill); }
+.empty-art .ea-spark { stroke: var(--accent); stroke-width: 2; stroke-linecap: round; opacity: .55; }
+.empty-art .ea-badge { fill: var(--accent); }
+.empty-art .ea-icon { stroke: var(--on-accent); }
+.empty-state.tone-bad .ea-badge { fill: var(--bad-fill); }
+.empty-state.tone-bad .ea-icon { stroke: #FFFFFF; }
+[data-theme="bright"] .empty-art rect { rx: 0; }
+[data-theme="bright"] .empty-art .ea-card, [data-theme="bright"] .empty-art .ea-badge { stroke: #0A0A0A; stroke-width: 2.5; }
+[data-theme="bright"] .empty-art .ea-back { fill: var(--warn-fill); }
+[data-theme="bright"] .empty-art .ea-strong { opacity: 1; }
+[data-theme="bright"] .empty-state.tone-bad .ea-icon { stroke: #0A0A0A; }
+[data-theme="dark"] .empty-art .ea-card { fill: var(--panel-2); }
+[data-theme="dark"] .empty-art .ea-back { fill: var(--panel); }
+[data-theme="dark"] .empty-art .ea-badge { filter: drop-shadow(0 0 10px rgba(198, 244, 50, 0.25)); }
+[data-theme="dark"] .empty-state.tone-bad .ea-icon { stroke: #0B0F14; }
 
 /* status capsules: colour only carries meaning */
 .badge {
@@ -154,6 +201,14 @@ tbody tr:last-child td { border-bottom: none; }
 .badge.orange { background: var(--orange-bg); color: var(--orange); }
 .badge.red { background: var(--red-bg); color: var(--red); }
 .badge.gray { background: var(--gray-bg); color: var(--muted); }
+/* Bright: square outlined blocks with black text (mockup: CI pills); Dark: small mono tags on tints */
+[data-theme="bright"] .badge { border: 2px solid #0A0A0A; padding: 0 7px; font-weight: 700; color: #0A0A0A; }
+[data-theme="bright"] .badge::before { border-radius: 0; }
+[data-theme="bright"] .badge.blue { background: var(--accent); border-color: var(--accent); color: #FFFFFF; }
+[data-theme="bright"] .badge.red { background: #0A0A0A; color: #FFFFFF; }
+[data-theme="bright"] .badge.orange { background: var(--bad-fill); }
+[data-theme="bright"] .badge.gray { background: var(--panel-2); color: var(--text-2); border-color: var(--text-2); }
+[data-theme="dark"] .badge { border-radius: 6px; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500; padding: 2px 8px; }
 .vulns { display: inline-flex; gap: 4px; }
 .vuln { font-family: var(--mono); font-size: 0.74rem; font-weight: 600; padding: 1px 6px; border-radius: 6px; }
 .vuln.c { background: var(--red-bg); color: var(--red); } .vuln.h { background: var(--orange-bg); color: var(--orange); }
@@ -429,6 +484,20 @@ select option { background: var(--panel-solid); color: var(--text); }
 /* fades in after 250ms so fast loads never flash a placeholder */
 .skeleton { border-radius: 14px; background: linear-gradient(90deg, var(--fill-2), var(--fill), var(--fill-2)); background-size: 200% 100%;
   opacity: 0; animation: fade .3s ease-out .25s forwards, shimmer 1.4s infinite; }
+.skeleton.line { border-radius: 6px; }
+.skeleton.round { border-radius: 50%; flex: none; }
+/* table-shaped skeleton (SkeletonTable) */
+.skeleton-table-head, .skeleton-table-row { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: 18px; align-items: center; padding: 0 18px; }
+.skeleton-table-head { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); height: 44px; border-bottom: 1px solid var(--line); }
+.skeleton-table-row { height: 58px; border-bottom: 1px solid var(--line); }
+.skeleton-table-row:last-child { border-bottom: 0; }
+@media (max-width: 760px) {
+  .skeleton-table { padding: 12px; }
+  .skeleton-table-head { display: none; }
+  .skeleton-table-row { grid-template-columns: repeat(2, minmax(0, 1fr)); height: auto; gap: 12px 14px; padding: 14px; margin-bottom: 10px; border: var(--border-w) solid var(--line); border-radius: var(--radius-sm); }
+  .skeleton-table-row:last-child { border-bottom: var(--border-w) solid var(--line); margin-bottom: 0; }
+  .skeleton-table-row > :first-child { grid-column: 1 / -1; }
+}
 
 /* ring progress animates its arc */
 .ring-arc { transition: stroke-dasharray .6s var(--spring); }
@@ -538,6 +607,7 @@ select option { background: var(--panel-solid); color: var(--text); }
 .chip { background: var(--fill-2); border: none; color: var(--text); padding: 6px 14px; min-height: 32px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.86rem; transition: background .2s var(--spring); }
 .chip:hover { background: var(--fill); }
 .chip.active { background: var(--text); color: var(--bg); }
+@media (pointer: coarse) { .chip { min-height: 44px; } }
 .tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
 .tpl { display: flex; flex-direction: column; gap: 10px; margin: 0; transition: transform .3s var(--spring), box-shadow .3s var(--spring); }
 @media (hover: hover) { .tpl:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); } }

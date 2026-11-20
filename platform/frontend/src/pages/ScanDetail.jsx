@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
 import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
-import { Skeleton, ago } from '../components/ui.jsx'
+import { Empty, Loading, PageHead, Skeleton, ago } from '../components/ui.jsx'
 import { useAction } from '../hooks.jsx'
 import { Counts, SCANNERS } from './Security.jsx'
 
@@ -21,6 +21,20 @@ function taskStatus(steps) {
   if (st.every(s => s === 'SKIPPED')) return 'SKIPPED'
   if (st.every(s => s === 'SUCCEEDED' || s === 'SKIPPED')) return 'SUCCEEDED'
   return 'WAITING'
+}
+
+/** Placeholder shaped like the page: header, facts, pipeline, scanner cards, steps + log. */
+function ScanSkeleton() {
+  return (
+    <Loading label="Loading scan">
+      <div className="page-head"><div className="sk-stack"><Skeleton bare h={30} w={340} className="line" /><Skeleton bare h={12} w={260} className="line" /></div></div>
+      <div className="card"><div className="facts">{Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className="sk-stack"><Skeleton bare h={10} w="40%" className="line" /><Skeleton bare h={14} w="70%" className="line" /></div>))}</div></div>
+      <div className="card"><Skeleton bare h={14} w={120} className="line" /><div className="sk-row">{[0, 1, 2].map(i => <Skeleton key={i} bare h={44} w={150} />)}</div></div>
+      <div className="scan-cards">{[0, 1, 2].map(i => <Skeleton key={i} bare h={92} />)}</div>
+      <div className="run-grid"><Skeleton bare h={320} /><Skeleton bare h={320} /></div>
+    </Loading>
+  )
 }
 
 function colorLine(line, i) {
@@ -96,7 +110,12 @@ export default function ScanDetail() {
     }))
   }, [steps])
 
-  if (!data) return error ? <p className="error">{error}</p> : <><Skeleton h={160} /><Skeleton h={120} /><Skeleton h={400} /></>
+  if (!data) return error ? (
+    <div className="card"><Empty icon="alert" tone="bad" title="This scan could not be loaded"
+      action={<Link className="btn" to="/pipelines/security">All security scans</Link>}>
+      <p className="error" role="alert">{error}</p>
+    </Empty></div>
+  ) : <ScanSkeleton />
   const { scan: s, summary = {}, project, repo } = data
   const finished = !ACTIVE.includes(s.status)
   const chosen = s.scanners.split(',')
@@ -122,27 +141,26 @@ export default function ScanDetail() {
     <>
       {live === 'lost' && <div className="banner"><Icon name="refresh" size={15} />Live updates lost — reconnecting…</div>}
 
-      <div className="card" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <h1 style={{ margin: 0, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <Icon name="shield" size={20} /><span>{repo}</span><span className="muted">scan #{s.id}</span>
-              <Badge value={s.status} />{live === 'live' && <span className="live-dot">streaming</span>}
-            </h1>
-            <div className="muted" style={{ marginTop: 4 }}>
-              {s.trigger?.toLowerCase()} by <b style={{ color: 'var(--text-2)' }}>{s.triggeredBy}</b> · {ago(s.createdAt)}
-              {project && <> · project <Link to={`/projects/${project.id}`}>{project.name}</Link></>}
-              {s.rerunOf && <> · re-run of <Link to={`/scans/${s.rerunOf}`}>#{s.rerunOf}</Link></>}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {finished && <a className="btn" href={`/api/scans/${id}/report.json`} download><Icon name="arrow" size={14} style={{ transform: 'rotate(90deg)' }} />report.json</a>}
-            {!finished && <button {...btn('cancel', 'btn danger')} onClick={() => run('cancel', () => api(`/api/scans/${id}/cancel`, { method: 'POST' }), 'Cancel requested')}>
-              <Icon name="stop" size={13} />Cancel</button>}
-            {finished && <button {...btn('rerun', 'btn primary')} onClick={rerun}><Icon name="refresh" size={14} />Re-run</button>}
-          </div>
+      <PageHead
+        title={<span className="scan-title"><Icon name="shield" size={22} /><span>{repo}</span><span className="muted">scan #{s.id}</span></span>}
+        sub={<span className="scan-sub">
+          <Badge value={s.status} />{live === 'live' && <span className="live-dot">streaming</span>}
+          <span>{s.trigger?.toLowerCase()} by <b className="text-2">{s.triggeredBy}</b> · {ago(s.createdAt)}
+            {project && <> · project <Link to={`/projects/${project.id}`}>{project.name}</Link></>}
+            {s.rerunOf && <> · re-run of <Link to={`/scans/${s.rerunOf}`}>#{s.rerunOf}</Link></>}</span>
+        </span>}>
+        <div className="page-actions">
+          {finished && <a className="btn" href={`/api/scans/${id}/report.json`} download><Icon name="download" size={14} />report.json</a>}
+          {!finished && <button {...btn('cancel', 'btn danger')} onClick={() => run('cancel', () => api(`/api/scans/${id}/cancel`, { method: 'POST' }), 'Cancel requested')}>
+            <Icon name="stop" size={13} />Cancel</button>}
+          {finished && <button {...btn('rerun', 'btn primary')} onClick={rerun}><Icon name="refresh" size={14} />Re-run</button>}
         </div>
-        <div className="facts" style={{ marginTop: 18 }}>
+      </PageHead>
+
+      {s.message && s.status !== 'SUCCEEDED' && <div className="banner bad-banner"><Icon name="alert" size={15} /><span>{s.message}</span></div>}
+
+      <div className="card scan-facts">
+        <div className="facts">
           <div><span>Repository</span><a href={s.repoUrl.replace(/\.git$/, '')} target="_blank" rel="noreferrer noopener">{repo}</a></div>
           <div><span>Ref</span><code>{s.gitRef}</code></div>
           <div><span>Commit</span><code>{s.commitSha?.slice(0, 12) || '—'}</code></div>
@@ -152,8 +170,6 @@ export default function ScanDetail() {
           <div><span>Duration</span>{duration(s.startedAt, s.finishedAt)}</div>
           <div><span>Started</span>{fmtTime(s.startedAt)}</div>
         </div>
-        {s.message && s.status !== 'SUCCEEDED' && <div className="banner" style={{ background: 'var(--red-bg)', color: 'var(--red)', marginTop: 14, marginBottom: 0 }}>
-          <Icon name="x" size={15} />{s.message}</div>}
       </div>
 
       <div className="card">
@@ -171,7 +187,7 @@ export default function ScanDetail() {
         {SCANNER_IDS.filter(n => chosen.includes(n)).map(n => (
           <div key={n} className="card scan-card">
             <div className="card-head"><h3>{LABEL[n]}</h3><Badge value={tasks[n]?.status || 'WAITING'} /></div>
-            {summary[n] ? <Counts summary={{ [n]: summary[n] }} /> : <span className="muted">no results yet</span>}
+            {summary[n] ? <Counts summary={{ [n]: summary[n] }} /> : <span className="muted small-print">no results yet</span>}
           </div>
         ))}
       </div>
@@ -221,9 +237,9 @@ function Findings({ id, scanners, truncated }) {
 
   return (
     <div className="card flush">
-      <div className="card-head" style={{ padding: '16px 18px 0', flexWrap: 'wrap', gap: 10 }}>
+      <div className="card-head findings-head">
         <h3>Findings {res && <span className="muted">({res.total})</span>}</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="findings-filters">
           <select aria-label="Scanner" value={f.scanner} onChange={set('scanner')}>
             <option value="">All scanners</option>{scanners.map(n => <option key={n} value={n}>{LABEL[n]}</option>)}</select>
           <select aria-label="Severity" value={f.severity} onChange={set('severity')}>
@@ -231,31 +247,35 @@ function Findings({ id, scanners, truncated }) {
           <input type="search" aria-label="Search findings" placeholder="CVE, package, file…" value={q} onChange={e => setQ(e.target.value)} />
         </div>
       </div>
-      {truncated && <p className="hint" style={{ padding: '0 18px' }}>Only the first 5,000 findings were stored — download report.json for the full list.</p>}
-      {error && <p className="error" style={{ padding: '0 18px' }}>{error}</p>}
-      {!res ? <Skeleton h={200} /> : res.items.length === 0 ? <p className="muted" style={{ padding: 18 }}>No findings match.</p> : (
-        <table>
+      {truncated && <p className="hint findings-pad">Only the first 5,000 findings were stored — download report.json for the full list.</p>}
+      {error && <p className="error findings-pad">{error}</p>}
+      {!res ? <div className="findings-pad"><Skeleton h={14} count={6} className="line" /></div> : res.items.length === 0 ? (
+        <Empty compact icon={f.scanner || f.severity || f.q ? 'search' : 'check'} title="No findings match.">
+          {f.scanner || f.severity || f.q ? 'Try another scanner, severity or search term.' : 'The selected scanners reported nothing.'}
+        </Empty>
+      ) : (
+        <table className="stack-table findings-table">
           <thead><tr><th>Severity</th><th>Rule</th><th>Package / location</th><th>Installed → fixed</th><th>Title</th><th>Scanner</th></tr></thead>
           <tbody>
             {res.items.map(x => (
               <tr key={x.id}>
-                <td><Badge value={x.severity} /></td>
-                <td className="mono">{x.url && /^https?:\/\//.test(x.url) ? <a href={x.url} target="_blank" rel="noreferrer noopener">{x.ruleId}</a> : x.ruleId}</td>
-                <td><code>{x.pkg || x.location || '—'}</code><div className="muted" style={{ fontSize: '0.72rem' }}>{x.target}{x.pkg && x.location ? ` · ${x.location}` : ''}</div></td>
-                <td className="mono" style={{ fontSize: '0.8rem' }}>{x.installedVersion ? <>{x.installedVersion} → {x.fixedVersion || <span className="muted">no fix</span>}</> : '—'}</td>
-                <td style={{ maxWidth: 420 }}>{x.title}</td>
-                <td className="muted">{LABEL[x.scanner] || x.scanner}</td>
+                <td data-label="Severity"><Badge value={x.severity} /></td>
+                <td data-label="Rule" className="mono">{x.url && /^https?:\/\//.test(x.url) ? <a href={x.url} target="_blank" rel="noreferrer noopener">{x.ruleId}</a> : x.ruleId}</td>
+                <td data-label="Package / location" className="stack-wide"><code>{x.pkg || x.location || '—'}</code><div className="muted small-print">{x.target}{x.pkg && x.location ? ` · ${x.location}` : ''}</div></td>
+                <td data-label="Installed → fixed" className="mono small-print">{x.installedVersion ? <>{x.installedVersion} → {x.fixedVersion || <span className="muted">no fix</span>}</> : '—'}</td>
+                <td className="stack-title finding-title">{x.title}</td>
+                <td data-label="Scanner" className="muted">{LABEL[x.scanner] || x.scanner}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
       {res && res.pages > 1 && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 14, justifyContent: 'flex-end' }}>
+        <nav className="pager" aria-label="Findings pages">
           <button className="btn small" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Previous</button>
           <span className="muted">page {page + 1} of {res.pages}</span>
           <button className="btn small" disabled={page + 1 >= res.pages} onClick={() => setPage(p => p + 1)}>Next</button>
-        </div>
+        </nav>
       )}
     </div>
   )

@@ -23,6 +23,8 @@ public class Project {
     public String registryPullConnection;
     public String requestedArtifactTier;
     public String scanSeverity = "HIGH,CRITICAL";   // HIGH,CRITICAL | CRITICAL | NONE
+    /** auto | dockerfile | buildpacks | buildah (buildah only while the podman switch is on; see BuildStrategies). */
+    public String buildStrategy = "auto";
     /** JSON array of {name, value}; rendered as the chart's env: list in every environment. */
     @Column(columnDefinition = "text") public String envVars = "[]";
     public String cpuRequest = "50m";

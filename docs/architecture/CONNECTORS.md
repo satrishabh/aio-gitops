@@ -1,6 +1,6 @@
 # Connectors: open-source tools managed from AIO
 
-**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. Phase 5 (CloudNativePG, Valkey, Harbor; Biome as a CI lint step) likewise, as of 2026-11-20; CrowdSec from the same wave is live on AKS since 2026-11-18. None of phases 1-5 is deployed to a live cluster yet, except CrowdSec. **Date:** 2026-11-20.
+**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. Phase 5 (CloudNativePG, Valkey, Harbor; Biome as a CI lint step) likewise, as of 2026-11-20; CrowdSec from the same wave is live on AKS since 2026-11-18. Phase 6 (Strimzi, Crossplane, OpenKruise; Dependency-Track, Falco, OpenBao; Airflow, Superset, Appsmith, APISIX; Milvus, Langfuse; Buildah as a CI build strategy) likewise, as of 2026-11-20. None of phases 1-6 is deployed to a live cluster yet, except CrowdSec. **Date:** 2026-11-20.
 
 The **Connectors → Open source** page (admins only) lists every open-source tool AIO works with: what it is, whether it runs, and what an admin can do with it. The list is data, not code: the aio-catalog repository (one file per tool). Adding a tool means adding one catalog entry, one values file and one line in the Argo CD project. No Java or React changes are needed.
 
@@ -69,8 +69,22 @@ Read from the cluster on 2026-11-17:
 | Harbor, 7 pods incl. its CloudNativePG database (phase 5) | 160m | 670 Mi | 26 Gi disk |
 | Biome lint step (phase 5) | 100m | 128 Mi | only while a run lints |
 | **Phase 5, steady** | **~0.2 CPU** | **~0.85 GiB** | 28 Gi disk |
+| Strimzi operator (phase 6; Kafka clusters extra) | 50m | 384 Mi | |
+| Crossplane core (phase 6) | 70m | 256 Mi | + 50m / 256 Mi per provider pod |
+| OpenKruise manager (phase 6) | 50m | 192 Mi | |
+| Dependency-Track + its CloudNativePG database (phase 6) | 310m | 1.55 GiB | 12 Gi disk |
+| Falco (phase 6, one per node) | 50m × nodes | 192 Mi × nodes | |
+| OpenBao (phase 6) | 50m | 128 Mi | 2 Gi disk |
+| Airflow + its CloudNativePG database (phase 6) | 440m | 1.85 GiB | 7 Gi disk |
+| Superset + its CloudNativePG database (phase 6) | 130m | 672 Mi | 2 Gi disk |
+| Appsmith (phase 6) | 250m | 1.5 GiB | 5 Gi disk |
+| APISIX (phase 6) | 50m | 128 Mi | |
+| Milvus standalone (phase 6) | 100m | 512 Mi | 10 Gi disk |
+| Langfuse: web, worker, ClickHouse, PostgreSQL, Valkey, S3 (phase 6) | 500m | 2.0 GiB | 26 Gi disk |
+| Buildah build step (phase 6) | | | only while a build runs |
+| **Phase 6 on 2 nodes** | **~2.1 CPU** | **~9.5 GiB** | 64 Gi disk |
 
-On 2026-11-17, one node had 99% of its allocatable memory requested and was using more than that (6.3 GiB). The other node had just been added by the autoscaler and was nearly empty. The cluster cannot grow beyond these two nodes, so every connector must fit in the second node's free space. Check headroom with `kubectl describe nodes | grep -A6 "Allocated resources"` before each Enable. Recommended order on AKS:
+On 2026-11-17, one node had 99% of its allocatable memory requested and was using more than that (6.3 GiB). The other node had just been added by the autoscaler and was nearly empty. The cluster cannot grow beyond these two nodes, so every connector must fit in the second node's free space. Phase 6 as a whole does not fit: switch it on only after the spot pool or Node Auto Provisioning adds capacity, and until then enable its connectors one at a time. Check headroom with `kubectl describe nodes | grep -A6 "Allocated resources"` before each Enable. Recommended order on AKS:
 
 1. Velero first. It closes the documented gap: the nightly Postgres dumps currently stay on a disk inside the AKS node resource group.
 2. Then kube-green and Trivy Operator (small).
@@ -84,7 +98,7 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 
 **Managed AKS add-ons:** AKS can run KEDA (`az aks update --enable-keda`) and VPA (`--enable-vpa`) itself. Use either the add-on or the connector, never both. If the VPA add-on is on, set `vpa.enabled: false` in `aio-catalog values/goldilocks/values.yaml`.
 
-## Scope: 29 connectors
+## Scope: 42 connectors
 
 | Group | Connectors | Kind |
 | --- | --- | --- |
@@ -104,6 +118,12 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 | Security | **Harbor** | managed (phase 5) |
 | Security | **CrowdSec** (edge bans, optional) | managed (phase 5, live on AKS) |
 | CI/CD | **Biome** (lint step in the CI pipeline) | core (phase 5) |
+| Platform | **Strimzi** (Kafka operator), **Crossplane**, **OpenKruise** | managed (phase 6) |
+| Security | **Dependency-Track, Falco, OpenBao** | managed (phase 6) |
+| Data / apps | **Airflow, Superset, Appsmith, APISIX** | managed (phase 6) |
+| AI | **Milvus, Langfuse** | managed (phase 6) |
+| CI/CD | **Podman / Buildah** (build strategy in the CI pipeline) | core (phase 6) |
+| Cost / tracing | Dragonfly, Koordinator, Jaeger | planned (see Activation (phase 6)) |
 | Cost | Karpenter on EKS | planned (when AIO runs on EKS) |
 
 Not included, because each would replace AIO itself rather than plug into it: Jenkins, GitLab CI, Flux, Spinnaker, Backstage. Commercial-only tools (Kubecost Enterprise, Cast AI, ScaleOps) are excluded too.
@@ -131,6 +151,7 @@ Cost tools that work on any cloud: OpenCost (see the cost), Goldilocks + VPA (ri
 | 3 | 2026-12-08 → 12-19 | Velero, Renovate, KEDA, Descheduler | Restore drill of the `aio-platform` namespace and the Chains key succeeds; first Renovate PRs merged |
 | 4 | 2027-01 | Node autoprovisioning (AKS, GKE); Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus | Logs of every namespace and a test trace visible in Grafana; one ExternalSecret synced from the cloud store; Gatus checks green 3 days; a pending dev pod gets a Spot node and the node is removed once empty |
 | 5 | 2027-01 | CloudNativePG, Valkey, Harbor; Biome lint step (CrowdSec already live) | A dev app reads and writes its own CloudNativePG database and the shared Valkey; an image pushed to Harbor through Keycloak login is pulled by a dev app; a repo with biome.json fails CI on a lint error and passes once fixed |
+| 6 | 2027-02 | Strimzi, Crossplane, OpenKruise; Dependency-Track, Falco, OpenBao; Airflow, Superset, Appsmith, APISIX; Milvus, Langfuse; Buildah build strategy | A dev app produces to and consumes from a single-node Kafka; Crossplane creates one cloud resource through Workload ID; the AIO pipeline's SBOM shows up in Dependency-Track; a Falco alert from a `kubectl exec` is visible in Loki; OpenBao is unsealed again after a pod restart; a DAG runs in Airflow and a Superset chart reads a CloudNativePG database, both through Keycloak login; a trace from a dev app is in Langfuse; a project built with Buildah deploys to dev |
 
 Recurring jobs set up inside the tools when each one is added:
 
@@ -275,6 +296,74 @@ Trade-offs to know:
 - One Valkey is shared by all dev and staging apps: it is a cache, not a store of record. Give each app its own key prefix. Prod apps that need Redis-compatible storage get their own instance.
 - CloudNativePG databases are backed up by Velero's nightly volume copies (crash-consistent; PostgreSQL recovers like after a power cut). Point-in-time recovery needs the Barman Cloud plugin and an object-storage identity per cloud; it is not part of this connector yet.
 - The Keycloak settings for Harbor are applied at every start from Secret `harbor-oidc`; changes made in Harbor's UI to those fields are overwritten.
+
+## Activation (phase 6)
+
+Pinned versions (rollback target in brackets):
+- **Operators:** strimzi 1.3.1 (1.3.0), crossplane 2.4.3 (2.4.2), openkruise 1.9.3 (1.9.2).
+- **Security:** dependency-track 2.9.0 / Dependency-Track 5.2.1 (2.8.0), falco 9.2.2 / Falco 0.45.2 (9.2.1), openbao 0.30.6 / OpenBao 2.7.2 (0.30.5).
+- **Data and apps:** airflow 1.22.0 / Airflow 3.2.2 (1.21.0), superset 0.22.8 / Superset 6.1.0 (0.22.7), appsmith 3.9.1 / Appsmith CE v2.6.0 (3.9.0), apisix 2.18.2 / APISIX 3.19.0 (2.18.1).
+- **AI:** milvus 5.0.33 / Milvus 3.0.5 (5.0.32), langfuse 2.2.3 / Langfuse 4.75.0 (2.2.1).
+- **CI:** Buildah 1.43.5 (`quay.io/buildah/stable`, pinned by digest).
+
+All of them work on AKS, GKE, EKS and on-prem, except where noted: data goes on disks from the default StorageClass, and no Bitnami images are used. Databases run on CloudNativePG (phase 5), so Dependency-Track, Airflow, Superset and Langfuse require it. Every value a chart would otherwise generate at random on each render comes from a Secret that a setup script creates once.
+
+**Capacity first.** Phase 6 requests about 2.1 CPU and 9.5 GiB, more than the two reference nodes have free. Add capacity before **Switch on**, or enable the connectors you need one at a time. The heavy ones are Langfuse (2 GiB), Airflow (1.85 GiB), Dependency-Track (1.55 GiB) and Appsmith (1.5 GiB).
+
+1. Push and tag the catalog. Re-apply `deploy/connectors-project.yaml`: 12 more chart repositories, and the namespaces `strimzi`, `crossplane-system`, `kruise-system`, `dependency-track`, `falco`, `openbao`, `airflow`, `superset`, `appsmith`, `apisix`, `milvus` and `langfuse`. Move `CONNECTORS_REVISION` to the tag. Deploy the platform image with the build-strategy setting (migration `V11__project_build_strategy`).
+2. **Keycloak (sarvaikam only).** Run `python tools/gen_sso.py && bash sso/keycloak/import.sh`. This creates or updates the clients:
+   - `aio-airflow`, `aio-superset` and `aio-dependency-track`, each with a flat `groups` claim;
+   - `aio-langfuse`.
+
+   `aio-dependency-track` is a **public** client: the browser does the login with PKCE, so it has no secret. Appsmith has no OIDC in its Community Edition, so it sits behind the oauth2-proxy gate instead, and its users still sign in to Appsmith once there.
+3. **Secrets, before Enable.** Run these from aio-catalog:
+   - `bash setup/airflow-secrets.sh`
+   - `bash setup/superset-secrets.sh`
+   - `bash setup/appsmith-secrets.sh`
+   - `bash setup/langfuse-secrets.sh`
+   - `bash setup/milvus-secrets.sh`
+   - `bash setup/dependency-track-secrets.sh`, first run: the key that encrypts Dependency-Track's stored secrets.
+
+   For tools with Keycloak login, set `OIDC_CLIENT_SECRET='<client secret>'` on the run so the script also writes the login Secret. Each script never replaces an existing Secret, and it prints how to read the admin password, never the password itself.
+4. **Operators**, each Enable → Test:
+   - **Strimzi:** the operator only; an app creates its own Kafka in its namespace (single-node KRaft example in `values/strimzi/values.yaml`). The Test metric appears after the first periodic reconcile, about 2 minutes after start, so an immediate Test can fail once.
+   - **Crossplane:** core only. For cloud resources, run `setup/crossplane-setup-azure.sh` or `-gcp.sh` after Enable. These create a keyless identity (AKS Workload ID or GKE Workload Identity) scoped to one resource group or to the roles you name, install the provider family and the resource providers in `PROVIDERS`, and create `ProviderConfig default`. Registering Azure resource providers and enabling GCP APIs stay manual.
+   - **OpenKruise:** CloneSet, Advanced StatefulSet and DaemonSet, BroadcastJob, AdvancedCronJob. Pod webhooks (SidecarSet, WorkloadSpread, PodUnavailableBudget) and the node daemon are off, so a stopped manager cannot block pod creation or node drains. Webhook certificates come from cert-manager (`extras/openkruise/webhook-cert.yaml`), so Argo CD and kruise-manager do not fight over them. This path uses an alpha feature gate: try it once on a staging cluster first. On a chart bump, regenerate `extras/openkruise/crds.yaml` (steps in its header).
+5. **Security**, each Enable → Test:
+   - **Dependency-Track:** **right after Enable**, run `bash setup/dependency-track-secrets.sh` again. It replaces the seeded `admin/admin` password, creates a read-only team "Viewers", and maps `aio-admin` → Administrators and `aio-business` → Viewers. Until then the default login works, and on sarvaikam it is reachable from outside. Upload SBOMs with a team API key (`POST /api/v1/bom`; header of `values/dependency-track/values.yaml`). If it is OOM-killed by the nightly vulnerability mirror, raise the limit to 2.5 GiB and `-Xmx` to 2g.
+   - **Falco:** a privileged DaemonSet with the modern eBPF probe. It needs kernel 5.8+ with BTF, which current AKS, GKE COS and EKS images have, and it does not run on GKE Autopilot. Alerts are JSON in its logs, which Loki collects.
+   - **OpenBao:** after Enable, run `bash setup/openbao-init.sh`. It initialises OpenBao, unseals it, and keeps the unseal key and root token in Secret `openbao/openbao-init`. Copy that Secret offline, then delete it. Until init, the app shows Progressing and Test fails; that is expected. **Every restart, node drain or spot eviction seals OpenBao again**: re-run the script with `UNSEAL_KEY_FILE`. Auto-unseal through Azure Key Vault or GCP KMS is described in the values header but not built.
+6. **Data and apps**, each Enable → Test:
+   - **Airflow:** Airflow 3 with LocalExecutor: tasks run inside the scheduler pod, at most 4 at a time, with no broker and no pod per task. DAGs come from git-sync once `dags.gitSync` is set (values header). Database migration and the admin user are Argo CD Sync hooks. Keycloak roles: `aio-admin` → Admin, `aio-business` → Viewer.
+   - **Superset:** one web pod and no Redis, so queries run synchronously and alerts, reports and thumbnails are off. It uses the official `-dev` image, because the slim image has neither the PostgreSQL driver nor the OAuth library. Keycloak roles: `aio-admin` → Admin, `aio-business` → Gamma (an Admin grants datasets). The chart is deprecated in favour of the Superset operator; move once that can be pinned.
+   - **Appsmith:** Community Edition (Apache-2.0) in one pod, with MongoDB and Redis inside it on a 5 Gi disk. The first account created becomes the administrator; turn off sign-up in Admin Settings afterwards. Back up with `appsmithctl backup`.
+   - **APISIX:** standalone, with no etcd and no Admin API; routes are declared in `values/apisix/values.yaml` and changed through a PR to aio-catalog. Apps reach it at `apisix-gateway.apisix.svc:80`. If a route change is not picked up, `kubectl -n apisix rollout restart deploy/apisix`.
+7. **AI**, each Enable → Test:
+   - **Milvus:** standalone with embedded etcd and local storage on one 10 Gi disk; login required (root password from `milvus-root`). Apps connect to `milvus.milvus.svc:19530`.
+   - **Langfuse:** Langfuse v4 with a single-node ClickHouse, a CloudNativePG database, the chart's Valkey, and a small SeaweedFS for S3. On first start it creates the AIO organisation, the project, its API keys and the admin user from `langfuse-secrets`. Apps send traces to `http://langfuse-web.langfuse.svc:3000` with the project keys. On sarvaikam, login is Keycloak only; set `LANGFUSE_ADMIN_EMAIL` to the admin's Keycloak e-mail. Other users see nothing until an admin adds them; give `aio-business` users the Viewer role. Media attachments and batch export are off (their pre-signed links point at the in-cluster S3). On a chart bump, update the ClickHouse and SeaweedFS image tags in `extras/langfuse` by hand.
+8. **Buildah build strategy.** Podman / Buildah (catalog id `podman`, a core CI step) adds a third build strategy next to BuildKit (Dockerfile) and Cloud Native Buildpacks.
+   - **What it does:** with `build-strategy=buildah`, the `build-image` task builds the repository's Dockerfile with Buildah 1.43.5 and pushes it with the same registry credentials. It writes the same `IMAGE_URL` and `IMAGE_DIGEST` results, so the Trivy scan, Chains signing and the GitOps update work unchanged.
+   - **How it runs:** rootless and unprivileged, as uid 1000 in its own user namespace, with chroot isolation and vfs storage. The container keeps only SETUID/SETGID (for `newuidmap` and `newgidmap`) and, like rootless BuildKit, runs with seccomp and AppArmor unconfined.
+   - **Choosing it:** `auto` never picks Buildah. A project opts in under Settings → Build strategy, which offers "Dockerfile with Buildah" only while phase 6 is switched on.
+   - **When the switch is off:** the platform refuses to save that choice. If the switch is turned off after a project chose it, that project's runs fail with a message saying so.
+   - **Switch row:** switching phase 6 sets the `podman` row in `platform_switches`; unlike Biome, it passes no pipeline parameter.
+   - **Apply order:** the task before the pipelines:
+     ```bash
+     kubectl apply -n ci -f tekton/tasks/build-image.yaml
+     kubectl apply -n ci -f tekton/pipelines/ci-pipeline.yaml -f tekton/pipelines/ci-build-v2.yaml
+     ```
+   - **Not yet tested:** no real Buildah build has run. Make the first one a test project on AKS.
+9. **Switch on**, once capacity allows and steps 2-3 are done: Connectors → Phases → phase 6 → **Switch on**. The connectors install in dependency order, and the `podman` switch is turned on. Then run steps 5 (Dependency-Track and OpenBao) and 4 (Crossplane providers), and Test each connector.
+
+Kept planned in phase 6, with the reasons:
+- **Dragonfly** (P2P image distribution) needs a privileged host-network DaemonSet that rewrites containerd's registry config on every node. The chart turns off TLS verification for docker.io and ghcr.io by default, and the node changes stay after uninstall. On 2 nodes, peer-to-peer saves almost nothing. Reconsider at 10+ nodes, with the registries named, `skipVerify: false` and a node cleanup step.
+- **Koordinator** (colocation scheduling) has a node agent that shrinks the CPU set of every BestEffort pod, including Argo CD and cert-manager, and leaves cgroup and Node changes behind after uninstall. Its colocation config is hard-coded in the chart. Reconsider once the platform pods have resource requests and the cluster has spare capacity to lend.
+- **Jaeger**: Grafana → Explore → Tempo already gives trace search, the trace view and links to logs. The Tempo bridge for the Jaeger UI is version-fragile.
+
+Trade-offs to know:
+- The Langfuse chart's bundled Valkey checks its health with an unauthenticated `valkey-cli ping`. That passes, because valkey-cli exits 0 on NOAUTH, but it only proves the process answers. Langfuse itself proves the password.
+- `pin.py` reports Crossplane as too new because the chart index stamps every release with 2026-11-18. The GitHub releases are from 2026-10-22 (2.4.3) and 2026-09-22 (2.4.2), as noted in its `pinNote`.
+- Buildah and Falco need relaxed Pod Security (unconfined profiles, and privileged for Falco). If the `ci` or `falco` namespace ever enforces baseline or restricted Pod Security, label those namespaces `privileged`.
 
 ## Adding a connector
 

@@ -9,6 +9,15 @@ export const PRESETS = {
   dotnet: { testImage: 'mcr.microsoft.com/dotnet/sdk:8.0', testCommand: 'dotnet test' },
 }
 
+// How the image is built. buildah is offered only while an admin has switched on Podman / Buildah (phase 6);
+// GET /api/projects/build-strategies says which can be chosen now.
+export const BUILD_STRATEGIES = [
+  ['auto', 'Auto: Dockerfile if present, otherwise buildpacks (default)'],
+  ['dockerfile', 'Dockerfile with BuildKit'],
+  ['buildpacks', 'Cloud Native Buildpacks (no Dockerfile needed)'],
+  ['buildah', 'Dockerfile with Buildah'],
+]
+
 export const SEVERITIES = [
   ['HIGH,CRITICAL', 'Block on HIGH or CRITICAL (default)'],
   ['CRITICAL', 'Block on CRITICAL only'],

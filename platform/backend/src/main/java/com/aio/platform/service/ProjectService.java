@@ -58,7 +58,16 @@ public class ProjectService {
     public record Settings(String scanSeverity, String testImage, String testCommand, String dockerfile,
                            String contextDir, String defaultBranch, Boolean webhook,
                            List<RuntimeConfig.Env> envVars, String cpuRequest, String cpuLimit,
-                           String memoryRequest, String memoryLimit) {}
+                           String memoryRequest, String memoryLimit, String buildStrategy) {}
+
+    /** Gates the buildah build strategy (podman switch); absent in unit tests = gated strategies off. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    PlatformSwitches switches;
+
+    /** Build strategies and whether each can be chosen now, for the Settings form. */
+    public Map<String, Boolean> buildStrategies() {
+        return BuildStrategies.choices(switches);
+    }
 
     private static String orKeep(String v, String current) { return v == null || v.isBlank() ? current : v.trim(); }
 
@@ -98,6 +107,13 @@ public class ProjectService {
         if (s.contextDir() != null && !s.contextDir().isBlank() && !s.contextDir().trim().equals(p.contextDir)) {
             p.contextDir = safePath(s.contextDir(), p.contextDir);
             changes.append("contextDir=").append(p.contextDir).append(' ');
+        }
+        // Validated only when it changes, so a project that chose buildah can still save other settings after the
+        // switch went off (its runs are refused until it changes strategy or the switch is back on)
+        if (s.buildStrategy() != null && !s.buildStrategy().isBlank()
+                && !s.buildStrategy().trim().equalsIgnoreCase(p.buildStrategy)) {
+            p.buildStrategy = BuildStrategies.validate(s.buildStrategy(), switches);
+            changes.append("buildStrategy=").append(p.buildStrategy).append(' ');
         }
         if (s.defaultBranch() != null && !s.defaultBranch().isBlank() && !s.defaultBranch().trim().equals(p.defaultBranch)) {
             String b = s.defaultBranch().trim();

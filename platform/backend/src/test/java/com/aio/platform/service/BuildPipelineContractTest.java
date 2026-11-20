@@ -20,10 +20,14 @@ class BuildPipelineContractTest {
         Map<?, ?> document = new org.yaml.snakeyaml.Yaml(new org.yaml.snakeyaml.constructor.SafeConstructor(new org.yaml.snakeyaml.LoaderOptions())).load(source);
         Map<?, ?> spec = (Map<?, ?>) document.get("spec");
         List<?> tasks = (List<?>) spec.get("tasks");
-        assertEquals(List.of("clone", "test", "build-push", "scan"), tasks.stream().map(t -> ((Map<?, ?>) t).get("name")).toList());
+        assertEquals(List.of("clone", "lint", "test", "build-push", "scan"), tasks.stream().map(t -> ((Map<?, ?>) t).get("name")).toList());
         assertFalse(source.contains("gitops"));
         assertEquals(4, ((List<?>) spec.get("results")).size());
-        Map<?, ?> scan = (Map<?, ?>) tasks.get(3);
+        // Lint is held off until switched on: the platform passes lint=auto only then (PlatformSwitches)
+        Map<?, ?> lintParam = ((List<?>) spec.get("params")).stream().map(p -> (Map<?, ?>) p)
+                .filter(p -> "lint".equals(p.get("name"))).findFirst().orElseThrow();
+        assertEquals("off", lintParam.get("default"));
+        Map<?, ?> scan = (Map<?, ?>) tasks.get(4);
         assertEquals("scanconfig", ((Map<?, ?>) ((List<?>) scan.get("workspaces")).getFirst()).get("workspace"));
         assertTrue(source.contains("@$(tasks.build-push.results.IMAGE_DIGEST)"));
     }

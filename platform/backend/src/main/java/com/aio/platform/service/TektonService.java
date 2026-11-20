@@ -32,6 +32,10 @@ public class TektonService {
     @org.springframework.beans.factory.annotation.Value("${app.delivery.test-images:alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine}")
     private String approvedTestImages = "alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine";
 
+    /** Held-off pipeline steps (Biome lint); absent in unit tests = all off. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    PlatformSwitches switches;
+
     public TektonService(KubernetesClient k8s, AppProperties props) {
         this.k8s = k8s;
         this.props = props;
@@ -95,6 +99,7 @@ public class TektonService {
         params.put("gitops-values-file", GitOpsService.valuesPath(g, p.name, "dev"));
         params.put("deploy", String.valueOf(run.deploy));
         params.put("scan-severity", run.scanSeverity == null ? "HIGH,CRITICAL" : run.scanSeverity);
+        if (switches != null) params.putAll(switches.pipelineParams());
 
         boolean independent = "INDEPENDENT".equals(run.deliveryMode);
         if (independent) {

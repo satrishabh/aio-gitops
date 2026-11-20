@@ -59,7 +59,11 @@ public class ConnectorService {
             Map.of("group", "apiextensions.k8s.io", "kind", "CustomResourceDefinition",
                     "jqPathExpressions", List.of(".spec.conversion.webhook.clientConfig.caBundle")));
 
-    public enum Status { HEALTHY, PROGRESSING, DEGRADED, NOT_INSTALLED, PLANNED, NOT_FOR_THIS_CLOUD, UNKNOWN }
+    /** OFF: a pipeline-step connector that is installed but held off until its phase is switched on. */
+    public enum Status { HEALTHY, PROGRESSING, DEGRADED, NOT_INSTALLED, PLANNED, NOT_FOR_THIS_CLOUD, OFF, UNKNOWN }
+
+    /** One connector's outcome in a phase switch. */
+    public record PhaseStep(String id, String name, boolean ok, String detail) {}
 
     public record ProbeResult(String name, boolean ok, long millis, String detail) {}
 
@@ -71,6 +75,9 @@ public class ConnectorService {
     private final AppProperties props;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     private final Map<String, TestResult> lastTests = new ConcurrentHashMap<>();
+    /** Held-off pipeline steps (Biome); absent in unit tests that do not need them = all off. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    PlatformSwitches switches;
 
     public ConnectorService(ConnectorCatalog catalog, ArgoCdService argo, KubernetesClient k8s, AppProperties props) {
         this.catalog = catalog;
@@ -108,6 +115,12 @@ public class ConnectorService {
             switch (c.kindEnum()) {
                 case PLANNED -> m.put("status", Status.PLANNED);
                 case CORE -> {
+                    if (switchable(c)) m.put("switchedOn", switchOn(c));
+                    if (switchable(c) && !switchOn(c)) {
+                        m.put("status", Status.OFF);
+                        m.put("message", "Off until phase " + c.phase() + " is switched on");
+                        return m;
+                    }
                     var d = deploymentState(c);
                     m.put("status", d.status());
                     m.put("message", d.detail());
@@ -262,6 +275,102 @@ public class ConnectorService {
         argo.deleteApp(c.appName());
         lastTests.remove(id);
         deleteOwnNamespace(c);
+    }
+
+    // ---- Phase switch: hold a whole phase off until every system is ready, then switch it on (or off) at once ----
+
+    /** A pipeline-step core connector (Biome) that is switched rather than installed. */
+    static boolean switchable(Connector c) {
+        return c.kindEnum() == ConnectorCatalog.Kind.CORE && PlatformSwitches.PIPELINE_STEPS.contains(c.id());
+    }
+
+    private boolean switchOn(Connector c) {
+        return switches != null && switches.on(c.id());
+    }
+
+    /** Members of a phase this platform can switch: managed connectors for this cloud and pipeline steps. */
+    List<Connector> phaseMembers(String phase) {
+        List<Connector> members = catalog.all().stream()
+                .filter(c -> phase.equals(c.phase()) && c.supports(catalog.cloud())
+                        && (c.kindEnum() == ConnectorCatalog.Kind.MANAGED || switchable(c)))
+                .toList();
+        return dependencyOrder(members);
+    }
+
+    /** Dependencies first (requires inside the phase), otherwise catalog order. */
+    static List<Connector> dependencyOrder(List<Connector> members) {
+        List<Connector> out = new ArrayList<>();
+        List<Connector> left = new ArrayList<>(members);
+        while (!left.isEmpty()) {
+            Connector next = left.stream()
+                    .filter(c -> c.requiresList().stream().noneMatch(r -> left.stream().anyMatch(o -> o.id().equals(r))))
+                    .findFirst().orElse(left.getFirst());   // a cycle cannot block the switch; install reports it
+            out.add(next);
+            left.remove(next);
+        }
+        return out;
+    }
+
+    /** Phases with something to switch: how many members are on (installed or switched on). */
+    public List<Map<String, Object>> phases() {
+        java.util.TreeSet<String> ids = new java.util.TreeSet<>(java.util.Comparator
+                .comparing((String p) -> p.matches("\\d+") ? Integer.parseInt(p) : Integer.MAX_VALUE).thenComparing(p -> p));
+        catalog.all().forEach(c -> { if (c.phase() != null) ids.add(c.phase()); });
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String phase : ids) {
+            List<Connector> members = phaseMembers(phase);
+            if (members.isEmpty()) continue;
+            long on = members.stream().filter(this::isOn).count();
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("phase", phase);
+            m.put("connectors", members.stream().map(Connector::name).toList());
+            m.put("on", on);
+            m.put("total", members.size());
+            out.add(m);
+        }
+        return out;
+    }
+
+    private boolean isOn(Connector c) {
+        try {
+            return switchable(c) ? switchOn(c) : argo.getApp(c.appName(), false) != null;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Switches a whole phase on (enable every member at its pinned version, dependencies first) or off (disable in
+     * reverse order, so nothing is removed while another member still needs it). Members that are already in the
+     * wanted state are left alone. One failure does not stop the rest; each member reports its own outcome.
+     */
+    public List<PhaseStep> switchPhase(String phase, boolean on, String actor) {
+        List<Connector> members = new ArrayList<>(phaseMembers(phase));
+        if (members.isEmpty()) throw new IllegalArgumentException("Phase " + phase + " has nothing to switch on this cloud");
+        if (!on) java.util.Collections.reverse(members);
+        List<PhaseStep> steps = new ArrayList<>();
+        for (Connector c : members) {
+            try {
+                if (switchable(c)) {
+                    if (switches == null) throw new IllegalStateException("switches are unavailable");
+                    boolean was = switches.on(c.id());
+                    switches.set(c.id(), on, actor);
+                    steps.add(new PhaseStep(c.id(), c.name(), true, was == on ? (on ? "already on" : "already off") : (on ? "switched on" : "switched off")));
+                } else if (on) {
+                    if (argo.getApp(c.appName(), false) != null) steps.add(new PhaseStep(c.id(), c.name(), true, "already on"));
+                    else steps.add(new PhaseStep(c.id(), c.name(), true, "installing " + install(c.id(), null)));
+                } else {
+                    if (argo.getApp(c.appName(), false) == null) steps.add(new PhaseStep(c.id(), c.name(), true, "already off"));
+                    else {
+                        disable(c.id());
+                        steps.add(new PhaseStep(c.id(), c.name(), true, "removing"));
+                    }
+                }
+            } catch (RuntimeException e) {
+                steps.add(new PhaseStep(c.id(), c.name(), false, e.getMessage()));
+            }
+        }
+        return steps;
     }
 
     /**

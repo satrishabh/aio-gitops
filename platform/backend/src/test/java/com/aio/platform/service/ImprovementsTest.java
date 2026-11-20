@@ -130,6 +130,27 @@ class ImprovementsTest {
         assertEquals(0L, rows.get(0).get("deploys"));
     }
 
+    @Test
+    void dailyCarriesDoraReadingsPerDay() {
+        Instant day0 = java.time.LocalDate.now(java.time.ZoneOffset.UTC).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        Instant yesterday = day0.minusSeconds(86400);
+        CiRun built = run(1, CiRun.SUCCEEDED, yesterday.plusSeconds(3600), "ghcr.io/a/shop:aaa");   // 01:00 yesterday
+        CiRun broke = run(2, CiRun.FAILED, day0.plusSeconds(3600), null);                           // 01:00 today
+        CiRun fixed = run(3, CiRun.SUCCEEDED, day0.plusSeconds(3 * 3600), null);                    // 03:00 today
+        Deployment prod = dep("prod", "aaa", day0.plusSeconds(1800));                                // 00:30 today
+        Promotion rb = new Promotion();
+        rb.projectId = 1L; rb.kind = "ROLLBACK"; rb.toEnv = "prod"; rb.status = Promotion.DONE; rb.decidedAt = day0.plusSeconds(7200);
+
+        var rows = MetricsService.daily(2, List.of(built, broke, fixed), List.of(prod), List.of(rb));
+        var today = rows.get(1);
+        assertEquals(23.5, today.get("leadTimeHours"));     // built 01:00 yesterday -> prod 00:30 today
+        assertEquals(1L, today.get("rollbacks"));
+        assertEquals(2.0, today.get("restoreHours"));       // red at 01:00 -> green at 03:00
+        assertNull(rows.get(0).get("leadTimeHours"));        // no prod deploy yesterday
+        assertNull(rows.get(0).get("restoreHours"));
+        assertEquals(0L, rows.get(0).get("rollbacks"));
+    }
+
     private static CiRun run(long id, String status, Instant created, String image) {
         CiRun r = new CiRun();
         r.id = id; r.projectId = 1L; r.status = status; r.deploy = true; r.imageUrl = image;

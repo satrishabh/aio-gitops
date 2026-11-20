@@ -15,7 +15,8 @@ COPY --from=ui /ui/dist ./src/main/resources/static
 RUN mvn -q -B package
 
 FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S app -g 10001 && adduser -S app -u 10001 -G app
+# Pick up Alpine security fixes released after the base image was built (2026-11-19: Trivy flagged base packages).
+RUN apk upgrade --no-cache && addgroup -S app -g 10001 && adduser -S app -u 10001 -G app
 WORKDIR /app
 COPY --from=build /src/target/platform.jar app.jar
 USER 10001

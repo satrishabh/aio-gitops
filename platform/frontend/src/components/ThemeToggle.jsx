@@ -1,32 +1,24 @@
-import { useEffect, useState } from 'react'
 import Icon from './Icon.jsx'
 import { useTheme } from '../theme.js'
+import { resolveTheme } from '../appearance.js'
 
-/** One activation switches appearance; device appearance is used until overridden. */
+const ORDER = ['default', 'bright', 'dark']
+const LABEL = { default: 'Default', bright: 'Bright', dark: 'Dark' }
+const ICON = { default: 'sun', bright: 'star', dark: 'moon' }
+
+/** One activation moves to the next theme: Default → Bright → Dark. */
 export default function ThemeToggle() {
   const [pref, setPref] = useTheme()
-  const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)')
-    const update = () => setSystemDark(media.matches)
-    update()
-    if (media.addEventListener) media.addEventListener('change', update)
-    else media.addListener(update)
-    return () => {
-      if (media.removeEventListener) media.removeEventListener('change', update)
-      else media.removeListener(update)
-    }
-  }, [])
-  const dark = pref === 'dark' || (pref === 'system' && systemDark)
-  const next = dark ? 'light' : 'dark'
+  const current = resolveTheme(pref)
+  const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length]
   return (
     <div className="appearance-dock">
-      <button type="button" className="appearance-trigger" aria-label={`Switch to ${next} appearance`}
-              title={`Switch to ${next} appearance`} onClick={event => {
+      <button type="button" className="appearance-trigger" aria-label={`Theme: ${LABEL[current]}. Switch to ${LABEL[next]}`}
+              title={`Switch to ${LABEL[next]} theme`} onClick={event => {
                 setPref(next)
                 if (event.detail > 0) event.currentTarget.blur()
               }}>
-        <Icon name={dark ? 'moon' : 'sun'} size={18} />
+        <Icon name={ICON[current]} size={18} />
       </button>
     </div>
   )

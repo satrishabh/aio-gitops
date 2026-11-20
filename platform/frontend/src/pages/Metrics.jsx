@@ -8,7 +8,7 @@ const hrs = v => (v == null ? '—' : v < 1 ? `${Math.round(v * 60)} min` : `${v
 const SERIES = [
   { key: 'succeeded', color: 'var(--green)', label: 'CI succeeded' },
   { key: 'failed', color: 'var(--red)', label: 'CI failed' },
-  { key: 'deploys', color: 'var(--accent)', label: 'Deployments' },
+  { key: 'deploys', color: 'var(--info-fill)', label: 'Deployments' },
 ]
 
 /** DORA performance band (per the State of DevOps thresholds) for a quick qualitative read. */

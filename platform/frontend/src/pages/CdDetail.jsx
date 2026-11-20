@@ -6,6 +6,7 @@ import Icon from '../components/Icon.jsx'
 import { Avatar, Skeleton, Tabs, ago } from '../components/ui.jsx'
 import { Stale, useAction, usePoll } from '../hooks.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { DetailHead, Timeline } from '../components/flow/FlowParts.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 // Argo resource kinds in the order a deploy flows through them, shown like CI pipeline stages
@@ -60,82 +61,72 @@ export default function CdDetail({ me }) {
     <>
       <Stale stale={stale} error={error} onRetry={refresh} />
 
-      <div className="card" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Avatar name={p.name} size={46} />
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <h1 style={{ margin: 0, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <Link to={`/projects/${p.id}`} style={{ color: 'var(--text)' }}>{p.name}</Link>
-              <span className="muted">· {env}</span>
-              {app && <><Badge value={app.syncStatus} /><Badge value={app.healthStatus} /></>}
-              {op?.phase === 'Running' && <span className="live-dot">syncing</span>}
-            </h1>
-            <div className="muted" style={{ marginTop: 4 }}>
-              Argo CD app <code>{data.appName}</code> · cluster <Link to="/clusters"><code>{data.currentCluster || data.cluster}</code></Link> · namespace <code>{data.namespace}</code>
-              {app?.reconciledAt && <> · checked {ago(app.reconciledAt)}</>}
-            </div>
-          </div>
-          <div className="row inline" style={{ margin: 0 }} role="group" aria-label="Environment">
-            {ENVS.map(e => <Link key={e} to={`/projects/${id}/cd/${e}`} className={`btn small${e === env ? ' primary' : ' ghost'}`}
-                                 aria-current={e === env ? 'page' : undefined}>{e}</Link>)}
-          </div>
-          {data.exists && <div style={{ display: 'flex', gap: 8 }}>
-            <button {...btn('sync', 'btn primary')} disabled={!!busy || locked} title={locked ? 'Only approvers can sync prod' : 'Apply the GitOps state now'}
-                    onClick={() => run('sync', () => api(`${base}/sync`, { method: 'POST' }), 'Sync started')}>
-              <Icon name="refresh" size={14} />Sync</button>
-            <button {...btn('refresh')} title="Re-read Git and the cluster"
-                    onClick={() => run('refresh', () => api(`${base}/refresh`, { method: 'POST' }), 'Refreshed')}>
-              <Icon name="search" size={14} />Refresh</button>
-          </div>}
-        </div>
-
-        {data.exists && data.currentCluster && data.currentCluster !== data.cluster && (
-          <div className="banner" style={{ marginTop: 14, marginBottom: 0 }}><Icon name="layers" size={15} />
-            {env} is mapped to <b>&nbsp;{data.cluster}&nbsp;</b> but still runs on <b>&nbsp;{data.currentCluster}</b>.
-            {env === 'prod' ? ' An approver can move it with Repair environments in project settings.' : ' It moves on the next Repair or platform restart.'}
-          </div>
-        )}
-
-        {!data.exists ? <p className="muted" style={{ marginTop: 16 }}>No Argo CD application for {env} yet — use <b>Repair environments</b> in project settings.</p> : <>
-          <div className="facts" style={{ marginTop: 18 }}>
-            <div><span>Image</span><code>{(app.images || []).map(i => i.split('/').pop()).join(', ') || '—'}</code></div>
-            <div><span>Revision</span><code>{(app.revision || '').slice(0, 10) || '—'}</code></div>
-            <div><span>Tracks</span><code>{app.targetRevision}</code></div>
-            <div><span>Auto-sync</span>{syncPolicy.automated ? `on${syncPolicy.prune ? ' · prune' : ''}${syncPolicy.selfHeal ? ' · self-heal' : ''}` : 'off (manual)'}</div>
-            <div><span>Last sync</span>{op ? <>{op.phase} · {duration(op.startedAt, op.finishedAt)}</> : '—'}</div>
-            <div><span>Synced by</span>{op?.initiatedBy || '—'}</div>
-            <div><span>Started</span>{fmtTime(op?.startedAt)}</div>
-            <div><span>Pods</span>{pods.length ? `${pods.filter(x => x.health === 'Healthy').length}/${pods.length} healthy` : 'none'}</div>
-          </div>
-          {[app.healthMessage, ...conditions.map(c => `${c.type}: ${c.message}`), op?.phase === 'Failed' || op?.phase === 'Error' ? op.message : null]
-            .filter(Boolean).map((m, i) => (
-              <div key={i} className="banner" style={{ background: 'var(--red-bg)', color: 'var(--red)', marginTop: 14, marginBottom: 0 }}>
-                <Icon name="x" size={15} />{m}</div>
-            ))}
+      <DetailHead
+        avatar={<Avatar name={p.name} size={46} />}
+        title={<>
+          <Link to={`/projects/${p.id}`} className="fl-title-link">{p.name}</Link>
+          <span className="fl-title-id">· {env}</span>
+          {app && <><Badge value={app.syncStatus} /><Badge value={app.healthStatus} /></>}
+          {op?.phase === 'Running' && <span className="live-dot">syncing</span>}
         </>}
-      </div>
-
-      {data.exists && <>
-        <div className="card">
-          <div className="card-head"><h3>Deployment</h3>
-            <span className="muted">{stages.filter(s => worst(s.nodes) === 'Healthy').length}/{stages.length} healthy</span></div>
-          {stages.length === 0 ? <p className="muted">Nothing deployed yet — Argo CD has no live resources for this app (replicas may be 0).</p> : (
-            <div className="pipeline">
-              {stages.map(s => {
-                const h = worst(s.nodes), st = nodeState(h)
-                return (
-                  <div key={s.kind} className={`stage ${st === 'SUCCEEDED' ? 'done' : ''}`}>
-                    <button className={`node ${st} ${s.kind === 'Pod' && tab === 'logs' ? 'active' : ''}`}
-                            onClick={() => { if (s.kind === 'Pod') setTab('logs'); else setTab('resources') }}>
-                      <span className="ring"><Icon name={st === 'SUCCEEDED' ? 'check' : st === 'FAILED' ? 'x' : KIND_ICON[s.kind]} size={14} stroke={2.5} /></span>
-                      <span className="label"><b>{s.kind}{s.nodes.length > 1 ? ` ×${s.nodes.length}` : ''}</b><span>{h || 'n/a'}</span></span>
-                    </button>
-                  </div>
-                )
-              })}
+        sub={<div className="fl-sub-line">
+          Argo CD app <code>{data.appName}</code> · cluster <Link to="/clusters"><code>{data.currentCluster || data.cluster}</code></Link> · namespace <code>{data.namespace}</code>
+          {app?.reconciledAt && <> · checked {ago(app.reconciledAt)}</>}
+        </div>}
+        below={<>
+          {data.exists && data.currentCluster && data.currentCluster !== data.cluster && (
+            <div className="banner fl-banner"><Icon name="layers" size={15} />
+              {env} is mapped to <b>&nbsp;{data.cluster}&nbsp;</b> but still runs on <b>&nbsp;{data.currentCluster}</b>.
+              {env === 'prod' ? ' An approver can move it with Repair environments in project settings.' : ' It moves on the next Repair or platform restart.'}
             </div>
           )}
-        </div>
+
+          {!data.exists ? <p className="muted" style={{ marginTop: 16 }}>No Argo CD application for {env} yet — use <b>Repair environments</b> in project settings.</p> : <>
+            <dl className="fl-facts">
+              <div><dt>Image</dt><dd><code>{(app.images || []).map(i => i.split('/').pop()).join(', ') || '—'}</code></dd></div>
+              <div><dt>Revision</dt><dd><code>{(app.revision || '').slice(0, 10) || '—'}</code></dd></div>
+              <div><dt>Tracks</dt><dd><code>{app.targetRevision}</code></dd></div>
+              <div><dt>Auto-sync</dt><dd>{syncPolicy.automated ? `on${syncPolicy.prune ? ' · prune' : ''}${syncPolicy.selfHeal ? ' · self-heal' : ''}` : 'off (manual)'}</dd></div>
+              <div><dt>Last sync</dt><dd>{op ? <>{op.phase} · {duration(op.startedAt, op.finishedAt)}</> : '—'}</dd></div>
+              <div><dt>Synced by</dt><dd>{op?.initiatedBy || '—'}</dd></div>
+              <div><dt>Started</dt><dd>{fmtTime(op?.startedAt)}</dd></div>
+              <div><dt>Pods</dt><dd>{pods.length ? `${pods.filter(x => x.health === 'Healthy').length}/${pods.length} healthy` : 'none'}</dd></div>
+            </dl>
+            {[app.healthMessage, ...conditions.map(c => `${c.type}: ${c.message}`), op?.phase === 'Failed' || op?.phase === 'Error' ? op.message : null]
+              .filter(Boolean).map((m, i) => (
+                <div key={i} className="banner fl-banner bad">
+                  <Icon name="x" size={15} />{m}</div>
+              ))}
+          </>}
+        </>}
+      >
+        <nav className="fl-env-switch" aria-label="Environment">
+          {ENVS.map(e => <Link key={e} to={`/projects/${id}/cd/${e}`} className={`btn small${e === env ? ' primary' : ' ghost'}`}
+                               aria-current={e === env ? 'page' : undefined}>{e}</Link>)}
+        </nav>
+        {data.exists && <>
+          <button {...btn('sync', 'btn primary')} disabled={!!busy || locked} title={locked ? 'Only approvers can sync prod' : 'Apply the GitOps state now'}
+                  onClick={() => run('sync', () => api(`${base}/sync`, { method: 'POST' }), 'Sync started')}>
+            <Icon name="refresh" size={14} />Sync</button>
+          <button {...btn('refresh')} title="Re-read Git and the cluster"
+                  onClick={() => run('refresh', () => api(`${base}/refresh`, { method: 'POST' }), 'Refreshed')}>
+            <Icon name="search" size={14} />Refresh</button>
+        </>}
+      </DetailHead>
+
+      {data.exists && <>
+        <section className="fl-panel" aria-labelledby="deploy-h">
+          <div className="fl-panel-head"><h2 id="deploy-h">Deployment</h2>
+            <span className="muted">{stages.filter(s => worst(s.nodes) === 'Healthy').length} of {stages.length} healthy · Pods open the pod logs</span></div>
+          {stages.length === 0 ? <p className="muted">Nothing deployed yet — Argo CD has no live resources for this app (replicas may be 0).</p> : (
+            <Timeline label="Deployment resources" onSelect={s => { if (s.key === 'Pod') setTab('logs'); else setTab('resources') }}
+                      items={stages.map(s => {
+                        const h = worst(s.nodes)
+                        return { key: s.kind, name: `${s.kind}${s.nodes.length > 1 ? ` ×${s.nodes.length}` : ''}`, status: nodeState(h),
+                          word: h || 'No status', icon: KIND_ICON[s.kind], active: s.kind === 'Pod' ? tab === 'logs' : false }
+                      })} />
+          )}
+        </section>
 
         <Tabs label="CD sections" value={tab} onChange={setTab} tabs={[
           { id: 'resources', label: 'Resources', icon: 'layers', count: nodes.length },
@@ -147,19 +138,19 @@ export default function CdDetail({ me }) {
 
         {tab === 'resources' && (
           <div className="card flush">
-            <table>
+            <table className="fl-table">
               <thead><tr><th>Kind</th><th>Name</th><th>Sync</th><th>Health</th><th>Details</th></tr></thead>
               <tbody>
                 {nodes.map(n => {
                   const r = resources.find(x => x.kind === n.kind && x.name === n.name)
                   return (
                     <tr key={n.uid || `${n.kind}/${n.name}`}>
-                      <td><Icon name={KIND_ICON[n.kind] || 'box'} size={13} /> {n.kind}</td>
-                      <td><code>{n.name}</code>{n.createdAt && <div className="muted" style={{ fontSize: '0.75rem' }}>created {ago(n.createdAt)}</div>}</td>
-                      <td>{r ? <Badge value={r.status} /> : <span className="muted">—</span>}</td>
-                      <td><Badge value={n.health} /></td>
-                      <td style={{ fontSize: '0.8rem' }}>
-                        {n.healthMessage && <div style={{ color: n.health === 'Healthy' ? undefined : 'var(--red)' }}>{n.healthMessage}</div>}
+                      <td data-label="Kind"><Icon name={KIND_ICON[n.kind] || 'box'} size={13} /> {n.kind}</td>
+                      <td data-label="Name"><code>{n.name}</code>{n.createdAt && <div className="muted fl-small">created {ago(n.createdAt)}</div>}</td>
+                      <td data-label="Sync">{r ? <Badge value={r.status} /> : <span className="muted">—</span>}</td>
+                      <td data-label="Health"><Badge value={n.health} /></td>
+                      <td data-label="Details" className="fl-small">
+                        {n.healthMessage && <div className={n.health === 'Healthy' ? undefined : 'error'}>{n.healthMessage}</div>}
                         {(n.info || []).map(i => <span key={i.name} className="muted">{i.name}: {i.value} </span>)}
                         {n.kind === 'Pod' && <button className="btn small ghost" onClick={() => { setPod(n.name); setTab('logs') }}>
                           <Icon name="terminal" size={12} />Logs</button>}
@@ -180,15 +171,15 @@ export default function CdDetail({ me }) {
             {op && <div style={{ padding: '14px 18px' }} className="muted">
               <Badge value={op.phase === 'Succeeded' ? 'SUCCEEDED' : op.phase === 'Running' ? 'RUNNING' : 'FAILED'} label={op.phase} /> {op.message}
             </div>}
-            <table>
+            <table className="fl-table">
               <thead><tr><th>Kind</th><th>Name</th><th>Result</th><th>Phase</th><th>Message</th></tr></thead>
               <tbody>
                 {(op?.resources || []).map((r, i) => (
                   <tr key={i}>
-                    <td>{r.kind}</td><td><code>{r.name}</code></td>
-                    <td><Badge value={r.status === 'Synced' ? 'Synced' : r.status === 'SyncFailed' ? 'FAILED' : r.status} label={r.status} /></td>
-                    <td className="muted">{r.hookPhase || r.syncPhase || '—'}</td>
-                    <td style={{ fontSize: '0.8rem' }}>{r.message}</td>
+                    <td data-label="Kind">{r.kind}</td><td data-label="Name"><code>{r.name}</code></td>
+                    <td data-label="Result"><Badge value={r.status === 'Synced' ? 'Synced' : r.status === 'SyncFailed' ? 'FAILED' : r.status} label={r.status} /></td>
+                    <td data-label="Phase" className="muted">{r.hookPhase || r.syncPhase || '—'}</td>
+                    <td data-label="Message" className="fl-small">{r.message}</td>
                   </tr>
                 ))}
                 {!op?.resources?.length && <tr><td colSpan="5" className="empty">No sync operation recorded yet.</td></tr>}
@@ -199,15 +190,15 @@ export default function CdDetail({ me }) {
 
         {tab === 'history' && (
           <div className="card flush">
-            <table>
+            <table className="fl-table">
               <thead><tr><th>#</th><th>GitOps revision</th><th>Deployed</th><th>Took</th></tr></thead>
               <tbody>
                 {history.map(h => (
                   <tr key={h.id}>
-                    <td>{h.id}</td>
-                    <td><code>{(h.revision || '').slice(0, 10)}</code></td>
-                    <td>{fmtTime(h.deployedAt)} <span className="muted">({ago(h.deployedAt)})</span></td>
-                    <td className="mono">{duration(h.deployStartedAt, h.deployedAt)}</td>
+                    <td data-label="#">{h.id}</td>
+                    <td data-label="GitOps revision"><code>{(h.revision || '').slice(0, 10)}</code></td>
+                    <td data-label="Deployed">{fmtTime(h.deployedAt)} <span className="muted">({ago(h.deployedAt)})</span></td>
+                    <td data-label="Took" className="mono">{duration(h.deployStartedAt, h.deployedAt)}</td>
                   </tr>
                 ))}
                 {history.length === 0 && <tr><td colSpan="4" className="empty">No deployments yet.</td></tr>}
@@ -250,11 +241,11 @@ function PodLogs({ base, pods, pod, setPod, name }) {
   }
 
   return (
-    <div className="run-grid">
-      <div className="card">
-        <div className="card-head"><h3>Pods</h3></div>
+    <div className="run-grid fl-run-grid">
+      <section className="fl-panel fl-steps" aria-labelledby="pods-h">
+        <div className="fl-panel-head"><h2 id="pods-h">Pods</h2></div>
         {pods.map(x => (
-          <button key={x.name} className={`step ${pod === x.name ? 'active' : ''}`} onClick={() => setPod(x.name)}>
+          <button key={x.name} className={`step ${pod === x.name ? 'active' : ''}`} aria-pressed={pod === x.name} onClick={() => setPod(x.name)}>
             <Badge value={x.health} label={x.name.split('-').slice(-2).join('-')} />
             <span className="dur">{(x.info || []).find(i => i.name === 'Restart Count')?.value ?? ''}</span>
           </button>
@@ -264,7 +255,7 @@ function PodLogs({ base, pods, pod, setPod, name }) {
           <input type="checkbox" checked={previous} onChange={e => setPrevious(e.target.checked)} />
           Previous container (after a crash / restart)
         </label>
-      </div>
+      </section>
       <div className="terminal">
         <div className="terminal-bar">
           <i style={{ background: '#ff5f57' }} /><i style={{ background: '#febc2e' }} /><i style={{ background: '#28c840' }} />
@@ -275,7 +266,7 @@ function PodLogs({ base, pods, pod, setPod, name }) {
           <button className="icon-btn" title="Copy" aria-label="Copy logs" disabled={!logs} onClick={() => navigator.clipboard.writeText(logs).then(() => toast('ok', 'Logs copied'))}><Icon name="list" size={14} /></button>
           <button className="icon-btn" title="Download" aria-label="Download logs" disabled={!logs} onClick={download}><Icon name="arrow" size={14} style={{ transform: 'rotate(90deg)' }} /></button>
         </div>
-        <pre ref={ref}>{pod ? (logs ? logs.split('\n').map(colorLine) : 'Waiting for output…') : 'Select a pod to view its logs.'}</pre>
+        <pre ref={ref} tabIndex={0} aria-label={pod ? `Log of ${pod}` : 'Log'}>{pod ? (logs ? logs.split('\n').map(colorLine) : 'Waiting for output…') : 'Select a pod to view its logs.'}</pre>
       </div>
     </div>
   )

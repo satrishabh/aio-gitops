@@ -21,6 +21,7 @@ import './shell.css'
 import './overview.css'
 import './metrics.css'
 import './connectors.css'
+import './flow.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

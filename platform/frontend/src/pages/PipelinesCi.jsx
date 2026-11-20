@@ -18,18 +18,18 @@ export default function PipelinesCi() {
       {open && <RunCi onClose={() => setOpen(false)} />}
       {!data ? <Skeleton h={260} /> : data.length === 0 ? <Empty icon="zap" title="No CI runs yet">Push to a project's repository or press Run CI.</Empty> : (
         <div className="card flush">
-          <table>
+          <table className="fl-table">
             <thead><tr><th>Run</th><th>Project</th><th>Status</th><th>Ref</th><th>Vulnerabilities</th><th>By</th><th>Duration</th></tr></thead>
             <tbody>
               {data.map(({ run: r, project }) => (
                 <tr key={r.id}>
-                  <td><Link to={`/runs/${r.id}`}><b>#{r.id}</b></Link><div className="muted" style={{ fontSize: '0.75rem' }}>{ago(r.createdAt)}</div></td>
-                  <td><Link to={`/projects/${project.id}`}>{project.name}</Link></td>
-                  <td><Badge value={r.status} /></td>
-                  <td><code>{r.gitRef}</code> <span className="muted mono">{r.commitSha?.slice(0, 7)}</span></td>
-                  <td><Vulns run={r} /></td>
-                  <td className="muted">{r.triggeredBy}</td>
-                  <td className="mono">{duration(r.startedAt, r.finishedAt)}</td>
+                  <td data-label="Run"><Link to={`/runs/${r.id}`}><b>#{r.id}</b></Link><div className="muted fl-small">{ago(r.createdAt)}</div></td>
+                  <td data-label="Project"><Link to={`/projects/${project.id}`}>{project.name}</Link></td>
+                  <td data-label="Status"><Badge value={r.status} /></td>
+                  <td data-label="Ref"><code>{r.gitRef}</code> <span className="muted mono">{r.commitSha?.slice(0, 7)}</span></td>
+                  <td data-label="Vulnerabilities"><Vulns run={r} /></td>
+                  <td data-label="By" className="muted">{r.triggeredBy}</td>
+                  <td data-label="Duration" className="mono">{duration(r.startedAt, r.finishedAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -56,7 +56,7 @@ function RunCi({ onClose }) {
   }
 
   return (
-    <form className="card form" style={{ maxWidth: 'none' }} onSubmit={submit} aria-labelledby="runci-h">
+    <form className="card form fl-runci" style={{ maxWidth: 'none' }} onSubmit={submit} aria-labelledby="runci-h">
       <div className="card-head"><h3 id="runci-h">Run CI</h3>
         <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="x" size={15} /></button></div>
       <div className="row">

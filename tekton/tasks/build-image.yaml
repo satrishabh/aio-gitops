@@ -7,7 +7,9 @@ spec:
     Build and push an image, tagged with the git SHA. With a Dockerfile, rootless BuildKit builds it (no Docker
     daemon, no privileged pod; replaces Kaniko, archived by Google in 2025). Without one,
     Cloud Native Buildpacks (Paketo) detect the language (Java, Node, Go, Python, .NET, ...) and build it,
-    so no Dockerfile is needed. BUILD_STRATEGY=auto picks per run. IMAGE_URL/IMAGE_DIGEST are the results
+    so no Dockerfile is needed. BUILD_STRATEGY=auto picks per run. BUILD_STRATEGY=buildah builds the Dockerfile
+    with Buildah instead of BuildKit (never chosen by auto; the platform passes it only while the Podman / Buildah
+    switch, phase 6, is on). IMAGE_URL/IMAGE_DIGEST are the results
     Tekton Chains looks for to sign the image and attach SLSA provenance; CHAINS-GIT_* tie that provenance
     to the source commit.
   params:
@@ -21,7 +23,7 @@ spec:
       default: "."
     - name: BUILD_STRATEGY
       default: auto
-      description: '"auto" (Dockerfile if present, otherwise buildpacks), "dockerfile" or "buildpacks"'
+      description: '"auto" (Dockerfile if present, otherwise buildpacks), "dockerfile", "buildpacks" or "buildah" (Dockerfile, built with Buildah)'
     - name: SOURCE_URL
       default: ""
       description: Git URL of the source, recorded in the provenance
@@ -36,7 +38,7 @@ spec:
     - name: IMAGE_DIGEST
     - name: IMAGE_URL
     - name: BUILD_STRATEGY
-      description: The strategy actually used ("dockerfile" or "buildpacks")
+      description: The strategy actually used ("dockerfile", "buildpacks" or "buildah")
     - name: CHAINS-GIT_URL
     - name: CHAINS-GIT_COMMIT
   volumes:
@@ -46,8 +48,10 @@ spec:
       emptyDir: {}
     - name: cnb-platform
       emptyDir: {}
+    - name: buildah-storage
+      emptyDir: {}
   # Steps cannot be skipped individually, so each build step exits early unless it was chosen.
-  # Both builder images are pulled on every run; nodes cache them after the first pull.
+  # All builder images are pulled on every run; nodes cache them after the first pull.
   steps:
     - name: detect
       image: alpine:3.20
@@ -61,14 +65,14 @@ spec:
         #!/bin/sh
         set -eu
         case "$STRATEGY" in
-          auto|dockerfile|buildpacks) ;;
-          *) echo "BUILD_STRATEGY must be auto, dockerfile or buildpacks (got '$STRATEGY')"; exit 1 ;;
+          auto|dockerfile|buildpacks|buildah) ;;
+          *) echo "BUILD_STRATEGY must be auto, dockerfile, buildpacks or buildah (got '$STRATEGY')"; exit 1 ;;
         esac
         DF="$(workspaces.source.path)/$DOCKERFILE"
         if [ "$STRATEGY" = auto ]; then
           if [ -f "$DF" ]; then STRATEGY=dockerfile; else STRATEGY=buildpacks; fi
         fi
-        if [ "$STRATEGY" = dockerfile ] && [ ! -f "$DF" ]; then
+        if { [ "$STRATEGY" = dockerfile ] || [ "$STRATEGY" = buildah ]; } && [ ! -f "$DF" ]; then
           echo "Dockerfile $DOCKERFILE not found. Add one, or use the buildpacks strategy."; exit 1
         fi
         printf "%s" "$STRATEGY" > "$(results.BUILD_STRATEGY.path)"
@@ -104,7 +108,7 @@ spec:
         #!/bin/sh
         set -eu
         if [ "$(cat "$STRATEGY_PATH")" != dockerfile ]; then
-          echo "Skipped: building with buildpacks."; exit 0
+          echo "Skipped: build strategy is $(cat "$STRATEGY_PATH")."; exit 0
         fi
         CACHE="$IMAGE-cache:buildkit"
         # Dockerfiles declare `ARG AIO_PATCH_DATE` before `RUN apk upgrade`; a new value each day stops the
@@ -139,7 +143,7 @@ spec:
         #!/bin/bash
         set -euo pipefail
         if [ "$(cat "$(results.BUILD_STRATEGY.path)")" != buildpacks ]; then
-          echo "Skipped: building with the Dockerfile."; exit 0
+          echo "Skipped: build strategy is $(cat "$(results.BUILD_STRATEGY.path)")."; exit 0
         fi
         # The workspace belongs to uid 65532; the lifecycle runs as 1001 and writes into the app dir,
         # so build from a private copy rather than loosening workspace permissions.
@@ -153,6 +157,73 @@ spec:
         DIGEST=$(sed -n 's/^ *digest *= *"\(sha256:[0-9a-f]\{64\}\)".*/\1/p' /layers/report.toml | head -1)
         if [ -z "$DIGEST" ]; then echo "No image digest in the lifecycle report:"; cat /layers/report.toml; exit 1; fi
         printf "%s" "$DIGEST" > "$(results.IMAGE_DIGEST.path)"
+
+    - name: buildah
+      # Buildah 1.43.5, official image (image built 2026-11-04), pinned by digest (multi-arch index)
+      image: quay.io/buildah/stable:v1.43.5@sha256:a6f96bfffc47f36462985573d85e87f782bf2d8b37e02cb3dd307713bfa6cc13
+      workingDir: $(workspaces.source.path)
+      computeResources:
+        requests: { cpu: 100m, memory: 768Mi }
+        limits: { cpu: 900m, memory: 2Gi }
+      # Rootless Buildah, not privileged. It runs as the image's "build" user (uid 1000, /etc/subuid gives it
+      # 1-999 and 1001-65535) and maps those into a user namespace in which it is root; RUN lines execute there
+      # under chroot isolation (no runc, no nested container), into vfs storage (no overlay or /dev/fuse needed).
+      # - SETUID/SETGID in the bounding set + allowPrivilegeEscalation: newuidmap/newgidmap are file-capability
+      #   binaries (cap_setuid/cap_setgid) that write those id maps; without them Buildah can map only uid 1000,
+      #   and RUN lines that chown to other users (package installs) fail. Every other capability is dropped:
+      #   inside its own user namespace Buildah gets a full capability set that is valid only there.
+      # - seccomp/AppArmor Unconfined, for this container only, exactly as rootless BuildKit above: the default
+      #   profiles block creating the user namespace and the bind mounts chroot isolation makes inside it.
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: true
+        capabilities:
+          drop: [ALL]
+          add: [SETUID, SETGID]
+        seccompProfile: { type: Unconfined }
+        appArmorProfile: { type: Unconfined }
+      env:
+        - { name: HOME, value: /home/build }
+        - { name: BUILDAH_ISOLATION, value: chroot }
+        - { name: STORAGE_DRIVER, value: vfs }
+        # same registry credentials as the other builders (the dockerconfig workspace's config.json)
+        - { name: REGISTRY_AUTH_FILE, value: $(workspaces.dockerconfig.path)/config.json }
+        # params go in through env, never spliced into the script, so odd values can't inject shell
+        - { name: IMAGE, value: $(params.IMAGE) }
+        - { name: TAG, value: $(params.TAG) }
+        - { name: DOCKERFILE, value: $(params.DOCKERFILE) }
+        - { name: CONTEXT, value: $(params.CONTEXT) }
+        - { name: SRC, value: $(workspaces.source.path) }
+        - { name: STRATEGY_PATH, value: $(results.BUILD_STRATEGY.path) }
+        - { name: DIGEST_PATH, value: $(results.IMAGE_DIGEST.path) }
+      volumeMounts:
+        - { name: buildah-storage, mountPath: /home/build/.local/share/containers }   # graphroot of rootless storage
+      script: |
+        #!/bin/bash
+        set -euo pipefail
+        if [ "$(cat "$STRATEGY_PATH")" != buildah ]; then
+          echo "Skipped: build strategy is $(cat "$STRATEGY_PATH")."; exit 0
+        fi
+        buildah --version
+        # Same daily build arg as BuildKit, so Dockerfiles that declare it behave identically.
+        # --format docker: like BuildKit's image output (Docker media types); OCI format would drop HEALTHCHECK/SHELL.
+        PATCH_DATE=$(date -u +%Y-%m-%d)
+        buildah --storage-driver=vfs build \
+          --isolation=chroot \
+          --format=docker \
+          --authfile="$REGISTRY_AUTH_FILE" \
+          --build-arg=AIO_PATCH_DATE="$PATCH_DATE" \
+          --file="$SRC/$DOCKERFILE" \
+          --tag="$IMAGE:$TAG" \
+          "$SRC/$CONTEXT"
+        buildah --storage-driver=vfs push \
+          --authfile="$REGISTRY_AUTH_FILE" \
+          --digestfile=/tmp/digest \
+          "$IMAGE:$TAG" "docker://$IMAGE:$TAG"
+        DIGEST=$(grep -o 'sha256:[0-9a-f]\{64\}' /tmp/digest | head -1 || true)
+        if [ -z "$DIGEST" ]; then echo "No image digest from buildah push:"; cat /tmp/digest || true; exit 1; fi
+        printf "%s" "$DIGEST" > "$DIGEST_PATH"
 
     - name: write-url
       image: alpine:3.20

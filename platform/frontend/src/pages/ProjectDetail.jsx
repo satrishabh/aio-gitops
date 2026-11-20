@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
 import Badge, { Vulns } from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Empty, Skeleton, Tabs, ago, envTone } from '../components/ui.jsx'
 import { Stale, useAction, usePoll } from '../hooks.jsx'
-import { PRESETS, SEVERITIES } from '../projectOptions.js'
+import { BUILD_STRATEGIES, PRESETS, SEVERITIES } from '../projectOptions.js'
 import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/RuntimeFields.jsx'
 import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
@@ -392,6 +392,7 @@ const parseEnv = s => { try { return JSON.parse(s || '[]') } catch { return [] }
 const settingsOf = p => ({
   dockerfile: p.dockerfile || './Dockerfile', contextDir: p.contextDir || '.', defaultBranch: p.defaultBranch || '',
   testImage: p.testImage || '', testCommand: p.testCommand || '', scanSeverity: p.scanSeverity, webhook: !!p.webhookId,
+  buildStrategy: p.buildStrategy || 'auto',
   envVars: parseEnv(p.envVars), cpuRequest: p.cpuRequest || RUNTIME_DEFAULTS.cpuRequest, cpuLimit: p.cpuLimit || RUNTIME_DEFAULTS.cpuLimit,
   memoryRequest: p.memoryRequest || RUNTIME_DEFAULTS.memoryRequest, memoryLimit: p.memoryLimit || RUNTIME_DEFAULTS.memoryLimit,
 })
@@ -401,6 +402,10 @@ function Settings({ p, run, btn }) {
   const [form, setForm] = useState(initial)
   const set = k => e => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
   const dirty = JSON.stringify({ ...form, envVars: cleanEnv(form.envVars) }) !== JSON.stringify(initial)
+  // Which strategies can be chosen now (buildah only while Podman / Buildah is switched on); unknown = the ungated ones
+  const [strategies, setStrategies] = useState(null)
+  useEffect(() => { api('/api/projects/build-strategies').then(setStrategies).catch(() => {}) }, [])
+  const offerable = ([v]) => v === initial.buildStrategy || (strategies ? strategies[v] === true : v !== 'buildah')
   async function save(e) {
     e.preventDefault()
     await run('settings', () => api(`/api/projects/${p.id}`, { method: 'PATCH', body: { ...form, envVars: cleanEnv(form.envVars) } }),
@@ -428,6 +433,12 @@ function Settings({ p, run, btn }) {
 
       <fieldset className="fieldset">
         <legend>Build &amp; test</legend>
+        <label>Build strategy
+          <select value={form.buildStrategy} onChange={set('buildStrategy')}>
+            {BUILD_STRATEGIES.filter(offerable).map(([v, l]) => <option key={v} value={v}>
+              {l}{strategies && strategies[v] === false ? ' (switched off: runs are refused)' : ''}</option>)}
+          </select>
+        </label>
         <div className="row">
           <label>Dockerfile<input required value={form.dockerfile} onChange={set('dockerfile')} spellCheck="false" /></label>
           <label>Build context<input required value={form.contextDir} onChange={set('contextDir')} spellCheck="false" /></label>

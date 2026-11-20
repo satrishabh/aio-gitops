@@ -17,7 +17,8 @@ spec:
     - name: context
       default: "."
     - name: build-strategy
-      description: '"auto" (Dockerfile if present, otherwise Cloud Native Buildpacks), "dockerfile" or "buildpacks"'
+      description: '"auto" (Dockerfile if present, otherwise Cloud Native Buildpacks), "dockerfile", "buildpacks", or "buildah"
+        (Dockerfile built with Buildah; the platform passes it only while Podman / Buildah, phase 6, is switched on)'
       default: auto
     - name: test-image
       default: alpine:3.20

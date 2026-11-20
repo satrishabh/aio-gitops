@@ -54,6 +54,13 @@ class PhaseSwitchTest {
               phase: '5'
               namespace: tekton-pipelines
               deployment: tekton-pipelines-controller
+            - id: podman
+              name: Podman / Buildah (CI step)
+              category: CI/CD
+              kind: core
+              phase: '6'
+              namespace: tekton-pipelines
+              deployment: tekton-pipelines-controller
             - id: prometheus
               name: Prometheus
               category: Observability
@@ -174,7 +181,7 @@ class PhaseSwitchTest {
     @Test
     void phasesReportHowManyMembersAreOnAndSkipPlanned() {
         var before = service.phases();
-        assertEquals(List.of("1", "4", "5"), before.stream().map(p -> p.get("phase")).toList());
+        assertEquals(List.of("1", "4", "5", "6"), before.stream().map(p -> p.get("phase")).toList());
         var five = before.get(2);
         assertEquals(0L, five.get("on"));
         assertEquals(3, five.get("total"));                      // Velero is planned: not switchable
@@ -191,7 +198,26 @@ class PhaseSwitchTest {
     }
 
     @Test
-    void onlyKnownSwitchesCanBeSet() {
-        assertThrows(IllegalArgumentException.class, () -> switches.set("anything", true, "alice"));
+    void phaseSixSwitchesTheBuildahStrategyWithoutAPipelineParameter() {
+        assertFalse(BuildStrategies.available(BuildStrategies.BUILDAH, switches));
+        var podman = service.list().stream().filter(m -> "podman".equals(m.get("id"))).findFirst().orElseThrow();
+        assertEquals(ConnectorService.Status.OFF, podman.get("status"));
+        assertEquals(false, podman.get("switchedOn"));
+
+        var on = service.switchPhase("6", true, "alice");
+        assertEquals(List.of("podman"), on.stream().map(ConnectorService.PhaseStep::id).toList());
+        assertEquals("switched on", on.getFirst().detail());
+        assertTrue(switches.on("podman"));
+        assertTrue(BuildStrategies.available(BuildStrategies.BUILDAH, switches));
+        assertEquals(Map.of(), switches.pipelineParams());           // gates the strategy choice, passes nothing
+        assertFalse(switches.on("biome"));                           // phase 5 untouched
+
+        service.switchPhase("6", false, "bob");
+        assertFalse(BuildStrategies.available(BuildStrategies.BUILDAH, switches));
+        assertThrows(IllegalArgumentException.class, () -> BuildStrategies.validate("buildah", switches));
+    }
+
+    @Test
+    void onlyKnownSwitchesCanBeSet() {        assertThrows(IllegalArgumentException.class, () -> switches.set("anything", true, "alice"));
     }
 }

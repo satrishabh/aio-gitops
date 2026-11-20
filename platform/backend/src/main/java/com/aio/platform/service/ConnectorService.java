@@ -75,7 +75,7 @@ public class ConnectorService {
     private final AppProperties props;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
     private final Map<String, TestResult> lastTests = new ConcurrentHashMap<>();
-    /** Held-off pipeline steps (Biome); absent in unit tests that do not need them = all off. */
+    /** Held-off pipeline steps (Biome, Buildah); absent in unit tests that do not need them = all off. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     PlatformSwitches switches;
 
@@ -279,7 +279,7 @@ public class ConnectorService {
 
     // ---- Phase switch: hold a whole phase off until every system is ready, then switch it on (or off) at once ----
 
-    /** A pipeline-step core connector (Biome) that is switched rather than installed. */
+    /** A pipeline-step core connector (Biome; Podman / Buildah) that is switched rather than installed. */
     static boolean switchable(Connector c) {
         return c.kindEnum() == ConnectorCatalog.Kind.CORE && PlatformSwitches.PIPELINE_STEPS.contains(c.id());
     }

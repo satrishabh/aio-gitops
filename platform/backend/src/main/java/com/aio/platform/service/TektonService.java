@@ -32,7 +32,7 @@ public class TektonService {
     @org.springframework.beans.factory.annotation.Value("${app.delivery.test-images:alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine}")
     private String approvedTestImages = "alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine";
 
-    /** Held-off pipeline steps (Biome lint); absent in unit tests = all off. */
+    /** Held-off pipeline steps (Biome lint, Buildah strategy); absent in unit tests = all off. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     PlatformSwitches switches;
 
@@ -99,6 +99,8 @@ public class TektonService {
         params.put("gitops-values-file", GitOpsService.valuesPath(g, p.name, "dev"));
         params.put("deploy", String.valueOf(run.deploy));
         params.put("scan-severity", run.scanSeverity == null ? "HIGH,CRITICAL" : run.scanSeverity);
+        String strategy = buildStrategy(p, switches);
+        if (strategy != null) params.put("build-strategy", strategy);
         if (switches != null) params.putAll(switches.pipelineParams());
 
         boolean independent = "INDEPENDENT".equals(run.deliveryMode);
@@ -148,6 +150,16 @@ public class TektonService {
         }
 
         return createWithRetry(pr, "aio.platform/run-id", run.id);
+    }
+
+    /**
+     * The build-strategy parameter for this project's run, or null for auto (the pipeline default, so runs of
+     * default projects are unchanged). Re-checked at run time: buildah is refused while the podman switch is off,
+     * which fails the run with that message before anything is submitted.
+     */
+    static String buildStrategy(Project p, PlatformSwitches switches) {
+        String s = BuildStrategies.validate(p.buildStrategy, switches);
+        return BuildStrategies.AUTO.equals(s) ? null : s;
     }
 
     public String recoverIndependentRun(CiRun run) {

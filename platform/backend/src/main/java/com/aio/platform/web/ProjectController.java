@@ -156,14 +156,20 @@ public class ProjectController {
     public record SettingsRequest(String scanSeverity, String testImage, String testCommand, String dockerfile,
                                   String contextDir, String defaultBranch, Boolean webhook,
                                   List<com.aio.platform.service.RuntimeConfig.Env> envVars, String cpuRequest,
-                                  String cpuLimit, String memoryRequest, String memoryLimit) {}
+                                  String cpuLimit, String memoryRequest, String memoryLimit, String buildStrategy) {}
 
     @PatchMapping("/{id}")
     public Project update(@PathVariable Long id, @RequestBody SettingsRequest req, @AuthenticationPrincipal OAuth2User user) {
         return projectService.updateSettings(projects.findById(id).orElseThrow(), new ProjectService.Settings(
                 req.scanSeverity(), req.testImage(), req.testCommand(), req.dockerfile(), req.contextDir(),
                 req.defaultBranch(), req.webhook(), req.envVars(), req.cpuRequest(), req.cpuLimit(),
-                req.memoryRequest(), req.memoryLimit()), Me.login(user));
+                req.memoryRequest(), req.memoryLimit(), req.buildStrategy()), Me.login(user));
+    }
+
+    /** Build strategies with whether each can be chosen now (buildah only while Podman / Buildah is switched on). */
+    @GetMapping("/build-strategies")
+    public Map<String, Boolean> buildStrategies() {
+        return projectService.buildStrategies();
     }
 
     public record DeleteRequest(String confirmName) {}

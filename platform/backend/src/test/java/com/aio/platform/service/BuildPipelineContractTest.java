@@ -27,6 +27,11 @@ class BuildPipelineContractTest {
         Map<?, ?> lintParam = ((List<?>) spec.get("params")).stream().map(p -> (Map<?, ?>) p)
                 .filter(p -> "lint".equals(p.get("name"))).findFirst().orElseThrow();
         assertEquals("off", lintParam.get("default"));
+        // auto stays the default; buildah is passed only by the platform, only while the podman switch is on
+        Map<?, ?> strategyParam = ((List<?>) spec.get("params")).stream().map(p -> (Map<?, ?>) p)
+                .filter(p -> "build-strategy".equals(p.get("name"))).findFirst().orElseThrow();
+        assertEquals(BuildStrategies.AUTO, strategyParam.get("default"));
+        assertTrue(String.valueOf(strategyParam.get("description")).contains("\"buildah\""));
         Map<?, ?> scan = (Map<?, ?>) tasks.get(4);
         assertEquals("scanconfig", ((Map<?, ?>) ((List<?>) scan.get("workspaces")).getFirst()).get("workspace"));
         assertTrue(source.contains("@$(tasks.build-push.results.IMAGE_DIGEST)"));

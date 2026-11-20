@@ -92,16 +92,18 @@ class ImprovementsTest {
         CiRun ok1 = run(1, CiRun.SUCCEEDED, t0, "ghcr.io/a/shop:aaa");
         CiRun bad = run(2, CiRun.FAILED, t0.plusSeconds(7200), null);
         CiRun ok2 = run(3, CiRun.SUCCEEDED, t0.plusSeconds(3 * 3600), "ghcr.io/a/shop:bbb");
+        ok1.commitSha = "c1"; bad.commitSha = "c2"; ok2.commitSha = "c2";   // the fix re-ran the same commit
 
         Deployment prod1 = dep("prod", "aaa", t0.plusSeconds(4 * 3600));
         Deployment prod2 = dep("prod", "bbb", t0.plusSeconds(5 * 3600));
         Deployment dev = dep("dev", "aaa", t0.plusSeconds(600));
         Deployment placeholder = dep("staging", "0.0.0", t0);
+        Deployment staging = dep("staging", "aaa", t0.plusSeconds(3600));
 
         Promotion rb = new Promotion();
         rb.projectId = 1L; rb.kind = "ROLLBACK"; rb.toEnv = "prod"; rb.status = Promotion.DONE;
 
-        var m = MetricsService.compute(10, List.of(prod1, prod2, dev, placeholder), List.of(ok1, bad, ok2), List.of(rb));
+        var m = MetricsService.compute(10, List.of(prod1, prod2, dev, placeholder, staging), List.of(ok1, bad, ok2), List.of(rb));
         assertEquals(2, m.prodDeploys());
         assertEquals(1, m.devDeploys());
         assertEquals(0.2, m.prodDeploysPerDay());
@@ -109,6 +111,23 @@ class ImprovementsTest {
         assertEquals(0.5, m.changeFailureRate());        // 1 rollback / 2 prod deploys
         assertEquals(1.0, m.timeToRestoreHoursMean());   // failed at 2h -> green at 3h
         assertEquals(0.67, m.ciSuccessRate());
+        assertEquals(1, m.stagingDeploys());             // the 0.0.0 placeholder is not a deployment
+        assertEquals(2, m.commitsBuilt());               // c1 and c2; c2 ran twice
+    }
+
+    @Test
+    void dailySplitsDeploysPerEnvironment() {
+        Instant today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().plusSeconds(60);
+        var rows = MetricsService.daily(2, List.of(run(1, CiRun.SUCCEEDED, today, null)),
+                List.of(dep("dev", "a", today), dep("staging", "a", today), dep("prod", "a", today),
+                        dep("prod", "b", today), dep("staging", "0.0.0", today)));
+        var last = rows.get(1);
+        assertEquals(4L, last.get("deploys"));
+        assertEquals(1L, last.get("deploysDev"));
+        assertEquals(1L, last.get("deploysStaging"));
+        assertEquals(2L, last.get("deploysProd"));
+        assertEquals(1L, last.get("succeeded"));
+        assertEquals(0L, rows.get(0).get("deploys"));
     }
 
     private static CiRun run(long id, String status, Instant created, String image) {

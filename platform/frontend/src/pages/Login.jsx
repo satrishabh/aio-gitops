@@ -24,11 +24,15 @@ export default function Login() {
           </p>
         </div>
         <div className="login-pipeline" aria-label="AIO delivery pipeline">
-          <div className="pipeline-node"><Icon name="github" size={17} /><span>YOUR CODE</span></div>
+          <div className="pipeline-node"><Icon name="github" size={17} /><span>COMMIT</span></div>
           <i />
           <div className="pipeline-node"><Icon name="zap" size={17} /><span>CI + SCAN</span></div>
           <i />
-          <div className="pipeline-node"><Icon name="rocket" size={17} /><span>LIVE</span></div>
+          <div className="pipeline-node"><Icon name="box" size={17} /><span>DEV</span></div>
+          <i />
+          <div className="pipeline-node"><Icon name="layers" size={17} /><span>STAGING</span></div>
+          <i />
+          <div className="pipeline-node"><Icon name="rocket" size={17} /><span>PROD</span></div>
         </div>
         <div className="login-proof">
           <span><b>01</b> Push to GitHub</span>

@@ -23,13 +23,12 @@ export function Kpi({ label, value, sub, icon, tone }) {
   )
 }
 
-/** Deterministic flat-colour avatar from a project name (one muted hue per project, no gradient). */
+/** Deterministic avatar from a project name: one hue per project, tinted background with same-hue text (theme sets the shades). */
 export function Avatar({ name, size = 38 }) {
   let h = 0
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360
   return (
-    <div className="avatar" style={{ width: size, height: size, fontSize: size * 0.34,
-      background: `hsl(${h} 45% 52%)` }}>
+    <div className="avatar" aria-hidden="true" style={{ width: size, height: size, fontSize: size * 0.34, '--hue': h }}>
       {name.slice(0, 2).toUpperCase()}
     </div>
   )

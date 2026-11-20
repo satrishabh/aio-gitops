@@ -4,7 +4,7 @@ metadata:
   name: ci-pipeline
 spec:
   description: >
-    Cloud-agnostic CI: clone -> test -> build & push (tag = git SHA) -> scan -> bump GitOps (dev).
+    Cloud-agnostic CI: clone -> lint (Biome, if configured) -> test -> build & push (tag = git SHA) -> scan -> bump GitOps (dev).
     Any language: builds the Dockerfile if the repo has one, otherwise Cloud Native Buildpacks.
   params:
     - name: repo-url
@@ -24,6 +24,10 @@ spec:
       default: alpine:3.20
     - name: test-command
       default: ""
+    - name: lint
+      description: 'Biome lint/format check: "off" until switched on (Connectors page, phase 5; the platform then
+        passes "auto": only repos with biome.json(c)), or "on" / "off"'
+      default: "off"
     - name: gitops-repo
     - name: gitops-branch
       default: main
@@ -49,8 +53,17 @@ spec:
         - { name: source, workspace: source }
         - { name: github-token, workspace: github-token }
 
-    - name: test
+    - name: lint
       runAfter: [clone]
+      taskRef: { name: lint-biome }
+      params:
+        - { name: CONTEXT, value: $(params.context) }
+        - { name: LINT, value: $(params.lint) }
+      workspaces:
+        - { name: source, workspace: source }
+
+    - name: test
+      runAfter: [lint]
       taskRef: { name: run-tests }
       params:
         - { name: TEST_IMAGE, value: $(params.test-image) }

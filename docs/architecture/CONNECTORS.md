@@ -1,6 +1,6 @@
 # Connectors: open-source tools managed from AIO
 
-**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. None is deployed to a live cluster yet. **Date:** 2026-11-20.
+**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. Phase 5 (CloudNativePG, Valkey, Harbor; Biome as a CI lint step) likewise, as of 2026-11-20; CrowdSec from the same wave is live on AKS since 2026-11-18. None of phases 1-5 is deployed to a live cluster yet, except CrowdSec. **Date:** 2026-11-20.
 
 The **Connectors → Open source** page (admins only) lists every open-source tool AIO works with: what it is, whether it runs, and what an admin can do with it. The list is data, not code: the aio-catalog repository (one file per tool). Adding a tool means adding one catalog entry, one values file and one line in the Argo CD project. No Java or React changes are needed.
 
@@ -27,6 +27,7 @@ The tool catalog moved out of AIO into its own repository, **aio-catalog** (`d:�
 - **Roll back** reinstalls the catalog's `previousVersion`. **Use pinned** returns to `version`. Only these two exact versions are accepted; there are no floating tags.
 - **Disable** deletes the Argo CD app with cascade: everything the tool installed is removed, including its stored data (Prometheus metrics).
 - Every Enable, Roll back and Disable is written to the audit log as `connector.*`.
+- **Phases: off until ready, then one switch.** Connectors → Phases lists each catalog phase with how many of its connectors are on. Nothing in a phase runs until an admin presses **Switch on**: it enables every managed connector of the phase for this cloud at its pinned version, dependencies first, and turns on the phase's CI steps (Biome lint, phase 5). **Switch off** removes them in reverse order (stored data included) and holds the CI steps off again; that is the way back if a phase misbehaves after go-live. Members already in the wanted state are left alone, one failure does not stop the rest, and each member reports its own result. Audited as `connector.phase-on` / `connector.phase-off`. The CI-step switches live in table `platform_switches`; no row means off.
 - `CLOUD_PROVIDER` (`any`, `gke`, `eks`, `aks`, `oke`, `onprem`) marks entries with a `clouds` list that excludes this cloud as "not for this cloud", so the catalog stays cloud-agnostic.
 
 ## Running on AKS (current cluster)
@@ -63,6 +64,11 @@ Read from the cluster on 2026-11-17:
 | Gatus (phase 4) | 10m | 32 Mi | 1 Gi disk |
 | Node autoprovisioning (phase 4) | 0 | 0 | runs in the cloud's control plane |
 | **Phase 4 on 2 nodes** | **~0.3 CPU** | **~0.9 GiB** | 16 Gi disk |
+| CloudNativePG operator (phase 5) | 20m | 96 Mi | |
+| Valkey + exporter (phase 5) | 30m | 88 Mi | 2 Gi disk |
+| Harbor, 7 pods incl. its CloudNativePG database (phase 5) | 160m | 670 Mi | 26 Gi disk |
+| Biome lint step (phase 5) | 100m | 128 Mi | only while a run lints |
+| **Phase 5, steady** | **~0.2 CPU** | **~0.85 GiB** | 28 Gi disk |
 
 On 2026-11-17, one node had 99% of its allocatable memory requested and was using more than that (6.3 GiB). The other node had just been added by the autoscaler and was nearly empty. The cluster cannot grow beyond these two nodes, so every connector must fit in the second node's free space. Check headroom with `kubectl describe nodes | grep -A6 "Allocated resources"` before each Enable. Recommended order on AKS:
 
@@ -78,7 +84,7 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 
 **Managed AKS add-ons:** AKS can run KEDA (`az aks update --enable-keda`) and VPA (`--enable-vpa`) itself. Use either the add-on or the connector, never both. If the VPA add-on is on, set `vpa.enabled: false` in `aio-catalog values/goldilocks/values.yaml`.
 
-## Scope: 24 connectors
+## Scope: 29 connectors
 
 | Group | Connectors | Kind |
 | --- | --- | --- |
@@ -94,6 +100,10 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 | Security | **External Secrets Operator** | managed (phase 4) |
 | Reliability | **Gatus** | managed (phase 4) |
 | Cost | **Node autoprovisioning** (AKS Node Auto Provisioning, GKE node auto-provisioning) | managed (phase 4) |
+| Data | **CloudNativePG, Valkey** | managed (phase 5) |
+| Security | **Harbor** | managed (phase 5) |
+| Security | **CrowdSec** (edge bans, optional) | managed (phase 5, live on AKS) |
+| CI/CD | **Biome** (lint step in the CI pipeline) | core (phase 5) |
 | Cost | Karpenter on EKS | planned (when AIO runs on EKS) |
 
 Not included, because each would replace AIO itself rather than plug into it: Jenkins, GitLab CI, Flux, Spinnaker, Backstage. Commercial-only tools (Kubecost Enterprise, Cast AI, ScaleOps) are excluded too.
@@ -120,6 +130,7 @@ Cost tools that work on any cloud: OpenCost (see the cost), Goldilocks + VPA (ri
 | 2 | 2026-11-24 → 12-05 | Trivy Operator, OpenCost, Goldilocks + VPA, kube-green | Rescan reports exist for dev/staging/prod; OpenCost shows cost per namespace; dev/staging sleep and wake on time |
 | 3 | 2026-12-08 → 12-19 | Velero, Renovate, KEDA, Descheduler | Restore drill of the `aio-platform` namespace and the Chains key succeeds; first Renovate PRs merged |
 | 4 | 2027-01 | Node autoprovisioning (AKS, GKE); Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus | Logs of every namespace and a test trace visible in Grafana; one ExternalSecret synced from the cloud store; Gatus checks green 3 days; a pending dev pod gets a Spot node and the node is removed once empty |
+| 5 | 2027-01 | CloudNativePG, Valkey, Harbor; Biome lint step (CrowdSec already live) | A dev app reads and writes its own CloudNativePG database and the shared Valkey; an image pushed to Harbor through Keycloak login is pulled by a dev app; a repo with biome.json fails CI on a lint error and passes once fixed |
 
 Recurring jobs set up inside the tools when each one is added:
 
@@ -227,6 +238,43 @@ Trade-offs to know:
 - The grafana/helm-charts `tempo` chart is deprecated; the catalog uses the grafana-community chart, now with Tempo 3.
 - The node-autoprovisioning connector installs only AIO's node policy. The autoprovisioner is the cloud's managed service, so Disable leaves the cloud feature on until the script turns it off.
 - EKS: Karpenter needs per-cluster IAM (node role, controller role, interruption queue). It stays a planned entry until AIO runs on EKS.
+
+## Activation (phase 5)
+
+Pinned versions (rollback target in brackets): cloudnative-pg 0.29.1 / operator 1.30.1 (0.29.0), valkey 0.12.1 / Valkey 9.1.3 (0.12.0), harbor 1.19.4 / Harbor 2.15.4 (1.19.2), Biome 2.6.5 (image pinned by digest). CrowdSec 0.24.2 is already live (aio-catalog `extras/edge-protection`).
+
+All of them work on AKS, GKE, EKS and on-prem: data on disks from the default StorageClass, no cloud credentials. Karpenter stays planned until AIO runs on EKS.
+
+Everything stays off until switched on: steps 1-5 prepare (nothing runs yet), step 6 switches the whole phase on. Single connectors can still be enabled one at a time instead.
+
+1. Push and tag the catalog, re-apply `deploy/connectors-project.yaml` (three chart repositories; namespaces `cnpg-system`, `harbor`, `valkey`) and move `CONNECTORS_REVISION` to the tag. Deploy the platform image with the phase switch (migration `V10__platform_switches`).
+2. **CloudNativePG** → Enable → Test (the operator's controllers answer on a metrics Service from `extras/cloudnative-pg`). An app gets a database from one `Cluster` manifest in its namespace (example in `values/cloudnative-pg/values.yaml`); it reads Secret `<cluster>-app` and connects to `<cluster>-rw:5432`.
+3. **Valkey.** Create the password first, then Enable → Test (the exporter logs in with it, so `redis_up 1` proves the password works):
+   ```bash
+   kubectl create namespace valkey
+   kubectl -n valkey create secret generic valkey-users --from-literal=default="$(openssl rand -hex 24)"
+   ```
+   Apps in `dev` and `staging` connect to `valkey.valkey.svc:6379` as user `default`; a NetworkPolicy keeps everyone else out. Copy the password into the app's namespace as a Secret (or sync it with External Secrets).
+4. **Harbor** (after CloudNativePG):
+   1. `bash aio-catalog setup/harbor-secrets.sh` creates `harbor-secrets` (internal secrets, admin password, registry login) and `harbor-token`. Under Argo CD the chart cannot keep its own generated secrets; it would make new ones on every sync.
+   2. sarvaikam only: `python tools/gen_sso.py && bash sso/keycloak/import.sh` (adds a `groups` claim to client `aio-harbor`), then `OIDC_CLIENT_SECRET='<aio-harbor secret>' OIDC_ENDPOINT=https://profile.sarvaikam.com/realms/aio bash setup/harbor-secrets.sh`. Client role `aio-admin` becomes Harbor admin.
+   3. Enable → Test (ping, then `/api/v2.0/health` for every component). The database `harbor-db` comes up first; Harbor core restarts until it is ready.
+   4. Exit check: `docker login harbor.tools.sarvaikam.com` (Keycloak user name + CLI secret from Harbor → User Profile), push an image, and pull it from a dev app through an image pull Secret of a Harbor robot account.
+5. **Biome**: apply the task before the pipelines that use it, then the pipelines:
+   ```bash
+   kubectl apply -n ci -f tekton/tasks/lint-biome.yaml
+   kubectl apply -n ci -f tekton/pipelines/ci-pipeline.yaml -f tekton/pipelines/ci-build-v2.yaml
+   ```
+   Every run gets a `lint` step after clone, held **off** (the pipeline default) until phase 5 is switched on. From then on the platform passes `lint=auto`: `biome ci` runs only when the repo has `biome.json` or `biome.jsonc` at the build context; other repos see "skipping" and nothing changes. Runs started by the Tekton EventListener (not the platform) keep the default `off`.
+6. **Switch on.** Once steps 2-5's prerequisites are in place (catalog tag, Valkey password, Harbor secrets, Tekton task), Connectors → Phases → phase 5 → **Switch on**. Then Test each connector.
+
+Trade-offs to know:
+- Harbor here is a registry for images you choose to keep in-cluster. The AIO pipeline keeps pushing to `APP_REGISTRY` (GHCR); pointing it at Harbor is a separate change (registry credentials in `ci`, pull Secrets in app namespaces).
+- Harbor's own Trivy scanner is off: the pipeline scans every image it builds, and the Trivy Operator scans what runs. Turn it on in the values file (`trivy.enabled`, about 0.2 CPU / 512 Mi more) to scan images pushed from elsewhere.
+- Harbor's Redis has no password; a NetworkPolicy limits it to the `harbor` namespace. NetworkPolicies need an enforcing CNI: Cilium on AKS, Dataplane V2 on GKE.
+- One Valkey is shared by all dev and staging apps: it is a cache, not a store of record. Give each app its own key prefix. Prod apps that need Redis-compatible storage get their own instance.
+- CloudNativePG databases are backed up by Velero's nightly volume copies (crash-consistent; PostgreSQL recovers like after a power cut). Point-in-time recovery needs the Barman Cloud plugin and an object-storage identity per cloud; it is not part of this connector yet.
+- The Keycloak settings for Harbor are applied at every start from Secret `harbor-oidc`; changes made in Harbor's UI to those fields are overwritten.
 
 ## Adding a connector
 

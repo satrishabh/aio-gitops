@@ -10,7 +10,7 @@ import { Stale, usePoll } from '../hooks.jsx'
 const STATUS = {
   HEALTHY: ['Healthy', 'Healthy'], PROGRESSING: ['Progressing', 'Installing'], DEGRADED: ['Degraded', 'Degraded'],
   NOT_INSTALLED: ['Unknown', 'Not installed'], PLANNED: ['CANCELLED', 'Planned'], NOT_FOR_THIS_CLOUD: ['CANCELLED', 'Not for this cloud'],
-  UNKNOWN: ['Unknown', 'Unknown'],
+  OFF: ['CANCELLED', 'Off'], UNKNOWN: ['Unknown', 'Unknown'],
 }
 const KIND = { CORE: 'core', MANAGED: 'managed', PLANNED: 'planned' }
 
@@ -41,6 +41,27 @@ export default function Connectors() {
     }
   }
 
+  async function switchPhase(p, state) {
+    const text = state === 'on'
+      ? `Switch on phase ${p.phase}? This installs ${p.connectors.join(', ')} (dependencies first). Do it once every system they need is ready (see docs/architecture/CONNECTORS.md).`
+      : `Switch off phase ${p.phase}? This removes ${p.connectors.join(', ')} and everything they installed, stored data included.`
+    if (!window.confirm(text)) return
+    const key = `phase-${p.phase}`
+    setBusy(b => ({ ...b, [key]: state }))
+    try {
+      const r = await api(`/api/connectors/phases/${encodeURIComponent(p.phase)}/${state}`, { method: 'POST' })
+      const failed = r.steps.filter(s => !s.ok)
+      toast(failed.length ? 'error' : 'ok', failed.length
+        ? `Phase ${p.phase}: ${failed.map(s => `${s.name}: ${s.detail}`).join('; ')}`
+        : `Phase ${p.phase} switched ${state}: ${r.steps.map(s => `${s.name} ${s.detail}`).join(', ')}`)
+      refresh()
+    } catch (err) {
+      toast('error', `Phase ${p.phase}: ${err.message}`)
+    } finally {
+      setBusy(b => ({ ...b, [key]: null }))
+    }
+  }
+
   const groups = data.connectors.reduce((acc, c) => ((acc[c.category] ||= []).push(c), acc), {})
   const count = k => data.connectors.filter(c => c.kind === k).length
 
@@ -58,6 +79,37 @@ export default function Connectors() {
         Managed connectors install through Argo CD from a pinned chart. <b>Test</b> checks they answer, <b>Roll back</b> returns to the
         previous pinned version, <b>Disable</b> removes them. If one is down, AIO keeps working without it.
       </div>
+
+      {data.phases?.length > 0 && <section style={{ marginTop: 20 }}>
+        <h3 style={{ margin: '0 0 4px' }}>Phases</h3>
+        <p className="muted" style={{ fontSize: '0.8rem', margin: '0 0 8px' }}>
+          A phase stays off until you switch it on: do that once every system it needs is ready. Switching off is the way back.
+        </p>
+        <div className="card flush">
+          <table>
+            <thead><tr><th>Phase</th><th>Connectors</th><th>State</th><th style={{ textAlign: 'right' }}>Switch</th></tr></thead>
+            <tbody>
+              {data.phases.map(p => {
+                const b = busy[`phase-${p.phase}`]
+                const state = p.on === 0 ? ['CANCELLED', 'Off'] : p.on === p.total ? ['Healthy', 'On'] : ['Progressing', `${p.on} of ${p.total} on`]
+                return (
+                  <tr key={p.phase}>
+                    <td><b>Phase {p.phase}</b></td>
+                    <td style={{ fontSize: '0.8rem' }}>{p.connectors.join(', ')}</td>
+                    <td><Badge value={state[0]} label={state[1]} /></td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {p.on < p.total && <button className="btn primary" disabled={!!b} onClick={() => switchPhase(p, 'on')}>
+                        <Icon name="play" size={13} />{b === 'on' ? 'Switching on…' : 'Switch on'}</button>}
+                      {p.on > 0 && <button className="btn danger" disabled={!!b} onClick={() => switchPhase(p, 'off')}>
+                        <Icon name="trash" size={13} />{b === 'off' ? 'Switching off…' : 'Switch off'}</button>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>}
 
       {data.connectors.length === 0 ? <Empty icon="plug" title="No connectors in the catalog" /> : Object.entries(groups).map(([cat, list]) => (
         <section key={cat} style={{ marginTop: 20 }}>

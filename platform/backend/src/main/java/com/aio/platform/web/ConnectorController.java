@@ -6,6 +6,7 @@ import com.aio.platform.service.ConnectorCatalog;
 import com.aio.platform.service.ConnectorService;
 import java.net.URI;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -50,6 +51,31 @@ public class ConnectorController {
         m.put("catalog", catalog.source());
         m.put("links", Map.of("prometheus", grafanaUrl));
         m.put("connectors", connectors.list());
+        m.put("phases", connectors.phases());
+        return m;
+    }
+
+    /**
+     * Switches every connector of a phase on (dependencies first) or off (reverse order). Lets a phase stay off until
+     * every system it needs is ready, then go live in one step; switching off is the way back.
+     */
+    @PostMapping("/phases/{phase}/{state:on|off}")
+    public Map<String, Object> switchPhase(@PathVariable String phase, @PathVariable String state,
+                                           @AuthenticationPrincipal OAuth2User user) {
+        requireAdmin();
+        if (!phase.matches("[0-9A-Za-z.-]{1,10}")) throw new IllegalArgumentException("Invalid phase");
+        boolean on = "on".equals(state);
+        String actor = Me.login(user);
+        List<ConnectorService.PhaseStep> steps = connectors.switchPhase(phase, on, actor);
+        long failed = steps.stream().filter(s -> !s.ok()).count();
+        audit.record(actor, "connector.phase-" + state, "phase " + phase, steps.stream()
+                .map(s -> s.id() + ": " + (s.ok() ? s.detail() : "failed (" + s.detail() + ")"))
+                .collect(java.util.stream.Collectors.joining("; ")));
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("phase", phase);
+        m.put("state", state);
+        m.put("ok", failed == 0);
+        m.put("steps", steps);
         return m;
     }
 

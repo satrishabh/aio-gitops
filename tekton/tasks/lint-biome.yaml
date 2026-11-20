@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: lint-biome
+spec:
+  description: >
+    Lint and format check for JavaScript, TypeScript, JSX, JSON and CSS with Biome ("biome ci": reports, never
+    writes). LINT=auto (default) runs only when the repo has biome.json or biome.jsonc in CONTEXT, so repos that
+    do not use Biome are unaffected. LINT=on runs with Biome's defaults when there is no config; LINT=off skips.
+    A finding fails the run before the image is built.
+  params:
+    - name: CONTEXT
+      type: string
+      default: "."
+    - name: LINT
+      type: string
+      default: auto
+  workspaces:
+    - name: source
+  steps:
+    - name: biome
+      # Biome 2.6.5 (released 2026-11-04), official image, pinned by digest
+      image: ghcr.io/biomejs/biome:2.6.5@sha256:d429fd2c0a8d05fa10f4abf2eb866831a894b40f7b0f76e1f2ae9544f031ca8b
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT)
+      env:
+        - name: LINT
+          value: $(params.LINT)
+      computeResources:
+        requests: { cpu: 100m, memory: 128Mi }
+        limits: { cpu: 900m, memory: 512Mi }
+      script: |
+        #!/bin/sh
+        set -eu
+        case "$LINT" in
+          off) echo "Lint is off for this project - skipping."; exit 0 ;;
+          auto)
+            if [ ! -f biome.json ] && [ ! -f biome.jsonc ]; then
+              echo "No biome.json or biome.jsonc - skipping lint (set lint to \"on\" to lint with Biome's defaults)."
+              exit 0
+            fi ;;
+          on) ;;
+          *) echo "LINT must be auto, on or off (got \"$LINT\")" >&2; exit 2 ;;
+        esac
+        biome --version
+        biome ci --colors=off --max-diagnostics=200 .

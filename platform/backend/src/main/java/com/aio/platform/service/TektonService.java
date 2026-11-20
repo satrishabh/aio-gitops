@@ -118,9 +118,7 @@ public class TektonService {
                 "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
         boolean externalRegistry = independent && run.externalRegistry;
         java.util.List<Map<String, Object>> workspaces = new java.util.ArrayList<>(List.of(
-                Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", Map.of(
-                        "accessModes", List.of("ReadWriteOnce"),
-                        "resources", Map.of("requests", Map.of("storage", t.storageSize()))))),
+                Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", workspaceClaim(t))),
                 Map.of("name", "dockerconfig", "secret", Map.of("secretName", externalRegistry ? RegistryConnections.runSecret(run.id, "push") : t.registrySecret())),
                 Map.of("name", "github-token", "secret", Map.of("secretName", independent ? sourceSecret : t.githubTokenSecret()))));
         if (independent) workspaces.add(Map.of("name", "scanconfig", "secret", Map.of("secretName",
@@ -174,9 +172,7 @@ public class TektonService {
                 "serviceAccountName", t.serviceAccount(),
                 "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
         spec.put("workspaces", List.of(
-                Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", Map.of(
-                        "accessModes", List.of("ReadWriteOnce"),
-                        "resources", Map.of("requests", Map.of("storage", t.storageSize()))))),
+                Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", workspaceClaim(t))),
                 Map.of("name", "dockerconfig", "secret", Map.of("secretName", t.registrySecret())),
                 Map.of("name", "github-token", "secret", Map.of("secretName", t.githubTokenSecret()))));
 
@@ -296,5 +292,14 @@ public class TektonService {
             log.debug("logs unavailable for {}/{}: {}", pod, container, e.getMessage());
             return "(logs not available yet: " + e.getMessage() + ")";
         }
+    }
+
+    /** The per-run workspace volume; uses the configured StorageClass (e.g. Azure Blob) or the cluster default. */
+    static Map<String, Object> workspaceClaim(AppProperties.Tekton t) {
+        Map<String, Object> claim = new LinkedHashMap<>();
+        claim.put("accessModes", List.of("ReadWriteOnce"));
+        claim.put("resources", Map.of("requests", Map.of("storage", t.storageSize())));
+        if (t.storageClass() != null && !t.storageClass().isBlank()) claim.put("storageClassName", t.storageClass().trim());
+        return claim;
     }
 }

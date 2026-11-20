@@ -5,7 +5,7 @@ metadata:
 spec:
   description: >
     Cloud-agnostic CI: clone -> test -> build & push (tag = git SHA) -> scan -> bump GitOps (dev).
-    Works for any language that ships a Dockerfile.
+    Any language: builds the Dockerfile if the repo has one, otherwise Cloud Native Buildpacks.
   params:
     - name: repo-url
     - name: revision
@@ -17,6 +17,9 @@ spec:
       default: ./Dockerfile
     - name: context
       default: "."
+    - name: build-strategy
+      description: '"auto" (Dockerfile if present, otherwise Cloud Native Buildpacks), "dockerfile" or "buildpacks"'
+      default: auto
     - name: test-image
       default: alpine:3.20
     - name: test-command
@@ -58,12 +61,15 @@ spec:
 
     - name: build-push
       runAfter: [test]
-      taskRef: { name: buildkit-build-push }
+      taskRef: { name: build-image }
       params:
         - { name: IMAGE, value: $(params.image) }
         - { name: TAG, value: $(tasks.clone.results.short-sha) }
         - { name: DOCKERFILE, value: $(params.dockerfile) }
         - { name: CONTEXT, value: $(params.context) }
+        - { name: BUILD_STRATEGY, value: $(params.build-strategy) }
+        - { name: SOURCE_URL, value: $(params.repo-url) }
+        - { name: SOURCE_COMMIT, value: $(tasks.clone.results.commit) }
       workspaces:
         - { name: source, workspace: source }
         - { name: dockerconfig, workspace: dockerconfig }

@@ -1,0 +1,35 @@
+# This is Traefik's maintained NGINX compatibility provider, not ingress-nginx.
+ingressClass:
+  enabled: false
+providers:
+  kubernetesCRD:
+    enabled: false
+  kubernetesIngress:
+    enabled: false
+  kubernetesGateway:
+    enabled: false
+  kubernetesIngressNGINX:
+    enabled: true
+    ingressClass: nginx
+    controllerClass: k8s.io/ingress-nginx
+    watchIngressWithoutClass: false
+    allowSnippetAnnotations: false
+    allowCrossNamespaceResources: false
+    publishService:
+      enabled: true
+service:
+  spec:
+    type: LoadBalancer
+    loadBalancerIP: ${ingress_ip}
+deployment:
+  replicas: 2
+ingressRoute:
+  dashboard:
+    enabled: false
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

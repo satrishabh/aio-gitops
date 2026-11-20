@@ -1,0 +1,10 @@
+# Kyverno v1.19.2 (chart 3.9.2) for a small cluster: one replica per controller.
+# For production availability raise admissionController.replicas to 3.
+admissionController:
+  replicas: 1
+backgroundController:
+  replicas: 1
+cleanupController:
+  replicas: 1
+reportsController:
+  replicas: 1

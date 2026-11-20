@@ -14,6 +14,16 @@ extraVolumeMounts: []
 terminationDrainSeconds: 0
 serviceAccountName: ""  # optional; workloads needing k8s API access (e.g. the AIO platform)
 
+# Spot capacity from the node-autoprovisioning connector (dev and staging only; refused in a prod namespace).
+#   aks: tolerate the AKS spot taint, so the NodePool aio-spot (Spot first, on-demand fallback) may place the pod
+#   gke: select the ComputeClass aio-spot (needs the connector, or the pod stays Pending)
+# Spot nodes can be reclaimed at any time; keep replicaCount >= 1 and let the Deployment reschedule.
+spot:
+  enabled: false
+  provider: aks           # aks | gke
+nodeSelector: {}          # extra node selector, merged with the spot one
+tolerations: []           # extra tolerations, added to the spot one
+
 containerPort: 8080
 
 command: []             # optional: override the image ENTRYPOINT

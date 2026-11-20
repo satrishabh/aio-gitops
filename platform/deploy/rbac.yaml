@@ -96,3 +96,33 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: aio-platform-rollouts-crd
+---
+# Connectors page: read-only check that core open-source components are running (by exact Deployment name).
+# Managed connectors are installed through Argo CD (project "connectors"), not by this service account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aio-platform-connectors
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["tekton-pipelines-controller", "argocd-server", "argo-rollouts", "tekton-chains-controller",
+                    "kyverno-admission-controller", "cert-manager", "ingress-nginx-controller",
+                    "aio-azure-ingress-traefik",
+                    # managed connectors whose catalog entry names a deployment (checked by Test)
+                    "trivy-operator", "opencost", "goldilocks-controller", "kube-green-controller-manager",
+                    "velero", "keda-operator", "descheduler"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aio-platform-connectors
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aio-platform-connectors

@@ -46,8 +46,9 @@ public record AppProperties(
     /** PipelineRun pruning: keep at least {@code keepPerProject} newest runs, delete older than {@code maxAgeHours}. */
     public record Cleanup(int keepPerProject, int maxAgeHours) {}
 
+    /** storageClass: StorageClass of each run's workspace volume; empty = the cluster default. */
     public record Tekton(String namespace, String pipeline, String serviceAccount, String storageSize,
-                         String registrySecret, String githubTokenSecret, String timeout) {}
+                         String registrySecret, String githubTokenSecret, String timeout, String storageClass) {}
 
     public record GitOps(String repoUrl, String owner, String repo, String branch, String appsPath, String chartPath) {}
 

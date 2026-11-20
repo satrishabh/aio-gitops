@@ -8,6 +8,8 @@ RUN npm test && npm run build
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
 USER root
+# Changes daily (set by AIO CI) so this layer is never served stale from the build cache.
+ARG AIO_PATCH_DATE
 RUN apk upgrade --no-cache
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /src/dist /usr/share/nginx/html

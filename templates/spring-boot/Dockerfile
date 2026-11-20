@@ -7,6 +7,8 @@ COPY src ./src
 RUN mvn -B -q package
 
 FROM eclipse-temurin:21-jre-alpine
+# Changes daily (set by AIO CI) so this layer is never served stale from the build cache.
+ARG AIO_PATCH_DATE
 RUN apk upgrade --no-cache && addgroup -S app -g 10001 && adduser -S app -u 10001 -G app
 WORKDIR /app
 COPY --from=build /src/target/app.jar app.jar

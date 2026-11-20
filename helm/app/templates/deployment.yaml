@@ -2,6 +2,9 @@
 {{- if eq .Values.image.tag "latest" }}
 {{- fail "image.tag must not be 'latest'" }}
 {{- end }}
+{{- if and (default false (.Values.spot).enabled) (contains "prod" .Release.Namespace) }}
+{{- fail "spot.enabled is for dev and staging only, not a prod namespace" }}
+{{- end }}
 {{- if .Values.blueGreen.enabled }}
 # Blue-green (Argo Rollouts): a new version starts next to the live one behind the -preview Service;
 # traffic switches only when promoted (portal "Promote"), and the old version stays up for instant abort.
@@ -47,6 +50,22 @@ spec:
       serviceAccountName: {{ . }}
       {{- end }}
       securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- $spot := .Values.spot | default dict }}
+      {{- $nodeSelector := deepCopy (.Values.nodeSelector | default dict) }}
+      {{- $tolerations := .Values.tolerations | default list }}
+      {{- if $spot.enabled }}
+      {{- if eq $spot.provider "gke" }}
+      {{- $_ := set $nodeSelector "cloud.google.com/compute-class" "aio-spot" }}
+      {{- else }}
+      {{- $tolerations = append $tolerations (dict "key" "kubernetes.azure.com/scalesetpriority" "operator" "Equal" "value" "spot" "effect" "NoSchedule") }}
+      {{- end }}
+      {{- end }}
+      {{- with $nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.extraVolumes }}
       volumes: {{- toYaml . | nindent 8 }}
       {{- end }}

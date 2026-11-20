@@ -135,7 +135,7 @@ function UsePanel({ template, onClose }) {
       const res = await api('/api/templates/create', { method: 'POST', body: { template: template.fullName, ...form } })
       clearInterval(timer); setStep(4)
       toast('ok', `${res.project.name} created on GitHub — first CI run started`)
-      nav(`/runs/${res.run.id}`)
+      nav('/pipelines/ci')
     } catch (err) {
       clearInterval(timer); setStep(-1); setError(err.message); toast('error', err.message)
     }

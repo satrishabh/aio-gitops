@@ -1,0 +1,70 @@
+# Template rendered by bootstrap/install-supply-chain.sh, which fills in the double-underscore placeholders.
+# Checks every Pod created in the shared app namespaces: images from the AIO registry must carry
+#   1. a signature made by the Tekton Chains key, and
+#   2. a signed SLSA v1.0 provenance attestation produced by Tekton Chains.
+# Images from other registries (sidecars, base tooling) are not checked by this policy.
+# Starts in Audit mode (results in PolicyReports, nothing blocked). Switch with POLICY_MODE=Deny.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: aio-verify-signed-images
+  annotations:
+    policies.kyverno.io/title: Verify AIO images are signed by Tekton Chains
+spec:
+  validationActions:
+    - __POLICY_MODE__
+  failurePolicy: __FAILURE_POLICY__
+  webhookConfiguration:
+    timeoutSeconds: 15
+  # Pods only: covers Deployments, Argo Rollouts and anything else that creates Pods, with one report each.
+  autogen:
+    podControllers:
+      controllers: []
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values: ["dev", "staging", "prod"]
+  matchImageReferences:
+    - glob: "__REGISTRY_PREFIX__/*"
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  credentials:
+    secrets:
+      - registry-read      # dockerconfigjson in the kyverno namespace
+  attestors:
+    - name: chains
+      cosign:
+        key:
+          data: |
+__PUBLIC_KEY__
+        ctlog:
+          # Chains runs with transparency.enabled=false, so there is no Rekor entry or SCT to check.
+          insecureIgnoreTlog: true
+          insecureIgnoreSCT: true
+  attestations:
+    - name: slsa
+      intoto:
+        type: https://slsa.dev/provenance/v1
+  variables:
+    - name: aioImages
+      expression: >-
+        images.containers.filter(i, i.startsWith('__REGISTRY_PREFIX__/'))
+  validations:
+    - expression: >-
+        variables.aioImages.map(i, verifyImageSignatures(i, [attestors.chains])).all(e, e > 0)
+      message: image is not signed by the AIO Tekton Chains key
+    - expression: >-
+        variables.aioImages.map(i, verifyAttestationSignatures(i, attestations.slsa, [attestors.chains])).all(e, e > 0)
+      message: image has no SLSA provenance signed by the AIO Tekton Chains key
+    - expression: >-
+        variables.aioImages.map(i, extractPayload(i, attestations.slsa).predicate.runDetails.builder.id == 'https://tekton.dev/chains/v2').all(e, e)
+      message: SLSA provenance was not produced by Tekton Chains

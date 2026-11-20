@@ -1,0 +1,20 @@
+# Tekton Chains: sign every image built by the build-image task and attach SLSA v1.0 provenance to it in the
+# registry (next to the image, as cosign .sig/.att tags). Key-based signing with a cluster-held key; nothing is
+# sent to the public Rekor transparency log, so private image names stay private.
+# Applied by bootstrap/install-supply-chain.sh. Reference: https://tekton.dev/docs/chains/config/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chains-config
+  namespace: tekton-chains
+data:
+  artifacts.oci.storage: oci
+  artifacts.oci.signer: x509
+  # slsa/v2alpha4 = SLSA provenance v1.0 (predicate https://slsa.dev/provenance/v1)
+  artifacts.taskrun.format: slsa/v2alpha4
+  artifacts.taskrun.storage: oci
+  artifacts.taskrun.signer: x509
+  # The build TaskRun already carries the image; skip a second, PipelineRun-level attestation.
+  artifacts.pipelinerun.storage: ""
+  transparency.enabled: "false"
+  builder.id: https://tekton.dev/chains/v2

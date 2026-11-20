@@ -1,0 +1,12 @@
+project_id       = "your-new-gcp-project"
+name             = "aio-dev"
+region           = "asia-south1"
+authorized_cidrs = ["203.0.113.10/32"] # Replace with the real operator/CI egress address.
+sql_availability = "REGIONAL"
+min_nodes        = 2
+max_nodes        = 6
+# Optional future consumer (not an instruction to extract a service immediately):
+# database_consumers = {
+#   platform = { database = "aio", namespace = "aio-platform", service_account = "aio-platform" }
+#   audit    = { database = "aio_audit", namespace = "aio-audit", service_account = "aio-audit" }
+# }

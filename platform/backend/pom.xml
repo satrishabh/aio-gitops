@@ -35,6 +35,8 @@
     <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
     <!-- Cloud SQL Java connector: lets DB_URL point at a Cloud SQL instance (IAM-authorised, TLS) without a proxy sidecar -->
     <dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-client</artifactId><version>${fabric8.version}</version></dependency>
+    <!-- AIO assistant (Claude) -->
+    <dependency><groupId>com.anthropic</groupId><artifactId>anthropic-java</artifactId><version>3.3.0</version></dependency>
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
     <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-test</artifactId><scope>test</scope></dependency>

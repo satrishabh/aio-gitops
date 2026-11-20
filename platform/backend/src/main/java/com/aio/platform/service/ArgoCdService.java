@@ -291,6 +291,11 @@ public class ArgoCdService {
         return (Map<String, Object>) m;
     }
 
+    /** Creates or replaces an Application from a full manifest (used for connectors). */
+    public void upsertApplication(Map<String, Object> app) {
+        argo.post().uri("/api/v1/applications?upsert=true").body(app).retrieve().toBodilessEntity();
+    }
+
     /** Deletes the Application and (cascade) everything it deployed. Missing apps are ignored. */
     public void deleteApp(String name) {
         try {

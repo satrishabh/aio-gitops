@@ -1,0 +1,94 @@
+# Built-in fallback catalog: core components only. The full catalog (managed and planned open-source tools,
+# values, SSO) lives in the aio-catalog repository and is read from CONNECTORS_REPO at CONNECTORS_REVISION
+# (or CONNECTORS_CATALOG). This list is used only until that catalog loads, or when none is configured.
+connectors:
+- id: argo-rollouts
+  name: Argo Rollouts
+  category: CI/CD
+  kind: core
+  namespace: argo-rollouts
+  deployment: argo-rollouts
+  description: Blue-green releases for prod.
+  license: Apache-2.0
+  foundation: CNCF (graduated)
+  homepage: https://argoproj.github.io/rollouts
+- id: argocd
+  name: Argo CD
+  category: CI/CD
+  kind: core
+  namespace: argocd
+  deployment: argocd-server
+  description: GitOps delivery of every project and connector.
+  license: Apache-2.0
+  foundation: CNCF (graduated)
+  homepage: https://argo-cd.readthedocs.io
+  sso:
+    mode: oidc
+    clientId: aio-argocd
+- id: tekton
+  name: Tekton Pipelines
+  category: CI/CD
+  kind: core
+  namespace: tekton-pipelines
+  deployment: tekton-pipelines-controller
+  description: 'Runs CI pipelines: clone, test, build, scan.'
+  license: Apache-2.0
+  foundation: CD Foundation
+  homepage: https://tekton.dev
+- id: cert-manager
+  name: cert-manager
+  category: Networking
+  kind: core
+  namespace: cert-manager
+  deployment: cert-manager
+  description: TLS certificates for app domains.
+  license: Apache-2.0
+  foundation: CNCF (graduated)
+  homepage: https://cert-manager.io
+- id: ingress-nginx
+  name: ingress-nginx
+  category: Networking
+  kind: core
+  namespace: ingress-nginx
+  deployment: ingress-nginx-controller
+  clouds:
+  - gke
+  - eks
+  - oke
+  - onprem
+  description: HTTP routing into the cluster.
+  license: Apache-2.0
+  foundation: Kubernetes
+  homepage: https://kubernetes.github.io/ingress-nginx
+- id: traefik
+  name: Traefik
+  category: Networking
+  kind: core
+  namespace: aio-ingress
+  deployment: aio-azure-ingress-traefik
+  clouds:
+  - aks
+  description: HTTP routing into the cluster on AKS (IngressClass aio-azure, static public IP).
+  license: MIT
+  foundation: Independent (Traefik Labs)
+  homepage: https://traefik.io
+- id: kyverno
+  name: Kyverno
+  category: Supply chain
+  kind: core
+  namespace: kyverno
+  deployment: kyverno-admission-controller
+  description: Verifies image signatures when pods start.
+  license: Apache-2.0
+  foundation: CNCF (incubating)
+  homepage: https://kyverno.io
+- id: tekton-chains
+  name: Tekton Chains
+  category: Supply chain
+  kind: core
+  namespace: tekton-chains
+  deployment: tekton-chains-controller
+  description: Signs images and attaches SLSA provenance.
+  license: Apache-2.0
+  foundation: CD Foundation
+  homepage: https://tekton.dev/docs/chains

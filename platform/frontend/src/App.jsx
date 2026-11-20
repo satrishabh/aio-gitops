@@ -13,6 +13,8 @@ import ProjectDetail from './pages/ProjectDetail.jsx'
 import RunDetail from './pages/RunDetail.jsx'
 import CdDetail from './pages/CdDetail.jsx'
 import Clusters from './pages/Clusters.jsx'
+import Connectors from './pages/Connectors.jsx'
+import Assistant from './pages/Assistant.jsx'
 import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
@@ -24,8 +26,8 @@ import ScanDetail from './pages/ScanDetail.jsx'
 
 const CRUMBS = [
   [/^\/$/, 'Overview'], [/^\/projects$/, 'Projects'], [/^\/projects\/\d+\/cd\//, 'Projects / CD'], [/^\/projects\/\d+/, 'Projects / Project'],
-  [/^\/runs\//, 'Projects / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
-  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'],
+  [/^\/runs\//, 'Pipelines / CI run'], [/^\/new/, 'New project'], [/^\/approvals/, 'Approvals'],
+  [/^\/metrics/, 'Delivery metrics'], [/^\/audit/, 'Audit log'], [/^\/templates/, 'Templates'], [/^\/clusters/, 'Clusters'], [/^\/connectors/, 'Connectors'], [/^\/assistant/, 'Assistant'],
   [/^\/pipelines\/ci/, 'Pipelines / CI'], [/^\/pipelines\/cd/, 'Pipelines / CD'], [/^\/pipelines\/security/, 'Pipelines / Security'],
   [/^\/scans\//, 'Pipelines / Security scan'],
 ]
@@ -115,8 +117,9 @@ export default function App() {
             {!community && <>
               <NavLink to="/new"><Icon name="plus" />New project</NavLink>
               <NavLink to="/templates"><Icon name="layers" />Templates</NavLink>
+              <NavLink to="/assistant"><Icon name="zap" />Assistant</NavLink>
               <div className="nav-section">Pipelines</div>
-              <NavLink to="/pipelines/ci"><Icon name="zap" />CI</NavLink>
+              <NavLink to="/pipelines/ci" className={({ isActive }) => isActive || location.pathname.startsWith('/runs/') ? 'active' : ''}><Icon name="zap" />CI</NavLink>
               <NavLink to="/pipelines/cd"><Icon name="rocket" />CD</NavLink>
               <NavLink to="/pipelines/security" className={({ isActive }) => isActive || location.pathname.startsWith('/scans/') ? 'active' : ''}>
                 <Icon name="shield" />Security</NavLink>
@@ -126,6 +129,10 @@ export default function App() {
             <NavLink to="/metrics"><Icon name="chart" />Metrics</NavLink>
             {!community && <>
               {me.accessTier === 'admin' && <NavLink to="/clusters"><Icon name="layers" />Clusters</NavLink>}
+            </>}
+            {!community && me.accessTier === 'admin' && <>
+              <div className="nav-section">Connectors</div>
+              <NavLink to="/connectors"><Icon name="plug" />Open source</NavLink>
             </>}
           </nav>
           <div className="sidebar-foot">
@@ -172,6 +179,8 @@ export default function App() {
               <Route path="/approvals" element={<Approvals me={me} />} />
               <Route path="/metrics" element={<Metrics />} />
               <Route path="/clusters" element={<Clusters />} />
+              <Route path="/connectors" element={<Connectors />} />
+              {!community && <Route path="/assistant" element={<Assistant />} />}
               <Route path="/audit" element={<Audit />} />
               <Route path="/pipelines/ci" element={<PipelinesCi />} />
               <Route path="/pipelines/cd" element={<PipelinesCd me={me} />} />

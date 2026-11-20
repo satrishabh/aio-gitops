@@ -34,13 +34,16 @@ public class GitOpsService {
     private final AppProperties props;
     private final RolloutService rollouts;
     private final ClusterRegistry clusters;
+    private final SpotDefaults spot;
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
 
-    public GitOpsService(GitHubClient github, AppProperties props, RolloutService rollouts, ClusterRegistry clusters) {
+    public GitOpsService(GitHubClient github, AppProperties props, RolloutService rollouts, ClusterRegistry clusters,
+                         SpotDefaults spot) {
         this.github = github;
         this.props = props;
         this.rollouts = rollouts;
         this.clusters = clusters;
+        this.spot = spot;
     }
 
     /** Parsed view of a values file. */
@@ -211,7 +214,7 @@ public class GitOpsService {
      * committed since, the save is refused instead of overwriting their change.
      */
     public void writeRaw(Project p, String env, String yaml, String sha, String message) {
-        validateValues(yaml, p.imageRepo);
+        validateValues(yaml, p.imageRepo, env);
         var g = props.gitops();
         String path = valuesPath(g, p.name, env);
         var file = github.getFile(g.owner(), g.repo(), path, g.branch());
@@ -225,6 +228,11 @@ public class GitOpsService {
 
     /** Must be a YAML mapping with a valid image.tag, keep the project's image repository, and sane replicas. */
     static void validateValues(String yaml, String imageRepo) {
+        validateValues(yaml, imageRepo, null);
+    }
+
+    /** As above; {@code env} prod also refuses spot (the app chart would fail the sync the same way). */
+    static void validateValues(String yaml, String imageRepo, String env) {
         if (yaml == null || yaml.isBlank()) throw new IllegalArgumentException("values file is empty");
         if (yaml.length() > 64_000) throw new IllegalArgumentException("values file is too large");
         Object doc;
@@ -243,6 +251,15 @@ public class GitOpsService {
         Object replicas = J.get(doc, "replicaCount");
         if (replicas != null && !(replicas instanceof Integer n && n >= 0 && n <= 10))
             throw new IllegalArgumentException("replicaCount must be a whole number from 0 to 10");
+        Object spotBlock = J.get(doc, "spot");
+        if (spotBlock != null) {
+            if (!(spotBlock instanceof Map<?, ?> m)) throw new IllegalArgumentException("spot must be a mapping");
+            Object provider = m.get("provider");
+            if (provider != null && !SpotDefaults.PROVIDERS.contains(String.valueOf(provider)))
+                throw new IllegalArgumentException("spot.provider must be aks or gke");
+            if (Boolean.TRUE.equals(m.get("enabled")) && "prod".equals(env))
+                throw new IllegalArgumentException("spot is for dev and staging only, not prod");
+        }
     }
 
     public void deleteProjectFiles(Project p) {
@@ -415,6 +432,8 @@ public class GitOpsService {
                   host: %s
                 """.formatted(p.imageRepo, PLACEHOLDER_TAG, PULL_SECRET, ingress, ingress ? host : "example.local"), p);
         base = withIngressClass(withDefaultTls(base, p, env), env);
+        String spotProvider = spot.providerFor(env);
+        if (spotProvider != null) base = RuntimeConfig.setBlock(base, "spot", SpotDefaults.block(spotProvider));
         return RolloutService.ENV.equals(env) && rollouts.installed() ? withBlueGreen(base, previewHost(p)) : base;
     }
 }

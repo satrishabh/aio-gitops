@@ -1,0 +1,93 @@
+Pager usage is off.
+Timing is on.
+BEGIN
+Time: 2.696 ms
+SET
+Time: 2.201 ms
+SET
+Time: 2.333 ms
+ database | postgres_version | database_size 
+----------+------------------+---------------
+ aio      | 18.6             | 9446 kB
+(1 row)
+
+Time: 4.797 ms
+ rolsuper | rolcreatedb | rolcreaterole | can_create_in_public 
+----------+-------------+---------------+----------------------
+ f        | t           | t             | t
+(1 row)
+
+Time: 4.796 ms
+ version |    description     | success 
+---------+--------------------+---------
+ 1       | init               | t
+ 2       | improvements       | t
+ 3       | runtime config     | t
+ 4       | security scans     | t
+ 5       | domains            | t
+ 6       | oidc users         | t
+ 7       | resource ownership | t
+(7 rows)
+
+Time: 3.558 ms
+      table_name       | estimated_rows | estimated_dead_rows | total_size |        last_autovacuum        |       last_autoanalyze        
+-----------------------+----------------+---------------------+------------+-------------------------------+-------------------------------
+ run_steps             |            333 |                  77 | 304 kB     |                               | 2026-11-07 16:10:49.277589+00
+ audit_log             |            322 |                   5 | 136 kB     |                               | 2026-11-07 04:51:45.796577+00
+ ci_runs               |             64 |                  23 | 120 kB     | 2026-11-07 04:16:45.512926+00 | 2026-11-07 15:34:48.996964+00
+ env_status            |             24 |                  30 | 96 kB      | 2026-11-08 00:26:07.92474+00  | 2026-11-08 04:39:35.264776+00
+ domains               |              2 |                  35 | 80 kB      |                               | 2026-11-04 07:36:09.795143+00
+ deployments           |             80 |                   0 | 72 kB      |                               | 2026-11-03 08:23:40.781439+00
+ projects              |              8 |                   3 | 64 kB      |                               | 
+ app_users             |              5 |                  34 | 64 kB      |                               | 
+ scan_runs             |              0 |                   0 | 48 kB      |                               | 
+ flyway_schema_history |              7 |                   0 | 48 kB      |                               | 
+ promotions            |              1 |                   0 | 32 kB      |                               | 
+ scan_steps            |              0 |                   0 | 24 kB      |                               | 
+ scan_findings         |              0 |                   0 | 24 kB      |                               | 
+(13 rows)
+
+Time: 10.193 ms
+ table_name | foreign_key_without_full_leading_index 
+------------+----------------------------------------
+ promotions | promotions_project_id_fkey
+(1 row)
+
+Time: 6.152 ms
+                     check_name                      | rows 
+-----------------------------------------------------+------
+ projects_without_owner_subject                      |    8
+ standalone_scans_without_owner_subject              |    0
+ audit_without_actor_subject_including_system_events |  298
+ ci_rerun_reference_missing                          |    0
+ scan_rerun_reference_missing                        |    0
+(5 rows)
+
+Time: 4.518 ms
+ table_name | archived_logs | log_bytes 
+------------+---------------+-----------
+ run_steps  |           166 |    260828
+ scan_steps |             0 |         0
+(2 rows)
+
+Time: 5.218 ms
+       tablename       | rowsecurity 
+-----------------------+-------------
+ app_users             | f
+ audit_log             | f
+ ci_runs               | f
+ deployments           | f
+ domains               | f
+ env_status            | f
+ flyway_schema_history | f
+ projects              | f
+ promotions            | f
+ run_steps             | f
+ scan_findings         | f
+ scan_runs             | f
+ scan_steps            | f
+(13 rows)
+
+Time: 3.641 ms
+COMMIT
+Time: 2.051 ms

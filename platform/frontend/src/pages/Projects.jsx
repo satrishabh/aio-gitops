@@ -31,7 +31,7 @@ export default function Projects({ me }) {
       {items.length === 0 ? (
         <div className="card"><Empty icon="rocket" title="No projects yet"
           action={community ? null : <Link className="btn primary" to="/new"><Icon name="plus" size={15} />Add repository</Link>}>
-          {community ? 'No project summaries are available.' : 'Pick a GitHub repository with a Dockerfile — we will build, scan and deploy it for you.'}
+          {community ? 'No project summaries are available.' : 'Pick a GitHub repository — we will build, scan, sign and deploy it for you.'}
         </Empty></div>
       ) : shown.length === 0 ? <div className="card"><Empty icon="search" title="No matching projects" action={<button className="btn" onClick={() => setQ('')}>Clear search</button>}>Try a different project or repository name.</Empty></div> : (
         <div className="project-grid">

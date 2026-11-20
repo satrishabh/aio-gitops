@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Direction B: Signal</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Inter:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#2B1BE0;text-decoration:none}a:hover{color:#0A0A0A}
+</style>
+</helmet>
+<div style="min-height: 1060px; background: #FFFFFF; color: #0A0A0A; font-family: Inter, system-ui, sans-serif; display: flex; flex-wrap: wrap;">
+
+  <nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; padding: 24px 14px; background: #0A0A0A; color: #FFFFFF; display: flex; flex-direction: column; gap: 2px;">
+    <div style="padding: 2px 10px 24px; display: flex; align-items: baseline; gap: 8px;">
+      <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 28px; letter-spacing: -0.03em;">aio</span>
+      <span style="width: 10px; height: 10px; background: #FF5A1F; border-radius: 50%;"></span>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="12">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #B8B8B8; padding: 18px 10px 6px;">{{n.label}}</div>
+      </sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}">
+        <a href="#" style="{{n.style}}">
+          <span style="flex: 1;">{{n.label}}</span>
+          <sc-if value="{{n.count}}" hint-placeholder-val="{{false}}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: #FF5A1F; color: #0A0A0A; padding: 1px 8px;">{{n.count}}</span></sc-if>
+        </a>
+      </sc-if>
+    </sc-for>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 32px 36px 44px; display: flex; flex-direction: column; gap: 26px;">
+    <header style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 18px; border-bottom: 3px solid #0A0A0A; padding-bottom: 20px;">
+      <div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; display: inline-block; background: #E8E5FF; color: #2B1BE0; padding: 3px 8px;">LIVE · THURSDAY 20 NOVEMBER</div>
+        <h1 style="margin: 10px 0 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 54px; line-height: 1; letter-spacing: -0.035em;">Good afternoon.</h1>
+        <p style="margin: 10px 0 0; font-size: 16px; color: #3A3A3A;">Everything flowing from GitHub through Tekton and Argo CD, in one place.</p>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="#" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border: 2px solid #0A0A0A; color: #0A0A0A; font-weight: 700; font-size: 15px;">Approvals (2)</a>
+        <a href="#" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 22px; border: 2px solid #0A0A0A; background: #3D2BFF; color: #FFFFFF; font-weight: 700; font-size: 15px; box-shadow: 4px 4px 0 #0A0A0A;">New project →</a>
+      </div>
+    </header>
+
+    <section aria-label="Key figures" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px;">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="border: 2px solid #0A0A0A; box-shadow: 5px 5px 0 #0A0A0A; padding: 16px 18px; background: {{k.bg}}; display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;">{{k.label}}</span>
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 56px; line-height: 1.05; letter-spacing: -0.04em;">{{k.value}}</span>
+          <span style="font-size: 13px; font-weight: 500;">{{k.sub}}</span>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px;">
+      <section aria-label="Delivery activity" style="grid-column: span 2; min-width: 0; border: 2px solid #0A0A0A; padding: 20px;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px;">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;">Delivery, last 14 days</h2>
+          <div style="display: flex; gap: 14px; font-size: 13px; font-weight: 600;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #0A0A0A;"></span>CI passed</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #FF5A1F;"></span>CI failed</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; background: #3D2BFF;"></span>Deploys</span>
+          </div>
+        </div>
+        <div role="img" aria-label="Daily CI runs and deployments over the last 14 days" style="display: flex; align-items: flex-end; gap: 10px; height: 180px; margin-top: 20px; border-bottom: 3px solid #0A0A0A;">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="14">
+            <div style="flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 100%;">
+              <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="height: {{b.f}}px; background: #FF5A1F;"></div>
+                <div style="height: {{b.s}}px; background: #0A0A0A;"></div>
+              </div>
+              <div style="flex: 1; height: {{b.d}}px; background: #3D2BFF;"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 6px;">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="14">
+            <span style="flex: 1; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #3A3A3A;">{{b.label}}</span>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="Health" style="border: 2px solid #0A0A0A; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;">Health</h2>
+        <sc-for list="{{health}}" as="h" hint-placeholder-count="2">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="font-weight: 600; font-size: 14px;">{{h.label}}</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 30px;">{{h.value}}</span></div>
+            <div style="height: 14px; border: 2px solid #0A0A0A;"><div style="height: 100%; width: {{h.pct}}; background: {{h.color}};"></div></div>
+          </div>
+        </sc-for>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 2px solid #0A0A0A;">
+          <div style="padding: 10px 12px; border-right: 2px solid #0A0A0A;"><div style="font-size: 12px; font-weight: 600;">Lead time</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;">3.2 h</div></div>
+          <div style="padding: 10px 12px;"><div style="font-size: 12px; font-weight: 600;">Time to restore</div><div style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px;">41 min</div></div>
+        </div>
+        <a href="#" style="font-weight: 700; font-size: 14px;">DORA metrics →</a>
+      </section>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px;">
+      <section aria-label="Environments" style="grid-column: span 2; min-width: 0; border: 2px solid #0A0A0A; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;">Environments</h2>
+          <a href="#" style="font-weight: 700; font-size: 14px;">All projects →</a>
+        </div>
+        <div style="overflow-x: auto; margin-top: 14px;">
+          <div style="min-width: 560px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;">
+              <span>PROJECT</span><span>LAST CI</span><span>DEV</span><span>STAGING</span><span>PROD</span>
+            </div>
+            <sc-for list="{{projects}}" as="p" hint-placeholder-count="5">
+              <div style="display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr; gap: 6px; align-items: stretch;">
+                <a href="#" style="font-weight: 700; font-size: 15px; color: #0A0A0A; display: flex; align-items: center; min-height: 44px;">{{p.name}}</a>
+                <span style="display: flex; align-items: center; padding: 0 10px; font-weight: 700; font-size: 13px; {{p.ciStyle}}">{{p.ci}}</span>
+                <sc-for list="{{p.envs}}" as="e" hint-placeholder-count="3">
+                  <span style="display: flex; flex-direction: column; justify-content: center; padding: 4px 10px; {{e.style}}"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;">{{e.tag}}</span><span style="font-size: 11px;">{{e.state}}</span></span>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="Activity" style="border: 2px solid #0A0A0A; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 24px; letter-spacing: -0.02em;">Activity</h2>
+          <a href="#" style="font-weight: 700; font-size: 14px;">Audit →</a>
+        </div>
+        <ol style="list-style: none; margin: 12px 0 0; padding: 0;">
+          <sc-for list="{{feed}}" as="f" hint-placeholder-count="5">
+            <li style="padding: 10px 0; border-top: 1px solid #0A0A0A; display: flex; gap: 12px; align-items: flex-start;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; padding: 2px 6px; {{f.style}}">{{f.kind}}</span>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 14px;">
+                <span><b>{{f.who}}</b> {{f.what}} <b>{{f.target}}</b></span>
+                <span style="font-size: 12px; color: #3A3A3A;">{{f.when}}</span>
+              </div>
+            </li>
+          </sc-for>
+        </ol>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sections = { 'PIPELINES': 1, 'DELIVERY': 1, 'CONNECTORS': 1 };
+    const items = ['Overview', 'Projects', 'New project', 'Templates', 'Assistant', 'PIPELINES', 'CI', 'CD', 'Security', 'DELIVERY', 'Approvals', 'Metrics', 'Clusters', 'CONNECTORS', 'Open source'];
+    const nav = items.map((label, i) => {
+      if (sections[label]) return { section: true, link: false, label: label };
+      const active = i === 0;
+      return {
+        section: false, link: true, label: label, count: label === 'Approvals' ? '2' : '',
+        style: 'display: flex; align-items: center; min-height: 40px; padding: 0 10px; font-size: 15px; ' +
+          (active ? 'background: #FFFFFF; color: #0A0A0A; font-weight: 700;' : 'color: #FFFFFF; font-weight: 500;')
+      };
+    });
+    const kpis = [
+      { label: 'PROJECTS', value: '5', sub: '1 CI run in progress', bg: '#FFFFFF' },
+      { label: 'CI SUCCESS · 14D', value: '92%', sub: '48 runs · avg 6.4 min', bg: '#C9F7D9' },
+      { label: 'DEPLOYS · 14D', value: '23', sub: '4 to prod · 19 to dev', bg: '#E8E5FF' },
+      { label: 'AWAITING APPROVAL', value: '2', sub: 'All environments healthy', bg: '#FFD9C7' }
+    ];
+    const succ = [3, 5, 2, 6, 4, 0, 1, 5, 7, 4, 6, 3, 5, 4];
+    const fail = [1, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 0, 1, 0];
+    const dep = [2, 3, 1, 2, 2, 0, 0, 2, 3, 1, 2, 1, 2, 2];
+    const bars = succ.map((s, i) => ({ s: s * 20, f: fail[i] * 20, d: dep[i] * 20, label: String(7 + i) }));
+    const health = [
+      { label: 'CI success', value: '92%', pct: '92%', color: '#00B377' },
+      { label: 'Change success', value: '96%', pct: '96%', color: '#3D2BFF' }
+    ];
+    const tone = {
+      ok: { state: 'healthy', style: 'background: #C9F7D9; color: #0A0A0A;' },
+      sync: { state: 'syncing', style: 'background: #E8E5FF; color: #0A0A0A;' },
+      bad: { state: 'degraded', style: 'background: #FF5A1F; color: #0A0A0A;' },
+      off: { state: 'off', style: 'background: #F0F0F0; color: #3A3A3A;' }
+    };
+    const ci = {
+      Succeeded: 'border: 2px solid #0A0A0A; color: #0A0A0A;',
+      Running: 'background: #3D2BFF; color: #FFFFFF; border: 2px solid #3D2BFF;',
+      Failed: 'background: #0A0A0A; color: #FFFFFF; border: 2px solid #0A0A0A;'
+    };
+    const env = (tag, t) => Object.assign({ tag: tag }, tone[t]);
+    const projects = [
+      { name: 'scalesafe-site', ci: 'Succeeded', envs: [env('9c6a478', 'ok'), env('9c6a478', 'ok'), env('b6dff53', 'ok')] },
+      { name: 'sarvaikam', ci: 'Running', envs: [env('4f1e2a0', 'sync'), env('31ac9d2', 'ok'), env('31ac9d2', 'ok')] },
+      { name: 'profile-manager', ci: 'Failed', envs: [env('e81b7c4', 'bad'), env('a02f6d1', 'ok'), env('a02f6d1', 'ok')] },
+      { name: 'sarvaika-blog', ci: 'Succeeded', envs: [env('7d3c0e9', 'ok'), env('—', 'off'), env('7d3c0e9', 'ok')] },
+      { name: 'learn', ci: 'Succeeded', envs: [env('c51a88f', 'ok'), env('c51a88f', 'ok'), env('—', 'off')] }
+    ].map(p => Object.assign(p, { ciStyle: ci[p.ci] }));
+    const kinds = {
+      OK: 'background: #C9F7D9; color: #0A0A0A;', RUN: 'background: #E8E5FF; color: #2B1BE0;',
+      FAIL: 'background: #FF5A1F; color: #0A0A0A;', SET: 'background: #F0F0F0; color: #0A0A0A;'
+    };
+    const feed = [
+      { kind: 'OK', who: 'You', what: 'approved', target: 'scalesafe-site → prod', when: '12 min ago' },
+      { kind: 'RUN', who: 'CI', what: 'started', target: 'sarvaikam #214', when: '18 min ago' },
+      { kind: 'FAIL', who: 'CI', what: 'failed', target: 'profile-manager #88', when: '1 h ago' },
+      { kind: 'OK', who: 'Argo CD', what: 'synced', target: 'sarvaika-blog/prod', when: '2 h ago' },
+      { kind: 'SET', who: 'You', what: 'edited settings of', target: 'learn', when: '5 h ago' }
+    ].map(f => Object.assign(f, { style: kinds[f.kind] }));
+    return { nav: nav, kpis: kpis, bars: bars, health: health, projects: projects, feed: feed };
+  }
+}
+</script>
+</body>
+</html>

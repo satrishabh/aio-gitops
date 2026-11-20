@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Direction A: Control room</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0F14}
+a{color:#C6F432;text-decoration:none}a:hover{color:#DEFF7A}
+</style>
+</helmet>
+<div style="min-height: 1060px; background: #0B0F14; color: #E6EDF3; font-family: Inter, system-ui, sans-serif; display: flex; flex-wrap: wrap;">
+
+  <nav aria-label="Main" style="flex: 1 1 220px; box-sizing: border-box; padding: 24px 16px; border-right: 1px solid #1C2530; background: #0E131A; display: flex; flex-direction: column; gap: 4px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 10px 22px;">
+      <div style="width: 30px; height: 30px; border-radius: 8px; background: #C6F432; color: #0B0F14; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center;">A</div>
+      <div style="display: flex; flex-direction: column;">
+        <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; letter-spacing: 0.02em;">AIO</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8B98A5; letter-spacing: 0.08em;">CI · CD · GITOPS</span>
+      </div>
+    </div>
+    <sc-for list="{{nav}}" as="n" hint-placeholder-count="12">
+      <sc-if value="{{n.section}}" hint-placeholder-val="{{false}}">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: #8B98A5; padding: 18px 10px 6px;">{{n.label}}</div>
+      </sc-if>
+      <sc-if value="{{n.link}}" hint-placeholder-val="{{true}}">
+        <a href="#" style="{{n.style}}">
+          <span style="width: 6px; height: 6px; border-radius: 2px; background: {{n.mark}};"></span>
+          <span style="flex: 1;">{{n.label}}</span>
+          <sc-if value="{{n.count}}" hint-placeholder-val="{{false}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #FFB547; color: #0B0F14; border-radius: 6px; padding: 1px 7px; font-weight: 600;">{{n.count}}</span></sc-if>
+        </a>
+      </sc-if>
+    </sc-for>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 20px;">
+    <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #8B98A5;">THU 20 NOV · <span style="color: #C6F432;">● LIVE</span> · REFRESH 10 S</span>
+        <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 34px; font-weight: 600; letter-spacing: -0.01em;">Good afternoon</h1>
+        <p style="margin: 0; color: #A9B4BF; font-size: 14px;">GitHub → Tekton CI → Argo CD. 1 run in progress, 2 promotions waiting for you.</p>
+      </div>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid #2A3644; border-radius: 10px; color: #E6EDF3; font-size: 14px; font-weight: 500;">Review approvals</a>
+        <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #C6F432; color: #0B0F14; font-size: 14px; font-weight: 600;">+ New project</a>
+      </div>
+    </header>
+
+    <section aria-label="Key figures" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px;">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+        <div style="background: #121820; border: 1px solid #1F2A36; border-radius: 14px; padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8B98A5;">{{k.label}}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 7px; border-radius: 6px; {{k.deltaStyle}}">{{k.delta}}</span>
+          </div>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 600; letter-spacing: -0.02em;">{{k.value}}</span>
+          <span style="font-size: 12px; color: #A9B4BF;">{{k.sub}}</span>
+          <svg viewBox="0 0 120 30" preserveAspectRatio="none" aria-hidden="true" style="width: 100%; height: 30px; margin-top: 4px;">
+            <polyline points="{{k.spark}}" fill="none" stroke="{{k.color}}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+        </div>
+      </sc-for>
+    </section>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
+      <section aria-label="Delivery activity" style="grid-column: span 2; min-width: 0; background: #121820; border: 1px solid #1F2A36; border-radius: 14px; padding: 18px;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center;">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600;">Delivery activity · 14 days</h2>
+          <div style="display: flex; gap: 14px; font-size: 12px; color: #A9B4BF;">
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 9px; height: 9px; border-radius: 2px; background: #C6F432;"></span>CI passed</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 9px; height: 9px; border-radius: 2px; background: #FF6B6B;"></span>CI failed</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 9px; height: 9px; border-radius: 2px; background: #4CC9F0;"></span>Deploys</span>
+          </div>
+        </div>
+        <div role="img" aria-label="Daily CI runs and deployments over the last 14 days" style="display: flex; align-items: flex-end; gap: 8px; height: 170px; margin-top: 18px; border-bottom: 1px solid #1F2A36; padding-bottom: 4px;">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="14">
+            <div style="flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 100%;">
+              <div style="width: 42%; display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="height: {{b.f}}px; background: #FF6B6B; border-radius: 3px 3px 0 0;"></div>
+                <div style="height: {{b.s}}px; background: #C6F432;"></div>
+              </div>
+              <div style="width: 42%; height: {{b.d}}px; background: #4CC9F0; border-radius: 3px 3px 0 0;"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 6px;">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="14">
+            <span style="flex: 1; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8B98A5;">{{b.label}}</span>
+          </sc-for>
+        </div>
+      </section>
+
+      <section aria-label="Health" style="background: #121820; border: 1px solid #1F2A36; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+        <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600;">Health</h2>
+        <div style="display: flex; justify-content: space-around;">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+            <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="CI success 92 percent">
+              <circle cx="48" cy="48" r="38" fill="none" stroke="#1F2A36" stroke-width="9"></circle>
+              <circle cx="48" cy="48" r="38" fill="none" stroke="#C6F432" stroke-width="9" stroke-linecap="round" stroke-dasharray="220 239" transform="rotate(-90 48 48)"></circle>
+              <text x="48" y="54" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono, monospace" font-size="18" font-weight="600">92%</text>
+            </svg>
+            <span style="font-size: 12px; color: #A9B4BF;">CI success</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+            <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="Change success 96 percent">
+              <circle cx="48" cy="48" r="38" fill="none" stroke="#1F2A36" stroke-width="9"></circle>
+              <circle cx="48" cy="48" r="38" fill="none" stroke="#4CC9F0" stroke-width="9" stroke-linecap="round" stroke-dasharray="229 239" transform="rotate(-90 48 48)"></circle>
+              <text x="48" y="54" text-anchor="middle" fill="#E6EDF3" font-family="JetBrains Mono, monospace" font-size="18" font-weight="600">96%</text>
+            </svg>
+            <span style="font-size: 12px; color: #A9B4BF;">Change success</span>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <div style="background: #0E131A; border-radius: 10px; padding: 10px 12px;"><div style="font-size: 11px; color: #8B98A5;">Lead time</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600;">3.2 h</div></div>
+          <div style="background: #0E131A; border-radius: 10px; padding: 10px 12px;"><div style="font-size: 11px; color: #8B98A5;">Time to restore</div><div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600;">41 min</div></div>
+        </div>
+        <a href="#" style="font-size: 13px; font-weight: 500;">Open DORA metrics →</a>
+      </section>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
+      <section aria-label="Environments" style="grid-column: span 2; min-width: 0; background: #121820; border: 1px solid #1F2A36; border-radius: 14px; padding: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600;">Environments</h2>
+          <a href="#" style="font-size: 13px;">All projects →</a>
+        </div>
+        <div style="overflow-x: auto; margin-top: 12px;">
+          <table style="width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; color: #8B98A5;">
+                <th style="padding: 8px 6px; font-weight: 400;">PROJECT</th><th style="padding: 8px 6px; font-weight: 400;">LAST CI</th><th style="padding: 8px 6px; font-weight: 400;">DEV</th><th style="padding: 8px 6px; font-weight: 400;">STAGING</th><th style="padding: 8px 6px; font-weight: 400;">PROD</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{projects}}" as="p" hint-placeholder-count="5">
+                <tr style="border-top: 1px solid #1F2A36;">
+                  <td style="padding: 10px 6px;"><span style="display: inline-flex; align-items: center; gap: 10px; font-weight: 600;"><span style="width: 26px; height: 26px; border-radius: 7px; background: {{p.hue}}; color: #0B0F14; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;">{{p.initials}}</span>{{p.name}}</span></td>
+                  <td style="padding: 10px 6px;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 3px 8px; border-radius: 6px; {{p.ciStyle}}">{{p.ci}}</span></td>
+                  <sc-for list="{{p.envs}}" as="e" hint-placeholder-count="3">
+                    <td style="padding: 10px 6px;"><span style="display: inline-flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{e.text}};"><span style="width: 8px; height: 8px; border-radius: 50%; background: {{e.dot}}; box-shadow: 0 0 0 3px {{e.glow}};"></span>{{e.tag}}</span></td>
+                  </sc-for>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-label="Activity" style="background: #121820; border: 1px solid #1F2A36; border-radius: 14px; padding: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600;">Activity</h2>
+          <a href="#" style="font-size: 13px;">Audit log →</a>
+        </div>
+        <ol style="list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column;">
+          <sc-for list="{{feed}}" as="f" hint-placeholder-count="5">
+            <li style="display: flex; gap: 12px; padding: 9px 0; border-left: 2px solid #1F2A36; padding-left: 14px; position: relative;">
+              <span style="position: absolute; left: -6px; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: {{f.dot}}; border: 2px solid #121820;"></span>
+              <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px;">
+                <span><b>{{f.who}}</b> <span style="color: #A9B4BF;">{{f.what}}</span> <code style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E6EDF3;">{{f.target}}</code></span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B98A5;">{{f.when}}</span>
+              </div>
+            </li>
+          </sc-for>
+        </ol>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const sections = { 'PIPELINES': 1, 'DELIVERY': 1, 'CONNECTORS': 1 };
+    const items = ['Overview', 'Projects', 'New project', 'Templates', 'Assistant', 'PIPELINES', 'CI', 'CD', 'Security', 'DELIVERY', 'Approvals', 'Metrics', 'Clusters', 'CONNECTORS', 'Open source'];
+    const nav = items.map((label, i) => {
+      if (sections[label]) return { section: true, link: false, label: label };
+      const active = i === 0;
+      return {
+        section: false, link: true, label: label, count: label === 'Approvals' ? '2' : '',
+        mark: active ? '#C6F432' : '#2F3B48',
+        style: 'display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 10px; border-radius: 9px; font-size: 14px; ' +
+          (active ? 'background: #18212B; color: #E6EDF3; font-weight: 600;' : 'color: #A9B4BF;')
+      };
+    });
+    const up = 'background: rgba(198,244,50,0.14); color: #C6F432;';
+    const warn = 'background: rgba(255,181,71,0.16); color: #FFB547;';
+    const spark = (vals) => vals.map((v, i) => (i * 120 / (vals.length - 1)).toFixed(1) + ',' + (28 - v * 26).toFixed(1)).join(' ');
+    const kpis = [
+      { label: 'PROJECTS', value: '5', sub: '1 CI run in progress', delta: '+1 wk', deltaStyle: up, color: '#C6F432', spark: spark([0.3, 0.3, 0.45, 0.45, 0.6, 0.6, 0.8]) },
+      { label: 'CI SUCCESS · 14D', value: '92%', sub: '48 runs · avg 6.4 min', delta: '+4 pt', deltaStyle: up, color: '#C6F432', spark: spark([0.6, 0.7, 0.55, 0.8, 0.75, 0.9, 0.92]) },
+      { label: 'DEPLOYS · 14D', value: '23', sub: '4 to prod · 19 to dev', delta: '+6', deltaStyle: up, color: '#4CC9F0', spark: spark([0.2, 0.5, 0.3, 0.6, 0.4, 0.7, 0.65]) },
+      { label: 'AWAITING APPROVAL', value: '2', sub: 'All environments healthy', delta: 'action', deltaStyle: warn, color: '#FFB547', spark: spark([0.1, 0.1, 0.4, 0.2, 0.2, 0.5, 0.4]) }
+    ];
+    const succ = [3, 5, 2, 6, 4, 0, 1, 5, 7, 4, 6, 3, 5, 4];
+    const fail = [1, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 0, 1, 0];
+    const dep = [2, 3, 1, 2, 2, 0, 0, 2, 3, 1, 2, 1, 2, 2];
+    const bars = succ.map((s, i) => ({ s: s * 18, f: fail[i] * 18, d: dep[i] * 18, label: String(7 + i) }));
+    const tone = {
+      ok: { dot: '#C6F432', glow: 'rgba(198,244,50,0.15)', text: '#E6EDF3' },
+      sync: { dot: '#4CC9F0', glow: 'rgba(76,201,240,0.18)', text: '#E6EDF3' },
+      bad: { dot: '#FF6B6B', glow: 'rgba(255,107,107,0.18)', text: '#FFB3B3' },
+      off: { dot: '#5B6B7A', glow: 'rgba(91,107,122,0.2)', text: '#8B98A5' }
+    };
+    const ci = {
+      Succeeded: 'background: rgba(198,244,50,0.14); color: #C6F432;',
+      Running: 'background: rgba(76,201,240,0.16); color: #4CC9F0;',
+      Failed: 'background: rgba(255,107,107,0.16); color: #FF8A8A;'
+    };
+    const env = (tag, t) => Object.assign({ tag: tag }, tone[t]);
+    const projects = [
+      { name: 'scalesafe-site', initials: 'SS', hue: '#C6F432', ci: 'Succeeded', envs: [env('9c6a478', 'ok'), env('9c6a478', 'ok'), env('b6dff53', 'ok')] },
+      { name: 'sarvaikam', initials: 'SA', hue: '#4CC9F0', ci: 'Running', envs: [env('4f1e2a0', 'sync'), env('31ac9d2', 'ok'), env('31ac9d2', 'ok')] },
+      { name: 'profile-manager', initials: 'PM', hue: '#FFB547', ci: 'Failed', envs: [env('e81b7c4', 'bad'), env('a02f6d1', 'ok'), env('a02f6d1', 'ok')] },
+      { name: 'sarvaika-blog', initials: 'SB', hue: '#B69CFF', ci: 'Succeeded', envs: [env('7d3c0e9', 'ok'), env('scaled down', 'off'), env('7d3c0e9', 'ok')] },
+      { name: 'learn', initials: 'LE', hue: '#FF8FB1', ci: 'Succeeded', envs: [env('c51a88f', 'ok'), env('c51a88f', 'ok'), env('not deployed', 'off')] }
+    ].map(p => Object.assign(p, { ciStyle: ci[p.ci] }));
+    const feed = [
+      { who: 'you', what: 'approved promotion', target: 'scalesafe-site → prod', when: '12 min ago', dot: '#C6F432' },
+      { who: 'ci', what: 'run started', target: 'sarvaikam #214', when: '18 min ago', dot: '#4CC9F0' },
+      { who: 'ci', what: 'run failed', target: 'profile-manager #88', when: '1 h ago', dot: '#FF6B6B' },
+      { who: 'argo', what: 'synced', target: 'sarvaika-blog/prod', when: '2 h ago', dot: '#C6F432' },
+      { who: 'you', what: 'changed settings', target: 'learn', when: '5 h ago', dot: '#5B6B7A' }
+    ];
+    return { nav: nav, kpis: kpis, bars: bars, projects: projects, feed: feed };
+  }
+}
+</script>
+</body>
+</html>

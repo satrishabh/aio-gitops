@@ -1,6 +1,6 @@
 # Connectors: open-source tools managed from AIO
 
-**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. Phase 5 (CloudNativePG, Valkey, Harbor; Biome as a CI lint step) likewise, as of 2026-11-20; CrowdSec from the same wave is live on AKS since 2026-11-18. Phase 6 (Strimzi, Crossplane, OpenKruise; Dependency-Track, Falco, OpenBao; Airflow, Superset, Appsmith, APISIX; Milvus, Langfuse; Buildah as a CI build strategy) likewise, as of 2026-11-20. None of phases 1-6 is deployed to a live cluster yet, except CrowdSec. **Date:** 2026-11-20.
+**Status:** the framework and the phase 1-3 connectors (Prometheus + Grafana; Trivy Operator, OpenCost, Goldilocks + VPA, kube-green; Velero, Renovate, KEDA, Descheduler) are implemented, unit-tested and chart-rendered. The phase 4 connectors (node autoprovisioning on AKS and GKE; Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus) are in aio-catalog, validated and chart-rendered at both versions, as of 2026-11-20. Phase 5 (CloudNativePG, Valkey, Harbor; Biome as a CI lint step) likewise, as of 2026-11-20; CrowdSec from the same wave is live on AKS since 2026-11-18. Phase 6 (Strimzi, Crossplane, OpenKruise; Dependency-Track, Falco, OpenBao; Airflow, Superset, Appsmith, APISIX; Milvus, Langfuse; Buildah as a CI build strategy) likewise, as of 2026-11-20. Phase 7 (Gitea, SonarQube; Dapr, Temporal, Camel K, Volcano; Spark, Flink, OpenSearch, TiDB and Doris operators, Pulsar; ERPNext, Jitsi Meet) likewise, as of 2026-11-20. None of phases 1-7 is deployed to a live cluster yet, except CrowdSec. **Date:** 2026-11-20.
 
 The **Connectors → Open source** page (admins only) lists every open-source tool AIO works with: what it is, whether it runs, and what an admin can do with it. The list is data, not code: the aio-catalog repository (one file per tool). Adding a tool means adding one catalog entry, one values file and one line in the Argo CD project. No Java or React changes are needed.
 
@@ -83,6 +83,17 @@ Read from the cluster on 2026-11-17:
 | Langfuse: web, worker, ClickHouse, PostgreSQL, Valkey, S3 (phase 6) | 500m | 2.0 GiB | 26 Gi disk |
 | Buildah build step (phase 6) | | | only while a build runs |
 | **Phase 6 on 2 nodes** | **~2.1 CPU** | **~9.5 GiB** | 64 Gi disk |
+| Gitea + its CloudNativePG database (phase 7) | 80m | 352 Mi | 15 Gi disk |
+| SonarQube + its CloudNativePG database (phase 7) | 230m | 2.2 GiB | 10 Gi disk |
+| Temporal, 6 pods + its CloudNativePG database (phase 7) | 290m | 896 Mi | 5 Gi disk |
+| Dapr control plane (phase 7) | 110m | 464 Mi | 3 × 1 Gi disk |
+| Camel K operator (phase 7) | 50m | 192 Mi | builds up to 1.5 GiB while running |
+| Volcano (phase 7) | 50m | 160 Mi | |
+| Spark, Flink, OpenSearch, TiDB, Doris operators (phase 7) | 240m | 1.1 GiB | app clusters extra |
+| Pulsar standalone (phase 7) | 250m | 896 Mi | 10 Gi disk |
+| ERPNext: 7 pods, MariaDB, 2 Valkeys (phase 7) | 210m | 1.5 GiB | 10 Gi disk |
+| Jitsi Meet (phase 7) | 350m | 880 Mi | |
+| **Phase 7** | **~1.9 CPU** | **~8.5 GiB** | 53 Gi disk |
 
 On 2026-11-17, one node had 99% of its allocatable memory requested and was using more than that (6.3 GiB). The other node had just been added by the autoscaler and was nearly empty. The cluster cannot grow beyond these two nodes, so every connector must fit in the second node's free space. Phase 6 as a whole does not fit: switch it on only after the spot pool or Node Auto Provisioning adds capacity, and until then enable its connectors one at a time. Check headroom with `kubectl describe nodes | grep -A6 "Allocated resources"` before each Enable. Recommended order on AKS:
 
@@ -98,7 +109,7 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 
 **Managed AKS add-ons:** AKS can run KEDA (`az aks update --enable-keda`) and VPA (`--enable-vpa`) itself. Use either the add-on or the connector, never both. If the VPA add-on is on, set `vpa.enabled: false` in `aio-catalog values/goldilocks/values.yaml`.
 
-## Scope: 42 connectors
+## Scope: 56 connectors
 
 | Group | Connectors | Kind |
 | --- | --- | --- |
@@ -123,7 +134,12 @@ curl "http://127.0.0.1:18080/api/strategies/blocking?group=aio&session_duration=
 | Data / apps | **Airflow, Superset, Appsmith, APISIX** | managed (phase 6) |
 | AI | **Milvus, Langfuse** | managed (phase 6) |
 | CI/CD | **Podman / Buildah** (build strategy in the CI pipeline) | core (phase 6) |
+| Developer tools | **Gitea, SonarQube** | managed (phase 7) |
+| App runtime | **Dapr, Temporal, Camel K, Volcano** | managed (phase 7) |
+| Data | **Spark, Flink, OpenSearch, TiDB, Doris operators; Pulsar** | managed (phase 7) |
+| Business apps | **ERPNext, Jitsi Meet** | managed (phase 7) |
 | Cost / tracing | Dragonfly, Koordinator, Jaeger | planned (see Activation (phase 6)) |
+| Other | Odoo, SuiteCRM, MediaWiki, Answer, DolphinScheduler, ShardingSphere, SkyWalking, HertzBeat, OpenNMS, Nacos, Seata, Higress, Karmada, KubeEdge, vLLM | planned (see Activation (phase 7)) |
 | Cost | Karpenter on EKS | planned (when AIO runs on EKS) |
 
 Not included, because each would replace AIO itself rather than plug into it: Jenkins, GitLab CI, Flux, Spinnaker, Backstage. Commercial-only tools (Kubecost Enterprise, Cast AI, ScaleOps) are excluded too.
@@ -152,6 +168,7 @@ Cost tools that work on any cloud: OpenCost (see the cost), Goldilocks + VPA (ri
 | 4 | 2027-01 | Node autoprovisioning (AKS, GKE); Loki, Tempo, OpenTelemetry Collector; External Secrets Operator; Gatus | Logs of every namespace and a test trace visible in Grafana; one ExternalSecret synced from the cloud store; Gatus checks green 3 days; a pending dev pod gets a Spot node and the node is removed once empty |
 | 5 | 2027-01 | CloudNativePG, Valkey, Harbor; Biome lint step (CrowdSec already live) | A dev app reads and writes its own CloudNativePG database and the shared Valkey; an image pushed to Harbor through Keycloak login is pulled by a dev app; a repo with biome.json fails CI on a lint error and passes once fixed |
 | 6 | 2027-02 | Strimzi, Crossplane, OpenKruise; Dependency-Track, Falco, OpenBao; Airflow, Superset, Appsmith, APISIX; Milvus, Langfuse; Buildah build strategy | A dev app produces to and consumes from a single-node Kafka; Crossplane creates one cloud resource through Workload ID; the AIO pipeline's SBOM shows up in Dependency-Track; a Falco alert from a `kubectl exec` is visible in Loki; OpenBao is unsealed again after a pod restart; a DAG runs in Airflow and a Superset chart reads a CloudNativePG database, both through Keycloak login; a trace from a dev app is in Langfuse; a project built with Buildah deploys to dev |
+| 7 | 2027-03 onwards | Gitea, SonarQube; Dapr, Temporal, Camel K, Volcano; Spark, Flink, OpenSearch, TiDB, Doris operators, Pulsar; ERPNext, Jitsi Meet | A repo mirrored into Gitea through Keycloak login; the AIO pipeline's analysis shows in SonarQube; a dev app calls another through Dapr and runs a Temporal workflow; a SparkPi job and a Flink example job finish in dev; an app's OpenSearch cluster answers a search; an app produces to and consumes from Pulsar with its token; ERPNext login through Keycloak; a three-person Jitsi call on sarvaikam |
 
 Recurring jobs set up inside the tools when each one is added:
 
@@ -364,6 +381,58 @@ Trade-offs to know:
 - The Langfuse chart's bundled Valkey checks its health with an unauthenticated `valkey-cli ping`. That passes, because valkey-cli exits 0 on NOAUTH, but it only proves the process answers. Langfuse itself proves the password.
 - `pin.py` reports Crossplane as too new because the chart index stamps every release with 2026-11-18. The GitHub releases are from 2026-10-22 (2.4.3) and 2026-09-22 (2.4.2), as noted in its `pinNote`.
 - Buildah and Falco need relaxed Pod Security (unconfined profiles, and privileged for Falco). If the `ci` or `falco` namespace ever enforces baseline or restricted Pod Security, label those namespaces `privileged`.
+
+## Activation (phase 7)
+
+Pinned versions (rollback target in brackets):
+- **Developer tools:** gitea 12.7.0 / Gitea 1.27.0 (12.6.0), sonarqube 2026.5.1004 / Community Build 26.9 (2026.5.1003).
+- **App runtime:** dapr 1.19.1 (1.19.0), temporal 1.8.0 / server 1.32.2 (1.7.0), camel-k 2.11.0 (2.10.2), volcano 1.16.0 (1.15.3).
+- **Data operators:** spark-operator 2.5.2 (2.5.1), flink-kubernetes-operator 1.16.1 (none), opensearch-operator 3.0.14 / operator 3.0.0 (3.0.12), tidb-operator v1.6.6 (v1.6.5), doris-operator 25.8.0 (none).
+- **Single shared services:** pulsar 4.8.0 / Pulsar 5.0.0 standalone (4.7.0).
+- **Business apps:** erpnext 8.0.91 / ERPNext v16.54.0 (8.0.90), jitsi-meet 3.12.0 / stable-11248-3 (3.11.1).
+
+Every connector here works on AKS, GKE, EKS and on-prem; Jitsi Meet's group-call media path needs a per-cloud overlay. Data systems are operators only: apps create their own clusters from the example in each values header, so those costs land in the app's namespace. Gitea, SonarQube, Temporal and ERPNext keep their databases on CloudNativePG (phase 5), except ERPNext, which needs MariaDB and runs the official image from its chart.
+
+**Capacity.** The phase 7 connectors together request about 1.9 CPU and 8.5 GiB of memory, with no app clusters running. The heavy ones are SonarQube (2.2 GiB), ERPNext (1.5 GiB), Temporal and Pulsar (0.9 GiB each) and Jitsi Meet (0.9 GiB). On the reference cluster, enable them one at a time. Some app clusters cannot fit on the reference cluster at all: a Doris cluster needs about 8 CPU and 16 GiB, and a TiDB cluster about 1.2 CPU and 2.6 GiB.
+
+1. Push and tag the catalog. Re-apply `deploy/connectors-project.yaml`: 14 more chart repositories and their namespaces. The Spark and Flink operators also write Roles into `dev` and `staging`. Move `CONNECTORS_REVISION` to the tag.
+2. **Keycloak (sarvaikam only).** Run `python tools/gen_sso.py && bash sso/keycloak/import.sh`. This creates the clients `aio-gitea` (with a `groups` claim), `aio-temporal` and `aio-erpnext`. It also turns off the PKCE requirement for clients whose tools don't send PKCE: Gitea, Harbor, Argo CD, Temporal and ERPNext. Before this change, every client required it, so Keycloak would have rejected those logins.
+3. **Secrets, before Enable.** Run these from aio-catalog:
+   - `bash setup/gitea-secrets.sh`
+   - `bash setup/sonarqube-secrets.sh`
+   - `bash setup/erpnext-secrets.sh` (on sarvaikam, with `SITE_URL=https://erpnext.tools.sarvaikam.com`)
+   - `bash setup/jitsi-meet-secrets.sh`
+   - `bash setup/pulsar-secrets.sh`
+   - `bash setup/temporal-secrets.sh`, only for the Keycloak login.
+
+   For tools with Keycloak login, set `OIDC_CLIENT_SECRET` on the run so the script also writes the login Secret.
+4. **Developer tools**, each Enable → Test:
+   - **Gitea:** Git over HTTPS only (no SSH) and no Actions runner. Nothing is visible without signing in, and self-registration is off. Keycloak `aio-admin` makes a user a site admin, and `aio-business` makes them a restricted user. Users with neither role cannot sign in. The admin `gitea_admin` password is in Secret `gitea-admin`.
+   - **SonarQube Community Build:** after Enable, a PostSync job replaces `admin/admin` with the password from `sonarqube-admin`. Running `setup/sonarqube-secrets.sh` again once SonarQube is up checks that, and stores a CI analysis token in `sonarqube-ci-token`. There is no OIDC in the Community Build, so it sits behind the SSO gate and users still sign in to SonarQube itself; SonarQube's built-in SAML is a possible later step. Elasticsearch runs without the privileged sysctl init container (bootstrap checks off). For big indexes, raise `vm.max_map_count` through the node pool (AKS `linuxOSConfig`, GKE `linuxConfig`).
+5. **App runtime**, each Enable → Test:
+   - **Dapr:** the control plane runs a single replica of each service, except the scheduler, which the chart fixes at 3 members with 1 Gi disks. On AKS that uses 3 of the nodes' free disk attachments. An app opts in with the pod annotations `dapr.io/enabled: "true"`, `dapr.io/app-id` and `dapr.io/app-port`. The injector webhook ignores every other pod and fails open.
+   - **Temporal:** frontend, history, matching, worker and web UI, with PostgreSQL for both stores. Schema setup and the `default` namespace (3 days retention) are Argo CD Sync jobs that are safe to rerun. The first install crash-loops for a few minutes until the schema exists. `numHistoryShards` is 16 and can never change. Apps connect to `temporal-frontend.temporal.svc:7233` **without auth or TLS**: any pod in the cluster can use Temporal. On sarvaikam the UI sits behind the gate (`aio-admin` only) as well as its own Keycloak login, because the UI lets anyone it admits cancel or terminate workflows.
+   - **Camel K:** the operator only. Integrations run from images the AIO pipeline builds (`kamel run --image`). For in-cluster builds, run `setup/camel-k-registry.sh` after Enable with a registry that serves HTTPS, such as Harbor with a robot account, ACR, Artifact Registry or ECR. Builds need internet access to Maven Central and run one at a time inside the operator pod.
+   - **Volcano:** a second scheduler named `volcano`, used only by pods that ask for it. The default scheduler is untouched, and its admission webhooks cover only Volcano's own resources. On GKE the extras add the ResourceQuota that `system-cluster-critical` pods need outside kube-system.
+6. **Data operators**, each Enable → Test:
+   - **Spark operator:** Spark jobs run only in `dev` and `staging`, with the example SparkPi in the values header. Its webhooks touch only Spark pods, so a down operator only blocks new Spark jobs. Adding `prod` means adding it to `spark.jobNamespaces` and to the project.
+   - **Flink operator:** watches `dev` and `staging` only, with webhook certificates from cert-manager. It has **no rollback version**, because Apache publishes one Helm repo per release: to go back, change `chartRepo` and `version` together. The chart's fixed webhook keystore password stays as it is, because the key it protects is in the same Secret in plain text.
+   - **OpenSearch operator:** apps create `OpenSearchCluster`s. The example uses a per-cluster cert-manager CA, the admin password from `setup/opensearch-cluster-secrets.sh <ns> <cluster>`, and a single 1 GiB node with mmap off, so it needs no privileged sysctl. Loki stays the log store; OpenSearch is for app search.
+   - **TiDB operator:** the CRDs come from the release file in `extras/tidb/crds.yaml` and are kept when the connector is disabled (Prune=false), so app databases survive. Replace the file on every version bump.
+   - **Doris operator:** the chart is from SelectDB, the repository the Apache Doris docs name. It has **no rollback version**, because the previous chart hard-codes 2 CPU and 4 GiB for the operator. A Doris cluster does not fit the reference cluster.
+   - **Pulsar:** one shared standalone Pulsar (ZooKeeper, BookKeeper and broker in one JVM) with JWT auth. Apps are separated by tenant, namespace and token role. Mint an app token with `APP_ROLE=<role> APP_NAMESPACE=<ns> bash setup/pulsar-secrets.sh`. There is no replication; use Strimzi for production streams. **Roll back only on an empty install:** 4.7.0 runs Pulsar 4.0, which is not tested on data written by 5.0.
+7. **Business apps**, each Enable → Test:
+   - **ERPNext:** MariaDB and two Valkeys run on official images, with NetworkPolicies limiting them to the namespace. All ERPNext pods share one RWO disk, so they run on one node. The first sync creates the site, which takes 5-10 minutes; then sign in as Administrator and finish the wizard. Keycloak login is set up inside ERPNext, under Integrations → Social Login Key, as described in the site overlay. ERPNext does not map Keycloak roles, so an admin assigns roles in ERPNext. On a chart bump, update the image tag in both `values/erpnext/values.yaml` and `extras/erpnext/site-job.yaml`.
+   - **Jitsi Meet:** behind the SSO gate (`aio-admin` only), so `aio-business` users, outside guests and mobile apps cannot join. Without a site overlay only two-person calls work. On sarvaikam the bridge gets UDP 10000 on the existing public IP. Azure accepting UDP next to Traefik's TCP rules on that one IP is not yet proven: check it first, and if it fails, give the bridge its own public IP. The bridge needs roughly one vCPU per 20-40 active video participants.
+8. **Switch on**, once capacity allows: Connectors → Phases → phase 7 → **Switch on**, then Test each connector.
+
+Kept planned in phase 7, with the reasons:
+- **No official chart in an https Helm repository:** Odoo, SuiteCRM (which has no official image either), MediaWiki (Wikimedia's charts are for Wikipedia's production stack), Apache Answer (its chart is only in the source repo) and DolphinScheduler (OCI only, needs about 2.5 GiB around the clock, and its operator is alpha).
+- **Unmaintained:** ShardingSphere on Cloud, whose last release was in 2023.
+- **Would replace part of AIO:** Backstage and GitLab CE.
+- **Overlap with what's already managed:** SkyWalking, HertzBeat and OpenNMS overlap Prometheus, Grafana, Tempo and Gatus.
+- **Niche or not needed on a single cluster:** Nacos, Seata and Higress serve the Spring Cloud Alibaba stack. Karmada and KubeEdge are for multi-cluster and edge setups.
+- **Needs GPU nodes:** vLLM.
 
 ## Adding a connector
 

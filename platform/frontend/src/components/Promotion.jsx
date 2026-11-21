@@ -4,6 +4,7 @@ import Badge from './Badge.jsx'
 import Icon from './Icon.jsx'
 import { Skeleton } from './ui.jsx'
 import { useToast } from './Toast.jsx'
+import { useEnvironments } from '../environments.js'
 
 const KIND = {
   env: 'Env var', envFrom: 'Loads', volume: 'Volume', volumeMount: 'Mount', secret: 'Secret', configMap: 'ConfigMap',
@@ -51,6 +52,7 @@ function CopyCmd({ cmd }) {
  * Secrets/ConfigMaps missing in the target namespace can't be copied: they're listed with kubectl commands.
  */
 export function PromoteDialog({ project, from, to, onClose, onDone }) {
+  const { gated: needsApproval } = useEnvironments()
   const toast = useToast()
   const [check, setCheck] = useState(null)
   const [error, setError] = useState('')
@@ -89,7 +91,7 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
     return () => { el.removeEventListener('keydown', onKey); document.body.style.overflow = overflow; previous?.focus() }
   }, [])
 
-  const gated = to === 'prod'
+  const gated = needsApproval(to)
   const missing = check?.missing || []
   const differs = check?.differs || []
   const copyable = missing.filter(f => f.copyable)

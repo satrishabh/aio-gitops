@@ -85,10 +85,15 @@ export default function Metrics() {
   const [bandLabel, bandTone, bandText] = band(o)
   const series = key => daily.map(d => (d[key] === undefined ? null : d[key]))
   const prodPerDay = daily.map(d => d.deploysProd ?? null)
+  // production = every prod-like environment (prod, plus e.g. an environment after prod)
+  const prodNames = data.prodLike && data.prodLike.length ? data.prodLike : ['prod']
+  const prodWord = prodNames.length > 1 ? 'production' : 'prod'
+  const byEnvLine = o.deploysByEnv && Object.keys(o.deploysByEnv).length
+    ? Object.entries(o.deploysByEnv).map(([e, n]) => `${n} ${e}`).join(' · ') : null
 
   const tiles = [
     { key: 'freq', icon: 'rocket', label: 'Deployment frequency', value: `${o.prodDeploysPerDay}/day`,
-      sub: `${o.prodDeploys} prod · ${o.devDeploys} dev${o.stagingDeploys != null ? ` · ${o.stagingDeploys} staging` : ''}`,
+      sub: byEnvLine || `${o.prodDeploys} prod · ${o.devDeploys} dev${o.stagingDeploys != null ? ` · ${o.stagingDeploys} staging` : ''}`,
       spark: prodPerDay, sparkLabel: 'prod deploys per day', better: 'higher is better', color: 'var(--info-fill)' },
     { key: 'lead', icon: 'clock', label: 'Lead time for changes', value: hrs(o.leadTimeHoursMedian),
       sub: 'median, CI start → prod', spark: series('leadTimeHours'), sparkLabel: 'median lead time of each day’s prod deploys, in hours',
@@ -142,7 +147,8 @@ export default function Metrics() {
             <div><Ring value={o.ciSuccessRate} size={104} color="var(--ok-fill)" /><span>CI success</span></div>
             <div><Ring value={o.changeFailureRate == null ? null : 1 - o.changeFailureRate} size={104} color="var(--info-fill)" /><span>Change success</span></div>
           </div>
-          <p className="muted metrics-note">Change success is 1 − change failure rate: prod deploys that were not rolled back.</p>
+          <p className="muted metrics-note">Change success is 1 − change failure rate: {prodWord} deploys that were not rolled back.
+            {prodNames.length > 1 && <> Production counts {prodNames.join(' and ')}.</>}</p>
         </div>
       </div>
 

@@ -13,11 +13,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Which cluster each environment deploys to. The hub (where the platform, Tekton and Argo CD run) only
- * reaches workload clusters through Argo CD; this registry just names them.
+ * Cluster lookups per environment (ingress, domain, TLS, rollouts). Which cluster an environment uses comes from
+ * {@link EnvironmentRegistry} (the {@code environments} / {@code clusters} tables); {@code app.clusters} only seeds
+ * those tables on first start.
  *
- * <p>With no {@code app.clusters} configured everything targets Argo CD's {@code in-cluster} (the
- * original single-cluster layout), so existing installs keep working until clusters are added.
+ * <p>With no {@code app.clusters} configured the seed targets Argo CD's {@code in-cluster} (the original
+ * single-cluster layout), so existing installs keep working until clusters are added.
  */
 @Service
 public class ClusterRegistry {
@@ -26,17 +27,21 @@ public class ClusterRegistry {
     public static final String IN_CLUSTER_SERVER = "https://kubernetes.default.svc";
     private static final Duration CRD_CACHE = Duration.ofMinutes(5);
 
-    private final Map<String, Cluster> byEnv;
-    private final List<Cluster> clusters;
+    private final EnvironmentRegistry environments;
     private final KubernetesClient hub;
     private volatile Boolean hubRollouts;
     private volatile Instant hubCheckedAt = Instant.EPOCH;
 
-    public ClusterRegistry(AppProperties props, KubernetesClient hub) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ClusterRegistry(EnvironmentRegistry environments, KubernetesClient hub) {
         this.hub = hub;
-        this.clusters = resolve(props);
-        this.byEnv = index(clusters);
-        clusters.forEach(c -> log.info("cluster {} ({}) hosts {}", c.name(), c.server(), c.envs()));
+        this.environments = environments;
+        clusters().forEach(c -> log.info("cluster {} ({}) hosts {}", c.name(), c.server(), c.envs()));
+    }
+
+    /** From static settings only (tests). */
+    public ClusterRegistry(AppProperties props, KubernetesClient hub) {
+        this(EnvironmentRegistry.fromConfig(props, "other"), hub);
     }
 
     /** Configured clusters, or the single in-cluster fallback built from the legacy settings. */
@@ -45,12 +50,12 @@ public class ClusterRegistry {
                 .filter(c -> c != null && c.name() != null && !c.name().isBlank())
                 .map(c -> new Cluster(c.name().trim(), c.server(), c.envs() == null ? List.of() : c.envs().stream().map(String::trim).toList(),
                         c.baseDomain(), c.rollouts(), blankToNull(c.ingressIp()), blankToNull(c.issuer()), zone(c.dnsZone()), c.tls(),
-                        blankToNull(c.ingressClass()), controller(c.name(), c.ingressController())))
+                        blankToNull(c.ingressClass()), controller(c.name(), c.ingressController()), blankToNull(c.ingressNamespace())))
                 .toList();
         if (configured.isEmpty()) {
             String server = props.argocd() == null || props.argocd().destinationServer() == null
                     ? IN_CLUSTER_SERVER : props.argocd().destinationServer();
-            return List.of(new Cluster(IN_CLUSTER, server, GitOpsService.ENVS, props.baseDomain(), null));
+            return List.of(new Cluster(IN_CLUSTER, server, EnvironmentRegistry.DEFAULT_ENVS, props.baseDomain(), null));
         }
         return configured;
     }
@@ -77,31 +82,34 @@ public class ClusterRegistry {
         return s == null ? null : s.toLowerCase(java.util.Locale.ROOT).replaceAll("^\\.|\\.$", "");
     }
 
-    /** env -> cluster; fails fast when an env is unmapped or mapped twice (a typo must not deploy prod elsewhere). */
+    /**
+     * env -> cluster for the static settings (the seed of the default envs); fails fast when an env is unmapped or
+     * mapped twice (a typo must not deploy prod elsewhere).
+     */
     static Map<String, Cluster> index(List<Cluster> clusters) {
         Map<String, Cluster> m = new LinkedHashMap<>();
         for (Cluster c : clusters) {
             if (c.name() == null || !c.name().matches("[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?"))
                 throw new IllegalStateException("invalid cluster name: " + c.name());
             for (String env : c.envs() == null ? List.<String>of() : c.envs()) {
-                if (!GitOpsService.ENVS.contains(env)) throw new IllegalStateException("cluster " + c.name() + ": unknown env " + env);
+                if (!EnvironmentRegistry.DEFAULT_ENVS.contains(env)) throw new IllegalStateException("cluster " + c.name() + ": unknown env " + env);
                 Cluster prev = m.put(env, c);
                 if (prev != null) throw new IllegalStateException("env " + env + " is mapped to both " + prev.name() + " and " + c.name());
             }
         }
-        for (String env : GitOpsService.ENVS)
+        for (String env : EnvironmentRegistry.DEFAULT_ENVS)
             if (!m.containsKey(env)) throw new IllegalStateException("env " + env + " is not mapped to any cluster (app.clusters)");
         return m;
     }
 
     public Cluster clusterFor(String env) {
-        Cluster c = byEnv.get(env);
-        if (c == null) throw new IllegalArgumentException("unknown environment: " + env);
-        return c;
+        String name = environments.clusterFor(env);
+        return clusters().stream().filter(c -> c.name().equals(name)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("environment " + env + " points to unknown cluster " + name));
     }
 
     public List<Cluster> clusters() {
-        return clusters;
+        return environments.clusters();
     }
 
     public boolean inCluster(Cluster c) {

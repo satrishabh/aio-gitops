@@ -76,7 +76,7 @@ class ProjectServicesTest {
         shop.id = 7L;
         shop.name = "shop";
         shop.imageRepo = "ghcr.io/example/shop";
-        for (String env : GitOpsService.ENVS) files.put(env, VALUES.replace("shop-dev", "shop-" + env));
+        for (String env : EnvironmentRegistry.DEFAULT_ENVS) files.put(env, VALUES.replace("shop-dev", "shop-" + env));
 
         GitOpsService gitops = mock(GitOpsService.class);
         when(gitops.readRaw(any(), anyString())).thenAnswer(i -> {

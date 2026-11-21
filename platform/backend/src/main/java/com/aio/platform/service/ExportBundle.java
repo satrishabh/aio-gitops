@@ -298,7 +298,8 @@ public final class ExportBundle {
 
     /** Namespace of an env in the export: the same as on AIO (one namespace per environment). */
     static String namespace(String env) {
-        return env;
+        EnvironmentRegistry envs = EnvironmentRegistry.current();
+        return envs == null ? env : envs.namespaceOf(env);
     }
 
     private static final Pattern K8S_NAME = Pattern.compile("^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$");
@@ -351,7 +352,9 @@ public final class ExportBundle {
         source.put("helm", helm);
         Map<String, Object> syncPolicy = new LinkedHashMap<>();
         // prod is synced by hand, as on AIO; dev and staging follow git
-        if (!"prod".equals(env)) syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
+        EnvironmentRegistry envs = EnvironmentRegistry.current();
+        boolean manual = envs == null ? "prod".equals(env) : envs.approvalRequired(env);
+        if (!manual) syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
         syncPolicy.put("syncOptions", List.of("CreateNamespace=true"));
         Map<String, Object> spec = new LinkedHashMap<>();
         spec.put("project", "default");

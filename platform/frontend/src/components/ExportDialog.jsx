@@ -3,6 +3,7 @@ import { api, download } from '../api.js'
 import Dialog from './Dialog.jsx'
 import Icon from './Icon.jsx'
 import { useToast } from './Toast.jsx'
+import { useEnvironments } from '../environments.js'
 
 const CLOUDS = [['any', 'Any cluster'], ['aks', 'AKS'], ['gke', 'GKE'], ['eks', 'EKS'], ['oke', 'OKE'], ['onprem', 'On-premises']]
 
@@ -11,6 +12,7 @@ const CLOUDS = [['any', 'Any cluster'], ['aks', 'AKS'], ['gke', 'GKE'], ['eks', 
  * (GET /api/projects/{id}/export, fetched as a blob with the session cookie and CSRF header like every API call).
  */
 export default function ExportDialog({ project, onClose }) {
+  const { names } = useEnvironments()
   const toast = useToast()
   const [preview, setPreview] = useState(null)
   const [all, setAll] = useState(false)
@@ -24,7 +26,7 @@ export default function ExportDialog({ project, onClose }) {
     return () => { alive = false }
   }, [project.id])
 
-  const envs = preview?.envs?.length ? preview.envs : ['dev', 'staging', 'prod']
+  const envs = preview?.envs?.length ? preview.envs : names
   const used = preview?.connectors || []
   const installed = preview?.installedConnectors || []
   const extra = installed.filter(c => !used.includes(c))

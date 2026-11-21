@@ -21,6 +21,10 @@ public class ServiceUsage {
         this.projects = projects;
     }
 
+    /** The environments (was GitOpsService.ENVS); replaced by Spring, defaults to dev/staging/prod in unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments = EnvironmentRegistry.defaults();
+
     /** One project using the connector, with its environments in dev, staging, prod order. */
     public record Use(Long projectId, String project, List<String> envs) {}
 
@@ -30,7 +34,7 @@ public class ServiceUsage {
             byProject.computeIfAbsent(s.projectId, k -> new ArrayList<>()).add(s.env);
         List<Use> out = new ArrayList<>();
         byProject.forEach((id, envs) -> out.add(new Use(id, projects.findById(id).map(p -> p.name).orElse("#" + id),
-                GitOpsService.ENVS.stream().filter(envs::contains).toList())));
+                environments.names().stream().filter(envs::contains).toList())));
         out.sort(java.util.Comparator.comparing(Use::project));
         return out;
     }

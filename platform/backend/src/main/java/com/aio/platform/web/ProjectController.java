@@ -35,6 +35,9 @@ public class ProjectController {
     private final com.aio.platform.service.RolloutService rollouts;
     private final com.aio.platform.service.AuditService audit;
     private final com.aio.platform.service.ClusterRegistry clusters;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    com.aio.platform.service.EnvironmentRegistry environments;
 
     public ProjectController(ProjectRepo projects, CiRunRepo runs, RunStepRepo steps, EnvStatusRepo envs,
                              DeploymentRepo deployments, PromotionRepo promotions, ProjectService projectService,
@@ -105,7 +108,7 @@ public class ProjectController {
         out.put("environments", envs.findByProjectId(id));
         Map<String, String> namespaces = new LinkedHashMap<>();
         Map<String, String> clusterOf = new LinkedHashMap<>();
-        for (String env : com.aio.platform.service.GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             namespaces.put(env, ClusterService.namespace(p, env));
             clusterOf.put(env, clusters.clusterFor(env).name());
         }

@@ -7,8 +7,8 @@ import { Avatar, Skeleton, Tabs, ago } from '../components/ui.jsx'
 import { Stale, useAction, usePoll } from '../hooks.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { DetailHead, Timeline } from '../components/flow/FlowParts.jsx'
+import { useEnvironments } from '../environments.js'
 
-const ENVS = ['dev', 'staging', 'prod']
 // Argo resource kinds in the order a deploy flows through them, shown like CI pipeline stages
 const STAGES = ['Service', 'Deployment', 'Rollout', 'ReplicaSet', 'Pod', 'Ingress']
 const KIND_ICON = { Service: 'zap', Deployment: 'rocket', Rollout: 'layers', ReplicaSet: 'layers', Pod: 'box', Ingress: 'external' }
@@ -38,6 +38,7 @@ export default function CdDetail({ me }) {
   const [pod, setPod] = useState(null)
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}/environments/${env}/cd`), 5000, [id, env])
   const { busy, run } = useAction(refresh)
+  const { names: ENVS, gated } = useEnvironments()
 
   useEffect(() => { setPod(null) }, [id, env])
 
@@ -54,7 +55,7 @@ export default function CdDetail({ me }) {
   const { project: p, app, operation: op, syncPolicy, history = [], conditions = [], resources = [] } = data
   const base = `/api/projects/${id}/environments/${env}/cd`
   const btn = (key, cls = 'btn') => ({ className: `${cls}${busy === key ? ' busy' : ''}`, disabled: !!busy })
-  const locked = env === 'prod' && !me?.approver
+  const locked = gated(env) && !me?.approver
   const stages = STAGES.map(k => ({ kind: k, nodes: nodes.filter(n => n.kind === k) })).filter(s => s.nodes.length)
 
   return (
@@ -77,7 +78,7 @@ export default function CdDetail({ me }) {
           {data.exists && data.currentCluster && data.currentCluster !== data.cluster && (
             <div className="banner fl-banner"><Icon name="layers" size={15} />
               {env} is mapped to <b>&nbsp;{data.cluster}&nbsp;</b> but still runs on <b>&nbsp;{data.currentCluster}</b>.
-              {env === 'prod' ? ' An approver can move it with Repair environments in project settings.' : ' It moves on the next Repair or platform restart.'}
+              {gated(env) ? ' An approver can move it with Repair environments in project settings.' : ' It moves on the next Repair or platform restart.'}
             </div>
           )}
 
@@ -105,7 +106,7 @@ export default function CdDetail({ me }) {
                                aria-current={e === env ? 'page' : undefined}>{e}</Link>)}
         </nav>
         {data.exists && <>
-          <button {...btn('sync', 'btn primary')} disabled={!!busy || locked} title={locked ? 'Only approvers can sync prod' : 'Apply the GitOps state now'}
+          <button {...btn('sync', 'btn primary')} disabled={!!busy || locked} title={locked ? `Only approvers can sync ${env}` : 'Apply the GitOps state now'}
                   onClick={() => run('sync', () => api(`${base}/sync`, { method: 'POST' }), 'Sync started')}>
             <Icon name="refresh" size={14} />Sync</button>
           <button {...btn('refresh')} title="Re-read Git and the cluster"
@@ -274,6 +275,7 @@ function PodLogs({ base, pods, pod, setPod, name }) {
 
 /** Editable CD config: Argo CD sync policy + the GitOps values file for this environment. */
 function Config({ base, env, policy, locked, run, btn, app }) {
+  const { gated } = useEnvironments()
   const [pol, setPol] = useState(policy)
   const [values, setValues] = useState(null)   // { path, yaml, sha } as last loaded from Git
   const [yaml, setYaml] = useState('')
@@ -290,7 +292,7 @@ function Config({ base, env, policy, locked, run, btn, app }) {
   async function saveValues(e) {
     e.preventDefault()
     const v = await run('values', () => api(`${base}/values`, { method: 'PUT', body: { yaml, sha: values.sha, message } }),
-      env === 'prod' && !policy.automated ? 'Committed — press Sync to apply it to prod' : 'Committed — Argo CD will apply it on the next sync')
+      gated(env) && !policy.automated ? `Committed — press Sync to apply it to ${env}` : 'Committed — Argo CD will apply it on the next sync')
     if (v) { setValues(v); setYaml(v.yaml); setMessage('') }
   }
 
@@ -311,8 +313,8 @@ function Config({ base, env, policy, locked, run, btn, app }) {
           <label className="check"><input type="checkbox" role="switch" checked={pol.selfHeal} disabled={!pol.automated}
                                           onChange={e => setPol({ ...pol, selfHeal: e.target.checked })} />
             Self-heal — undo manual changes made in the cluster</label>
-          {env === 'prod' && pol.automated && <p className="hint" style={{ color: 'var(--amber)' }}>
-            Auto-sync on prod applies commits without waiting for a manual sync. Promotions still need approval.</p>}
+          {gated(env) && pol.automated && <p className="hint" style={{ color: 'var(--amber)' }}>
+            Auto-sync on {env} applies commits without waiting for a manual sync. Promotions still need approval.</p>}
           <p className="hint">Source: <code>{app.repoUrl}</code> · chart <code>{app.path}</code> · tracks <code>{app.targetRevision}</code></p>
         </fieldset>
         <div style={{ display: 'flex', gap: 10 }}>

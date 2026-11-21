@@ -62,6 +62,9 @@ public class ProjectServicesService {
     private final ServiceUsage usage;
     private final AuditService audit;
     private final PromotionService promotions;
+    /** The environments (was GitOpsService.ENVS); replaced by Spring, defaults to dev/staging/prod in unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments = EnvironmentRegistry.defaults();
     Secrets secrets;
 
     public ProjectServicesService(ConnectorCatalog catalog, ConnectorService connectors, ClusterRegistry clusters,
@@ -96,7 +99,7 @@ public class ProjectServicesService {
     public Map<String, Object> overview(Project p, String actor) {
         List<String> warnings = new ArrayList<>();
         Map<String, Map<String, Object>> inGit = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             try {
                 inGit.put(env, ServicesValues.read(gitops.readRaw(p, env).yaml()));
             } catch (RuntimeException e) {
@@ -104,7 +107,7 @@ public class ProjectServicesService {
             }
         }
         List<Map<String, Object>> envs = new ArrayList<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             var c = clusters.clusterFor(env);
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("env", env);
@@ -167,7 +170,7 @@ public class ProjectServicesService {
         m.put("podAnnotations", List.copyOf(b.annotations().keySet()));
         m.put("exportNote", b.exportNote());
         Map<String, Object> perEnv = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             boolean attached = rows.stream().anyMatch(r -> r.connectorId.equals(c.id()) && r.env.equals(env)
                     && AttachedService.ATTACHED.equals(r.status))
                     || (inGit.containsKey(env) && inGit.get(env).containsKey(c.id()));
@@ -182,9 +185,9 @@ public class ProjectServicesService {
         return m;
     }
 
-    /** Prod services are approver-only, like prod domains; dev and staging: anyone who may change the project. */
+    /** Services of approval-required envs (prod, ...) are approver-only, like their domains; others: anyone who may change the project. */
     private boolean mayChange(String env, String actor) {
-        return !"prod".equals(env) || promotions.isApprover(actor);
+        return !environments.approvalRequired(env) || promotions.isApprover(actor);
     }
 
     private void requireMayChange(String env, String actor) {
@@ -199,7 +202,7 @@ public class ProjectServicesService {
     /** {code, message} why the connector cannot be attached in env, or null when it can. */
     private String[] unavailable(Connector c, String env, Object status) {
         Binding b = c.binding();
-        if (!b.envList().contains(env))
+        if (!b.allowsEnv(env))
             return new String[] {"ENV_NOT_ALLOWED", b.label() + " is for " + String.join(", ", b.envList()) + " only"};
         var cluster = clusters.clusterFor(env);
         if (!clusters.inCluster(cluster))
@@ -271,7 +274,7 @@ public class ProjectServicesService {
         Binding b = c.binding();
         if (b == null) throw new IllegalArgumentException(c.name() + " cannot be used by projects");
         String env = req.env();
-        if (env == null || !GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("choose dev, staging or prod");
+        if (env == null || !environments.exists(env)) throw new IllegalArgumentException("choose one of " + environments.names());
         requireMayChange(env, actor);
         if (!c.supports(catalog.cloud())) throw new IllegalArgumentException(c.name() + " is not supported on " + catalog.cloud());
         String[] reason = unavailable(c, env, connectors.describe(c).get("status"));
@@ -319,7 +322,7 @@ public class ProjectServicesService {
      * manifests when Argo CD prunes them, so that needs the project name typed as confirmation.
      */
     public DetachResult detach(Project p, String connectorId, String env, String confirm, String actor) {
-        if (env == null || !GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("env must be dev, staging or prod");
+        if (env == null || !environments.exists(env)) throw new IllegalArgumentException("env must be one of " + environments.names());
         requireMayChange(env, actor);
         Connector c = catalog.find(connectorId).orElse(null);
         AttachedService row = repo.findByProjectIdAndConnectorIdAndEnv(p.id, connectorId, env).orElse(null);

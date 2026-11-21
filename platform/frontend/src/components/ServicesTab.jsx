@@ -14,7 +14,8 @@ import { Stale, useAction, usePoll } from '../hooks.jsx'
  * The response is normalised below so small shape differences (ids vs objects, per-env lists vs maps) don't break it.
  */
 
-export const ENVS = ['dev', 'staging', 'prod']
+/** Fallback until the API lists the environments (the list itself comes from GET /services, i.e. the environments table). */
+export const DEFAULT_ENVS = ['dev', 'staging', 'prod']
 const SCOPE = {
   instance: { label: 'Own copy', tone: 'blue', hint: 'The app gets its own instance in its namespace' },
   shared: { label: 'Shared service', tone: 'amber', hint: 'The app uses the connector’s one shared service with copied credentials' },
@@ -32,7 +33,6 @@ const str = v => (v == null ? '' : String(v))
 /** env list -> { dev: { env, ok, reason, cluster } } */
 function normEnvs(raw) {
   const out = {}
-  for (const e of ENVS) out[e] = { env: e, ok: true }
   const list = Array.isArray(raw) ? raw : raw && typeof raw === 'object' ? Object.entries(raw).map(([env, v]) => ({ env, ...(v || {}) })) : []
   for (const item of list) {
     if (typeof item === 'string') { out[item] = { env: item, ok: true }; continue }
@@ -42,6 +42,7 @@ function normEnvs(raw) {
     const cluster = item.cluster || item.clusterName
     out[env] = { env, ok: ok !== false, cluster, reason: item.reason || item.message || (ok === false && cluster ? `not available on ${cluster}` : '') }
   }
+  if (!Object.keys(out).length) for (const e of DEFAULT_ENVS) out[e] = { env: e, ok: true }
   return out
 }
 
@@ -135,6 +136,7 @@ export default function ServicesTab({ id, project }) {
   }
 
   const { envs, available, attached } = model
+  const ENVS = Object.keys(envs)
   const byId = new Map(available.map(c => [c.id, c]))
   const groups = [...new Set(attached.map(a => a.id))].map(cid => ({
     c: byId.get(cid) || normAvailable({ id: cid, ...(attached.find(a => a.id === cid) || {}), status: undefined }), rows: attached.filter(a => a.id === cid),
@@ -189,6 +191,7 @@ function ScopeBadge({ scope }) {
 }
 
 function ServiceCard({ c, rows, envs, attached, busy, onAdd, onRemove }) {
+  const ENVS = Object.keys(envs)
   const headingId = `svc-${c.id}`
   return (
     <li className="card svc-card" aria-labelledby={headingId}>
@@ -232,6 +235,7 @@ function ServiceCard({ c, rows, envs, attached, busy, onAdd, onRemove }) {
 }
 
 function AddDialog({ available, envs, attached, preset, projectId, onClose, onDone }) {
+  const ENVS = Object.keys(envs)
   const first = preset?.id || available.find(c => ENVS.some(e => canAdd(c, e, envs, attached).ok))?.id || ''
   const [pick, setPick] = useState(first)
   const c = available.find(x => x.id === pick)

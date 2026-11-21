@@ -30,16 +30,27 @@ public record AppProperties(
      *
      * <p>Ingress: {@code ingressClass} is the IngressClass apps on this cluster use (unset keeps the chart default,
      * {@code nginx}); {@code ingressController} is {@code nginx} or {@code traefik} and selects how the app chart
-     * expresses HTTPS/www redirects and prefix stripping (Traefik ignores ingress-nginx annotations).
+     * expresses HTTPS/www redirects and prefix stripping (Traefik ignores ingress-nginx annotations);
+     * {@code ingressNamespace} is the controller's namespace, allowed through each env namespace's NetworkPolicy
+     * (unset: the platform does not manage NetworkPolicies on that cluster).
+     *
+     * <p>Since V13 these settings only seed the {@code clusters} table on first start; clusters are then managed on
+     * the Clusters page. {@code envs} is derived from the {@code environments} table.
      */
     public record Cluster(String name, String server, List<String> envs, String baseDomain, Boolean rollouts,
                           String ingressIp, String issuer, String dnsZone, Boolean tls,
-                          String ingressClass, String ingressController) {
+                          String ingressClass, String ingressController, String ingressNamespace) {
         @org.springframework.boot.context.properties.bind.ConstructorBinding
         public Cluster {}   // the canonical constructor is the one bound from config
 
+        public Cluster(String name, String server, List<String> envs, String baseDomain, Boolean rollouts,
+                       String ingressIp, String issuer, String dnsZone, Boolean tls,
+                       String ingressClass, String ingressController) {
+            this(name, server, envs, baseDomain, rollouts, ingressIp, issuer, dnsZone, tls, ingressClass, ingressController, null);
+        }
+
         public Cluster(String name, String server, List<String> envs, String baseDomain, Boolean rollouts) {
-            this(name, server, envs, baseDomain, rollouts, null, null, null, null, null, null);
+            this(name, server, envs, baseDomain, rollouts, null, null, null, null, null, null, null);
         }
     }
 

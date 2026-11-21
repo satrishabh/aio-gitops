@@ -11,12 +11,11 @@ import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
 import CertificateManager from '../components/CertificateManager.jsx'
 import { DetailHead, StateWord } from '../components/flow/FlowParts.jsx'
+import { useEnvironments } from '../environments.js'
 import { PromoteDialog, PromotionStatus } from '../components/Promotion.jsx'
 import ServicesTab from '../components/ServicesTab.jsx'
 import ExportDialog from '../components/ExportDialog.jsx'
 
-const ENVS = ['dev', 'staging', 'prod']
-const NEXT = { dev: 'staging', staging: 'prod' }
 /** Something real has been deployed to this env (not the 0.0.0 placeholder). */
 const isDeployed = s => !!s.desiredTag && s.desiredTag !== '0.0.0'
 
@@ -46,6 +45,7 @@ export default function ProjectDetail() {
   }, [params, setParams])
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}`), 8000, [id])
   const { busy, run } = useAction(refresh)
+  const { names: ENVS, next: NEXT, gated, prev, many, path, byName } = useEnvironments()
 
   if (!data) return error ? <p className="error">{error}</p> : <><Skeleton h={130} /><Skeleton h={220} /><Skeleton h={300} /></>
   const { project: p, environments, runs, deployments, promotions, failedSteps = {}, namespaces = {}, clusters = {}, rollout = {} } = data
@@ -66,7 +66,7 @@ export default function ProjectDetail() {
     if (!confirm(`Roll back ${d.environment} to ${d.imageTag}?`)) return
     run(`rb-${d.id}`, () => api(`/api/projects/${id}/environments/${d.environment}/rollback`,
       { method: 'POST', body: { deploymentId: d.id } }),
-      d.environment === 'prod' ? 'Prod rollback requested — waiting for approval' : 'Rollback committed')
+      gated(d.environment) ? `${d.environment} rollback requested — waiting for approval` : 'Rollback committed')
   }
   const deployedEnvs = ENVS.filter(e => isDeployed(envOf(e)))
   const anyRunning = deployedEnvs.some(e => (envOf(e).replicas || 0) > 0)
@@ -116,9 +116,9 @@ export default function ProjectDetail() {
       <section className="fl-track" aria-labelledby="track-h">
         <div className="fl-track-head">
           <h2 id="track-h">Delivery track</h2>
-          <p>Each build goes dev → staging → prod. Promote moves the running image to the next stop; changes to prod wait for an approver.</p>
+          <p>Each build goes {path}. Promote moves the running image to the next stop; changes to gated stops wait for an approver.</p>
         </div>
-        <ol className="fl-stops">
+        <ol className={`fl-stops${many ? ' many' : ''}`} style={{ '--stops': ENVS.length }}>
           {ENVS.map((env, i) => {
             const s = envOf(env)
             const tone = envTone(s)
@@ -135,7 +135,8 @@ export default function ProjectDetail() {
                   <span className="fl-stop-n" aria-hidden="true">{i + 1}</span>
                   <h3>{env}</h3>
                   <StateWord tone={tone}>{envWord(s, tone, deployed, stopped)}</StateWord>
-                  {env === 'prod' && <span className="badge amber"><Icon name="lock" size={11} />gated</span>}
+                  {gated(env) && <span className="badge amber"><Icon name="lock" size={11} />gated</span>}
+                  {byName[env]?.clusterStatus === 'Unreachable' && <span className="badge red"><Icon name="x" size={11} />cluster unreachable</span>}
                 </div>
                 <div className="fl-stop-label">{parked ? 'Not deployed' : stopped ? 'Stopped · image' : 'Running image'}</div>
                 <div className="fl-stop-tag">{parked ? <span className="muted">—</span> : (current || '—')}</div>
@@ -168,12 +169,12 @@ export default function ProjectDetail() {
                     {NEXT[env] && <button {...btn(`promote-${env}`, 'btn primary small')} disabled={!!busy || parked}
                                           title={parked ? `Nothing in ${env} to promote yet` : `Promote ${env} → ${NEXT[env]}`}
                                           onClick={() => setPromoting(env)}>
-                      {NEXT[env] === 'prod' ? <Icon name="lock" size={12} /> : <Icon name="arrow" size={12} />}
-                      Promote to {NEXT[env]}{NEXT[env] === 'prod' && <span className="fl-needs"> · needs approval</span>}
+                      {gated(NEXT[env]) ? <Icon name="lock" size={12} /> : <Icon name="arrow" size={12} />}
+                      Promote to {NEXT[env]}{gated(NEXT[env]) && <span className="fl-needs"> · needs approval</span>}
                     </button>}
                     {back && <button {...btn(`rb-${back.id}`, 'btn small')} onClick={() => rollback(back)} title={`Roll ${env} back to ${back.imageTag}, deployed ${ago(back.deployedAt)}`}>
                       <Icon name="undo" size={12} />Roll back to <code>{back.imageTag.slice(0, 12)}</code></button>}
-                    {parked && <span className="fl-stop-hint">{env === 'dev' ? 'Run CI to deploy here' : `Promote from ${ENVS[i - 1]} to deploy`}</span>}
+                    {parked && <span className="fl-stop-hint">{env === 'dev' ? 'Run CI to deploy here' : `Promote from ${prev(env)} to deploy`}</span>}
                   </div>
                   <div className="fl-stop-actions">
                     <Link className="btn small" to={`/projects/${id}/cd/${env}`} title={`Argo CD sync, resources, pod logs and config for ${env}`}>
@@ -304,6 +305,7 @@ export default function ProjectDetail() {
 
 
 function DomainsTab({ id }) {
+  const { names: ENVS } = useEnvironments()
   const [form, setForm] = useState({
     env: 'dev', host: '', path: '/', stripPrefix: false, forceHttps: true, wwwRedirect: false,
   })

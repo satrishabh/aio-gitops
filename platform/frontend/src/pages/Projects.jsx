@@ -5,15 +5,16 @@ import Badge from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Empty, Loading, PageHead, Skeleton, ago, envTone, isStopped } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
+import { useEnvironments } from '../environments.js'
 
-const ENVS = ['dev', 'staging', 'prod']
-const SUB = 'each deploys as its own release into the shared dev, staging and prod namespaces'
+const SUB = 'each deploys as its own release into the shared environment namespaces'
 // The dot colour is paired with a word, so health never depends on hue alone.
 const ENV_WORD = { green: 'healthy', blue: 'syncing', amber: 'out of sync' }
 const envWord = (s, tone) => (tone === 'red' ? (s.healthStatus || 'degraded').toLowerCase() : ENV_WORD[tone] || null)
 
 /** Card-shaped placeholders: avatar + name, three environment chips, footer line. */
 function ProjectsSkeleton() {
+  const { names: ENVS, many } = useEnvironments()
   return (
     <Loading label="Loading projects" className="project-grid">
       {[0, 1, 2, 3, 4, 5].map(i => (
@@ -22,7 +23,7 @@ function ProjectsSkeleton() {
             <Skeleton bare h={38} w={38} className="round" />
             <div className="sk-stack"><Skeleton bare h={14} w="55%" className="line" /><Skeleton bare h={10} w="75%" className="line" /></div>
           </div>
-          <div className="env-strip">{ENVS.map(e => <Skeleton key={e} bare h={50} />)}</div>
+          <div className={`env-strip${many ? ' many' : ''}`}>{ENVS.map(e => <Skeleton key={e} bare h={50} />)}</div>
           <div className="card-foot"><Skeleton bare h={10} w="45%" className="line" /></div>
         </div>
       ))}
@@ -35,6 +36,7 @@ export default function Projects({ me }) {
   const ProjectCard = community ? 'div' : Link
   const { data: items, error, stale, refresh } = usePoll(() => api('/api/projects'), 10000)
   const [q, setQ] = useState('')
+  const { names: ENVS, many } = useEnvironments()
 
   if (error && !items) return <><Stale stale={stale} error={error} onRetry={refresh} /><PageHead title="Projects" /></>
   if (!items) return <><PageHead title="Projects" sub={`Each project ${SUB.replace('each ', '')}.`} /><ProjectsSkeleton /></>
@@ -67,7 +69,7 @@ export default function Projects({ me }) {
                 </div>
                 {lastRun?.id && <Badge value={lastRun.status} />}
               </div>
-              <div className="env-strip">
+              <div className={`env-strip${many ? ' many' : ''}`}>
                 {ENVS.map(env => {
                   const s = environments.find(e => e.environment === env)
                   const tone = envTone(s)

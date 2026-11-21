@@ -24,7 +24,7 @@ class SpotDefaultsTest {
         when(catalog.find(SpotDefaults.CONNECTOR)).thenReturn(Optional.of(mock(ConnectorCatalog.Connector.class)));
         when(argo.getApp("connector-node-autoprovisioning", false)).thenReturn(installed ? Map.of() : null);
         when(clusters.inCluster(any())).thenReturn(inCluster);
-        return new SpotDefaults(catalog, argo, clusters, mode);
+        return new SpotDefaults(catalog, argo, clusters, EnvironmentRegistry.defaults(), mode);
     }
 
     @Test
@@ -54,7 +54,7 @@ class SpotDefaultsTest {
 
     @Test
     void rejectsUnknownMode() {
-        assertThrows(IllegalStateException.class, () -> new SpotDefaults(catalog, argo, clusters, "always"));
+        assertThrows(IllegalStateException.class, () -> new SpotDefaults(catalog, argo, clusters, EnvironmentRegistry.defaults(), "always"));
     }
 
     @Test

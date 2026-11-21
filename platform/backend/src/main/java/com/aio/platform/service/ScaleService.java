@@ -23,8 +23,11 @@ public class ScaleService {
     private final ArgoCdService argo;
     private final PromotionService approvals;
     private final AuditService audit;
+    private final EnvironmentRegistry environments;
 
-    public ScaleService(GitOpsService gitops, ArgoCdService argo, PromotionService approvals, AuditService audit) {
+    public ScaleService(GitOpsService gitops, ArgoCdService argo, PromotionService approvals, AuditService audit,
+                        EnvironmentRegistry environments) {
+        this.environments = environments;
         this.gitops = gitops;
         this.argo = argo;
         this.approvals = approvals;
@@ -32,14 +35,18 @@ public class ScaleService {
     }
 
     static void validate(String env, int replicas, boolean approver) {
-        if (!GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("unknown environment: " + env);
+        validate(EnvironmentRegistry.defaults(), env, replicas, approver);
+    }
+
+    static void validate(EnvironmentRegistry envs, String env, int replicas, boolean approver) {
+        if (!envs.exists(env)) throw new IllegalArgumentException("unknown environment: " + env);
         if (replicas < 0 || replicas > MAX_REPLICAS)
             throw new IllegalArgumentException("replicas must be between 0 and " + MAX_REPLICAS);
-        if ("prod".equals(env) && !approver) throw new SecurityException("only approvers can scale prod");
+        if (envs.approvalRequired(env) && !approver) throw new SecurityException("only approvers can scale " + env);
     }
 
     public Map<String, Object> scale(Project p, String env, int replicas, String actor) {
-        validate(env, replicas, approvals.isApprover(actor));
+        validate(environments, env, replicas, approvals.isApprover(actor));
         boolean changed = gitops.setReplicas(p, env, replicas,
                 "platform: scale " + p.name + " " + env + " to " + replicas + " (by " + actor + ")");
         if (changed) syncSoon(p, env);
@@ -52,8 +59,8 @@ public class ScaleService {
         boolean approver = approvals.isApprover(actor);
         List<String> done = new ArrayList<>();
         Map<String, String> skipped = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
-            if ("prod".equals(env) && !approver) { skipped.put(env, "approvers only"); continue; }
+        for (String env : environments.names()) {
+            if (environments.approvalRequired(env) && !approver) { skipped.put(env, "approvers only"); continue; }
             String tag = gitops.readTag(p, env);
             if (tag == null || GitOpsService.PLACEHOLDER_TAG.equals(tag)) { skipped.put(env, "nothing deployed"); continue; }
             try {

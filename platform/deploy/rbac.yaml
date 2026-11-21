@@ -68,6 +68,44 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["delete"]
+  # Env namespace baseline (default-deny ingress + ingress controller), applied when the cluster names its
+  # ingress namespace (V13 environments/clusters). Without it the rest of the baseline still applies.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "create", "patch"]
+---
+# Clusters added from the portal (Clusters -> Add cluster): the platform writes their Argo CD cluster Secret
+# (argocd/aio-cluster-<name>, labelled argocd.argoproj.io/secret-type=cluster + aio.platform/managed=true).
+# get/create/update/patch on Secrets are already granted by aio-platform-envs; this adds only delete, scoped to
+# the argocd namespace (the code deletes only Secrets carrying both labels), and lets a new environment's
+# namespace be added to the apps AppProject's destinations.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-argocd-clusters
+  namespace: argocd
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["delete"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["appprojects"]
+    resourceNames: ["apps"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-argocd-clusters
+  namespace: argocd
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-argocd-clusters
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -33,6 +33,9 @@ public class ProjectService {
     private final DomainService domains;
     private final RunService runService;
     private final RegistryConnections registryConnections;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments;
     /** Project -> Services (absent in unit tests that do not need it). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     ProjectServicesService projectServices;
@@ -156,12 +159,12 @@ public class ProjectService {
      */
     public java.util.List<String> delete(Project p, String actor) {
         java.util.List<String> warnings = new java.util.ArrayList<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             try { argo.deleteApp(ArgoCdService.appName(p, env)); }
             catch (Exception e) { warnings.add("argo app " + env + ": " + e.getMessage()); }
         }
         // dev/staging/prod are shared: the Argo cascade above removes only this project's release.
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             try { cluster.deleteLegacyNamespace(p, env); }
             catch (Exception e) { warnings.add("legacy namespace " + env + ": " + e.getMessage()); }
         }
@@ -242,9 +245,9 @@ public class ProjectService {
         applyRuntime(p, req.envVars(), req.cpuRequest(), req.cpuLimit(), req.memoryRequest(), req.memoryLimit());
         p = projects.save(p);
 
-        for (String env : GitOpsService.ENVS) cluster.ensureEnvironment(p, env);
+        for (String env : environments.names()) cluster.ensureEnvironment(p, env);
         gitops.initProject(p);
-        for (String env : GitOpsService.ENVS) argo.upsertApp(p, env);
+        for (String env : environments.names()) argo.upsertApp(p, env);
 
         if (Boolean.TRUE.equals(req.registerWebhook()) && props.publicUrl() != null && !props.publicUrl().isBlank()) {
             try {

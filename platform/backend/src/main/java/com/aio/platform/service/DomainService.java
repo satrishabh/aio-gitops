@@ -39,6 +39,10 @@ public class DomainService {
     private final AppProperties props;
     private final AuditService audit;
 
+    /** The environments (was GitOpsService.ENVS). */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments;
+
     public DomainService(DomainRepo domains, ProjectRepo projects, GitOpsService gitops, ClusterRegistry clusters,
                          AppProperties props, AuditService audit) {
         this.domains = domains;
@@ -95,7 +99,7 @@ public class DomainService {
     }
 
     public Domain add(Project p, AddRequest req, String actor) {
-        if (req == null || req.env() == null || !GitOpsService.ENVS.contains(req.env())) throw new IllegalArgumentException("choose dev, staging or prod");
+        if (req == null || req.env() == null || !environments.exists(req.env())) throw new IllegalArgumentException("choose one of " + environments.names());
         String host = normalizeHost(req.host());
         String path = normalizePath(req.path());
         rejectReserved(host);
@@ -211,7 +215,7 @@ public class DomainService {
      * expected IP may differ; manual-DNS domains go back to PENDING_DNS until the record points at the new IP).
      */
     public void reconcile(Project p, Set<String> envs) {
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             if (!envs.contains(env)) continue;
             List<Domain> mine = domains.findByProjectIdAndEnvOrderByHostAscPathAsc(p.id, env);
             if (mine.isEmpty()) continue;   // nothing to route; removals re-render on their own

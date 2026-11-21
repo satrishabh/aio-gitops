@@ -62,6 +62,10 @@ public class ProjectExportService {
         this.argo = argo;
     }
 
+    /** The environments (was GitOpsService.ENVS); replaced by Spring, defaults to dev/staging/prod in unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments = EnvironmentRegistry.defaults();
+
     /** A repository at a resolved commit, with its file tree (path -> blob sha). */
     record RepoAt(String owner, String repo, String ref, String commit, Map<String, String> blobs) {
         String label() {
@@ -73,7 +77,7 @@ public class ProjectExportService {
     public Map<String, Object> preview(Project p) {
         var g = props.gitops();
         Map<String, String> values = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             var f = github.getFile(g.owner(), g.repo(), GitOpsService.valuesPath(g, p.name, env), g.branch());
             if (f != null) values.put(env, f.content());
         }
@@ -103,7 +107,7 @@ public class ProjectExportService {
         if (chart.isEmpty()) throw new IllegalStateException("chart " + g.chartPath() + " not found in " + gitops.label());
 
         Map<String, String> values = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             String sha = gitops.blobs().get(GitOpsService.valuesPath(g, p.name, env));
             if (sha != null) values.put(env, new String(blob(gitops, sha, budget), StandardCharsets.UTF_8));
         }

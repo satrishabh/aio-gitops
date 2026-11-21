@@ -3,7 +3,6 @@ package com.aio.platform.web;
 import com.aio.platform.repo.ProjectRepo;
 import com.aio.platform.security.UserScope;
 import com.aio.platform.service.ArgoCdService;
-import com.aio.platform.service.GitOpsService;
 import com.aio.platform.config.AppProperties;
 import java.net.URI;
 import java.util.LinkedHashMap;
@@ -17,6 +16,9 @@ public class ToolLinksController {
     private final AppProperties props;
     private final String argoUrl;
     private final String tektonUrl;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    com.aio.platform.service.EnvironmentRegistry environments;
     public ToolLinksController(ProjectRepo projects, AppProperties props,
             @Value("${app.tools.argocd-url:}") String argoUrl, @Value("${app.tools.tekton-url:}") String tektonUrl) {
         this.projects = projects; this.props = props; this.argoUrl = validated(argoUrl); this.tektonUrl = validated(tektonUrl);
@@ -25,7 +27,7 @@ public class ToolLinksController {
     public Map<String, Object> links(@PathVariable Long id) {
         var project = UserScope.project(projects, id);
         Map<String, String> applications = new LinkedHashMap<>();
-        if (!argoUrl.isEmpty()) for (String env : GitOpsService.ENVS)
+        if (!argoUrl.isEmpty()) for (String env : environments.names())
             applications.put(env, argoUrl + "/applications/argocd/" + ArgoCdService.appName(project, env));
         // Until per-user Kubernetes authorization is deployed, Dashboard is operator-only.
         return Map.of("argocd", applications, "tekton", UserScope.admin() ? tektonUrl : "");

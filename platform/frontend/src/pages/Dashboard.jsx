@@ -4,14 +4,18 @@ import { api } from '../api.js'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Empty, Skeleton, ago, envTone, isStopped } from '../components/ui.jsx'
 import { Stale, usePoll } from '../hooks.jsx'
+import { useEnvironments } from '../environments.js'
 
 /*
  * Overview (home), redesign phase 2: the delivery pipeline is the page.
- * Strip: commits built → CI runs → dev → staging → prod, each with one tick per day.
- * Below: projects with their dev → staging → prod track, and "Needs you" + activity on the side.
+ * Strip: commits built → CI runs → each environment (dev → staging → prod → …), each with one tick per day.
+ * Below: projects with their environment track, and "Needs you" + activity on the side.
  */
 
-const ENVS = ['dev', 'staging', 'prod']
+/** Deploys of one env: the per-env map when the API has it, else the classic fields. */
+const deploysOf = (o, env) => (o.deploysByEnv ? (o.deploysByEnv[env] ?? 0)
+  : env === 'dev' ? o.devDeploys : env === 'prod' ? o.prodDeploys : env === 'staging' ? o.stagingDeploys : null)
+const dayDeploys = (d, env) => (d.deploysByEnv ? (d.deploysByEnv[env] || 0) : (d[`deploys${env[0].toUpperCase()}${env.slice(1)}`] || 0))
 const PERIODS = [7, 14, 30]
 const PERIOD_KEY = 'aio-overview-days'
 const PROJECT_ROWS = 6
@@ -70,6 +74,7 @@ function Ticks({ days, pick, label }) {
 
 export default function Dashboard({ me }) {
   const community = me.accessTier === 'community'
+  const { names: ENVS, gated, prodLike, many } = useEnvironments()
   const [days, setDays] = useState(readPeriod)
   const choosePeriod = d => {
     setDays(d)
@@ -113,7 +118,6 @@ export default function Dashboard({ me }) {
   const o = metrics.overall
   const daily = metrics.daily || []
   const byId = Object.fromEntries(projects.map(p => [p.project.id, p.project]))
-  const prodPending = pending.filter(p => p.toEnv === 'prod').length
 
   const stages = [
     o.commitsBuilt != null && {
@@ -125,13 +129,13 @@ export default function Dashboard({ me }) {
       ticks: d => (d.failed > 0 ? 'bad' : d.succeeded > 0 ? 'ok' : 'idle'), what: 'days with a failed run in red, passing days in green',
     },
     ...ENVS.map((env, i) => {
-      const count = env === 'dev' ? o.devDeploys : env === 'prod' ? o.prodDeploys : o.stagingDeploys
-      const [summary, tone] = env === 'prod' && prodPending ? [`${prodPending} waiting for approval`, 'amber'] : envSummary(projects, env)
-      const field = `deploys${env[0].toUpperCase()}${env.slice(1)}`
+      const count = deploysOf(o, env)
+      const waiting = gated(env) ? pending.filter(p => p.toEnv === env).length : 0
+      const [summary, tone] = waiting ? [`${waiting} waiting for approval`, 'amber'] : envSummary(projects, env)
       return {
         key: env, step: 3 + i, name: env[0].toUpperCase() + env.slice(1), value: count ?? '—', unit: count == null ? '' : 'deploys',
-        sub: summary, tone,
-        ticks: d => (d[field] > 0 ? 'ok' : 'idle'), what: `days with a ${env} deployment`,
+        sub: summary, tone, prod: prodLike(env),
+        ticks: d => (dayDeploys(d, env) > 0 ? 'ok' : 'idle'), what: `days with a ${env} deployment`,
       }
     }),
   ].filter(Boolean)
@@ -160,7 +164,7 @@ export default function Dashboard({ me }) {
       <section className="ov-strip" aria-label="Delivery pipeline">
         <ol className="ov-stages">
           {stages.map(s => (
-            <li key={s.key} className={`ov-stage stage-${s.key}`}>
+            <li key={s.key} className={`ov-stage stage-${s.key}${s.prod && s.key !== 'prod' ? ' stage-prod' : ''}`}>
               <div className="ov-stage-head"><span className="ov-step" aria-hidden="true">{s.step}</span><h2>{s.name}</h2></div>
               <div className="ov-value">{s.value}{s.unit && <span className="ov-unit"> {s.unit}</span>}</div>
               <div className={`ov-sub${s.tone ? ` tone-${s.tone}` : ''}`}>{s.sub}</div>
@@ -181,7 +185,7 @@ export default function Dashboard({ me }) {
             {projects.length > 0 && <Link to="/projects">{projects.length > PROJECT_ROWS ? `See all ${projects.length}` : 'All projects'}</Link>}
           </div>
           {projects.length === 0 ? <div className="card"><Empty icon="rocket" title="No projects yet">
-            {community ? 'No project summaries are available.' : <><Link to="/new">Connect your first GitHub repository</Link> to see it flow through dev, staging and prod.</>}
+            {community ? 'No project summaries are available.' : <><Link to="/new">Connect your first GitHub repository</Link> to see it flow through {ENVS.join(', ')}.</>}
           </Empty></div> : (
             <ul className="ov-projects">
               {projects.slice(0, PROJECT_ROWS).map(({ project: p, lastRun, environments }) => {
@@ -191,7 +195,7 @@ export default function Dashboard({ me }) {
                     <Avatar name={p.name} size={38} />
                     <span><b>{p.name}</b><span className={`ov-ci tone-${ciTone}`}>{ciWord}</span></span>
                   </span>
-                  <span className="ov-track" aria-label={`${p.name} environments`}>
+                  <span className={`ov-track${many ? ' many' : ''}`} aria-label={`${p.name} environments`}>
                     {ENVS.map((env, i) => {
                       const stop = envStop(environments.find(e => e.environment === env))
                       return (

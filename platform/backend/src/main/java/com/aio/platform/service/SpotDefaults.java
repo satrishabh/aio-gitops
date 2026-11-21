@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
  * Decides whether a new app's values for an environment opt in to Spot nodes ({@code spot:} in the app chart).
  * Only when all hold:
  * <ul>
- *   <li>the environment is dev or staging (the chart refuses Spot in prod anyway);</li>
+ *   <li>the environment allows Spot ({@code spot_allowed}: dev and staging by default; never a prod-like env, and
+ *       the chart refuses Spot in a namespace named like prod anyway);</li>
  *   <li>the environment runs on this platform's own cluster (connectors manage only that cluster);</li>
  *   <li>{@code CLOUD_PROVIDER} is aks or gke, the clouds the node-autoprovisioning connector supports;</li>
  *   <li>that connector is installed. On GKE this matters: the compute-class selector without the ComputeClass
@@ -23,16 +24,17 @@ import org.springframework.stereotype.Component;
 public class SpotDefaults {
     private static final Logger log = LoggerFactory.getLogger(SpotDefaults.class);
     static final String CONNECTOR = "node-autoprovisioning";
-    static final Set<String> ENVS = Set.of("dev", "staging");
     static final Set<String> PROVIDERS = Set.of("aks", "gke");
 
     private final ConnectorCatalog catalog;
     private final ArgoCdService argo;
     private final ClusterRegistry clusters;
     private final boolean enabled;
+    private final EnvironmentRegistry environments;
 
-    public SpotDefaults(ConnectorCatalog catalog, ArgoCdService argo, ClusterRegistry clusters,
+    public SpotDefaults(ConnectorCatalog catalog, ArgoCdService argo, ClusterRegistry clusters, EnvironmentRegistry environments,
                         @Value("${app.connectors.spot-for-new-apps:auto}") String mode) {
+        this.environments = environments;
         this.catalog = catalog;
         this.argo = argo;
         this.clusters = clusters;
@@ -44,7 +46,7 @@ public class SpotDefaults {
 
     /** The app chart's spot.provider for a new app in this environment, or null for no Spot. */
     public String providerFor(String env) {
-        if (!enabled || !ENVS.contains(env) || !PROVIDERS.contains(catalog.cloud())) return null;
+        if (!enabled || !environments.spotAllowed(env) || !PROVIDERS.contains(catalog.cloud())) return null;
         try {
             if (!clusters.inCluster(clusters.clusterFor(env))) return null;
             if (catalog.find(CONNECTOR).isEmpty()) return null;

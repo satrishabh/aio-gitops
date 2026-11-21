@@ -148,9 +148,14 @@ public class ConnectorCatalog {
             return Scope.valueOf(scope.toUpperCase(Locale.ROOT));
         }
 
-        /** Environments it may be attached to (default all three). */
+        /** Environments it may be attached to (default: every environment). */
         public List<String> envList() {
-            return envs == null || envs.isEmpty() ? GitOpsService.ENVS : envs;
+            return envs == null || envs.isEmpty() ? EnvironmentRegistry.DEFAULT_ENVS : envs;
+        }
+
+        /** No {@code envs} in the catalog = any environment, including ones added later. */
+        public boolean allowsEnv(String env) {
+            return envs == null || envs.isEmpty() || envs.contains(env);
         }
 
         public List<BindingOption> optionList() {
@@ -410,7 +415,7 @@ public class ConnectorCatalog {
             throw new IllegalStateException(w + ".scope must be instance, shared or config");
         }
         for (String env : b.envList())
-            require(GitOpsService.ENVS.contains(env), w + ".envs: unknown environment " + env);
+            require(EnvironmentRegistry.DEFAULT_ENVS.contains(env), w + ".envs: unknown environment " + env);
         Set<String> optionIds = new HashSet<>();
         for (BindingOption o : b.optionList()) {
             require(o.id() != null && OPTION_ID.matcher(o.id()).matches(), w + ".options: invalid id " + o.id());

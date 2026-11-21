@@ -47,7 +47,7 @@ Read from the cluster on 2026-11-17:
 
 | Connector | CPU | Memory | Other |
 | --- | --- | --- | --- |
-| Prometheus + Grafana (AKS sizing) | 280m | 960 Mi | 5 Gi disk |
+| Prometheus + Grafana (AKS sizing) | 330m | 1088 Mi | 5 Gi disk; Grafana alone uses ~400 Mi at start (limit 512 Mi) |
 | Velero (+ node agent on each node) | 200m | 384 Mi | storage account |
 | KEDA | 110m | 320 Mi | |
 | Goldilocks + VPA recommender | 60m | 320 Mi | |
@@ -56,7 +56,7 @@ Read from the cluster on 2026-11-17:
 | OpenCost | 20m | 96 Mi | |
 | kube-green | 20m | 64 Mi | |
 | Renovate | 250m | 512 Mi | only while the Monday job runs |
-| **Total, steady (phases 1-3)** | **~0.8 CPU** | **~2.3 GiB** | |
+| **Total, steady (phases 1-3)** | **~0.85 CPU** | **~2.4 GiB** | |
 | Loki (phase 4) | 100m | 256 Mi | 10 Gi disk |
 | Tempo (phase 4) | 50m | 256 Mi | 5 Gi disk |
 | OpenTelemetry Collector (phase 4, one per node) | 50m × nodes | 128 Mi × nodes | |
@@ -198,7 +198,7 @@ Each phase follows the same cycle: one connector at a time; Enable, then Test; i
 3. Deploy the new platform image with `CLOUD_PROVIDER=aks` (or `gke`). Optionally set `TOOLS_GRAFANA_URL=https://…` if Grafana gets an HTTPS ingress (otherwise the page shows the port-forward command).
 4. Connectors → Prometheus + Grafana → **Enable**. Wait for Healthy (a few minutes), then **Test**.
 
-Resource budget: about 0.3 CPU and 1 GiB requested plus a 5 GiB disk on AKS (`values-aks.yaml`), or 0.4 CPU, 1.6 GiB and 10 GiB with the default values.
+Resource budget: about 0.35 CPU and 1.1 GiB requested plus a 5 GiB disk on AKS (`values-aks.yaml`), or 0.45 CPU, 1.7 GiB and 10 GiB with the default values. Grafana needs catalog `v2026.11.6` or later: earlier versions capped it at 256 Mi and it restarted in a loop.
 
 ## Activation (phase 2)
 

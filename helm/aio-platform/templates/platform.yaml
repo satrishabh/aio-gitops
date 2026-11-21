@@ -13,7 +13,7 @@
 {{- fail (printf "config.%s must use HTTPS" $key) -}}
 {{- end -}}
 {{- end -}}
-{{- range $key := list "DB_URL" "DB_USER" "DB_PASSWORD" "OIDC_CLIENT_SECRET" "GITHUB_TOKEN" "ARGOCD_TOKEN" -}}
+{{- range $key := list "DB_URL" "DB_USER" "DB_PASSWORD" "OIDC_CLIENT_SECRET" "GITHUB_TOKEN" "ARGOCD_TOKEN" "ANTHROPIC_API_KEY" -}}
 {{- if hasKey $.Values.config $key -}}
 {{- fail (printf "%s belongs in existingSecret, not config" $key) -}}
 {{- end -}}
@@ -66,6 +66,10 @@ spec:
               valueFrom:
                 secretKeyRef: {name: {{ $secret }}, key: {{ $key }}}
             {{- end }}
+            # Claude API key for the Assistant; optional, so the platform starts without it (Assistant off)
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef: {name: {{ $secret }}, key: ANTHROPIC_API_KEY, optional: true}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: [ALL]}

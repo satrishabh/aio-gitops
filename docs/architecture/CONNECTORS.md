@@ -196,7 +196,10 @@ Each phase follows the same cycle: one connector at a time; Enable, then Test; i
    # GKE (gcp-setup.sh adds it): p, aio-platform, applications, *, connectors/*, allow
    ```
 3. Deploy the new platform image with `CLOUD_PROVIDER=aks` (or `gke`). Optionally set `TOOLS_GRAFANA_URL=https://…` if Grafana gets an HTTPS ingress (otherwise the page shows the port-forward command).
-4. Connectors → Prometheus + Grafana → **Enable**. Wait for Healthy (a few minutes), then **Test**.
+4. Run `bash setup/prometheus-secrets.sh` (aio-catalog `v2026.11.7` or later) once. It creates `monitoring/grafana-admin`, so the chart
+   renders no random admin password; before that, Argo CD restarted Grafana on every sync. With Keycloak, pass
+   `OIDC_CLIENT_SECRET=…` to also write `grafana-oidc`.
+5. Connectors → Prometheus + Grafana → **Enable**. Wait for Healthy (a few minutes), then **Test**.
 
 Resource budget: about 0.35 CPU and 1.1 GiB requested plus a 5 GiB disk on AKS (`values-aks.yaml`), or 0.45 CPU, 1.7 GiB and 10 GiB with the default values. Grafana needs catalog `v2026.11.6` or later: earlier versions capped it at 256 Mi and it restarted in a loop.
 

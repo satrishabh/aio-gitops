@@ -65,6 +65,7 @@ imagePullSecrets:
 ingress:
   className: aio-azure
   enabled: false
+  controller: traefik
 nameOverride: sarvaikam
 podSecurityContext:
   fsGroup: 10001

@@ -16,7 +16,10 @@ providers:
   kubernetesIngress:
     enabled: true
     ingressClass: aio-azure
-    namespaces: [aio-ingress, aio-validation, dev, staging, prod, aio-platform, argocd]
+    # Every namespace: connectors live in their own (monitoring, harbor, gatus, ...) and their UI Ingresses and
+    # cert-manager HTTP-01 solvers must be served. Only Ingresses with class aio-azure are picked up, and the
+    # Ingress provider cannot route to ExternalName services. The CRD provider below stays limited.
+    namespaces: []
   kubernetesCRD:
     enabled: true
     # GitHub webhooks are routed to the Azure Function webhook buffer (azure-webhook-buffer.yaml)

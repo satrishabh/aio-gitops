@@ -1,0 +1,28 @@
+name: chart-ci
+
+# Not on apps/** pushes: the platform commits values files on every deploy.
+on:
+  push:
+    paths: ['helm/app/**', '.github/workflows/chart-ci.yml']
+  pull_request:
+    paths: ['helm/app/**', '.github/workflows/chart-ci.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  app-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Golden renders (no services = unchanged output; services sample)
+        run: bash helm/app/tests/run.sh
+      - name: Every app's values still render
+        run: |
+          for f in apps/*/values-*.yaml; do
+            app="$(basename "$(dirname "$f")")"; env="$(basename "$f" .yaml)"; env="${env#values-}"
+            helm template "$app" helm/app --namespace "$env" -f "$f" > /dev/null || { echo "render failed: $f"; exit 1; }
+          done

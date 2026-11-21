@@ -1,0 +1,58 @@
+# Managed by AIO platform - image.tag is updated by CI / promotions
+image:
+  repository: ghcr.io/example/shop
+  tag: "1a2b3c4d5e6f"
+replicaCount: 1
+env:
+  - name: LOG_LEVEL
+    value: "info"
+# Managed by AIO (Project → Services). Edit there, not by hand.
+services:
+  cloudnative-pg:
+    manifests: |
+      apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      metadata:
+        name: shop-cloudnative-pg
+        labels:
+          team: shop
+      spec:
+        instances: 1
+        storage:
+          size: 1Gi
+        bootstrap:
+          initdb:
+            database: shop
+            owner: shop
+      ---
+      # a second document: the scheduled backup
+      apiVersion: postgresql.cnpg.io/v1
+      kind: ScheduledBackup
+      metadata:
+        name: shop-cloudnative-pg-daily
+      spec:
+        schedule: "0 0 3 * * *"
+        cluster:
+          name: shop-cloudnative-pg
+    env:
+      - name: DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: "shop-cloudnative-pg-app"
+            key: "uri"
+      - name: PGHOST
+        value: "shop-cloudnative-pg-rw"
+  dapr:
+    podAnnotations:
+      "dapr.io/enabled": "true"
+      "dapr.io/app-id": "shop"
+      "dapr.io/app-port": "8080"
+  valkey:
+    env:
+      - name: VALKEY_HOST
+        value: "valkey.valkey.svc"
+      - name: VALKEY_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: "shop-valkey"
+            key: "password"

@@ -1,0 +1,158 @@
+---
+# Source: app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0.0.0"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Source: app/templates/service.yaml
+# Points at the new (not yet promoted) version; Argo Rollouts manages the pod-hash selector on both Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-preview
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0.0.0"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Source: app/templates/extras.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0.0.0"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "blog.34.180.3.18.nip.io"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+                service:
+                  name: demo
+                  port: { name: http }
+---
+# Source: app/templates/extras.yaml
+# Preview URL: test the new version before promoting it
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-preview
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0.0.0"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "blog-preview.34.180.3.18.nip.io"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-preview
+                port: { name: http }
+---
+# Source: app/templates/deployment.yaml
+# Blue-green (Argo Rollouts): a new version starts next to the live one behind the -preview Service;
+# traffic switches only when promoted (portal "Promote"), and the old version stays up for instant abort.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0.0.0"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  replicas: 0
+  revisionHistoryLimit: 5
+  strategy:
+    blueGreen:
+      activeService: demo
+      previewService: demo-preview
+      autoPromotionEnabled: false
+      scaleDownDelaySeconds: 600
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo
+      app.kubernetes.io/instance: demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo
+        app.kubernetes.io/instance: demo
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        fsGroup: 10001
+        runAsNonRoot: true
+      containers:
+        - name: app
+          image: "ghcr.io/satrishabh/blog:0.0.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false

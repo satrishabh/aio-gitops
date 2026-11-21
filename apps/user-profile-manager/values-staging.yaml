@@ -4,25 +4,67 @@ image:
   tag: "d5cd7e4d7180"
 # 0 until a real image is deployed (avoids pulling the placeholder tag)
 replicaCount: 1
+containerPort: 8080
+# Staging has its own database schema (profile_manager_staging, user profile_staging) in the shared Postgres, so it
+# never touches the live users in profile_manager. It starts through the image entrypoint with --import-realm, so a
+# fresh schema gets the sarvaikam realm; VERIFY_EMAIL=false means it needs no SMTP or Google/GitHub secrets.
+# Secret staging/profile-manager-runtime: KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD, KC_BOOTSTRAP_ADMIN_USERNAME,
+# KC_BOOTSTRAP_ADMIN_PASSWORD (created by hand 2026-11-21, not in git).
+command: ["/opt/keycloak/entrypoint.sh"]
+args: ["start", "--optimized", "--import-realm"]
 imagePullSecrets:
   - name: ghcr-pull
 pdb:
   enabled: false
 ingress:
   enabled: true
-  host: user-profile-manager-staging.34.180.3.18.nip.io
+  host: user-profile-manager-staging.52.140.55.184.nip.io
 env:
   - name: KC_DB
     value: "postgres"
+  - name: KC_DB_SCHEMA
+    value: "profile_manager_staging"
+  - name: KC_DB_POOL_INITIAL_SIZE
+    value: "1"
+  - name: KC_DB_POOL_MIN_SIZE
+    value: "1"
+  - name: KC_DB_POOL_MAX_SIZE
+    value: "5"
+  - name: KC_HOSTNAME
+    value: "http://user-profile-manager-staging.52.140.55.184.nip.io"
   - name: KC_HTTP_ENABLED
     value: "true"
   - name: KC_PROXY_HEADERS
     value: "xforwarded"
+  - name: KC_CACHE
+    value: "local"
   - name: VERIFY_EMAIL
-    value: "true"
+    value: "false"
+  - name: JAVA_OPTS_APPEND
+    value: "-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20"
+envFrom:
+  - secretRef:
+      name: profile-manager-runtime
+probes:
+  liveness:
+    path: /health/live
+    initialDelaySeconds: 240   # Keycloak can take minutes to boot on the small AKS nodes (no startup probe in the chart)
+  readiness:
+    path: /health/ready
+    initialDelaySeconds: 30
+# Database TLS trust (same CA as the AIO platform)
+extraVolumes:
+  - name: trust
+    configMap: {name: rehearsal-db-trust}
+extraVolumeMounts:
+  - {name: trust, mountPath: /etc/aio-db, readOnly: true}
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+  seccompProfile: {type: RuntimeDefault}
 resources:
-  requests: { cpu: "250m", memory: "512Mi" }
-  limits: { cpu: "1000m", memory: "1024Mi" }
+  requests: {cpu: "40m", memory: "512Mi"}
+  limits: {cpu: "1000m", memory: "1024Mi"}
 spot:
   enabled: true
   provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

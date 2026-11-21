@@ -86,6 +86,8 @@ spec:
   ingress:
     - from:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: dev}}
+        # staging: user-profile-manager staging (own schema profile_manager_staging, own user profile_staging)
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: staging}}
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: aio-platform}}
         - podSelector: {matchLabels: {app: postgres-backup}}
       ports: [{port: 5432, protocol: TCP}]

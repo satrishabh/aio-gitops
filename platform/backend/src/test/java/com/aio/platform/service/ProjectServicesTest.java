@@ -67,6 +67,7 @@ class ProjectServicesTest {
     private Project shop;
     private AttachedServiceRepo repo;
     private ProjectRepo projects;
+    private boolean approver = true;
 
     @BeforeEach
     void setUp() {
@@ -123,8 +124,10 @@ class ProjectServicesTest {
         when(projects.findById(7L)).thenReturn(Optional.of(shop));
 
         audit = mock(AuditService.class);
+        PromotionService promotions = mock(PromotionService.class);
+        when(promotions.isApprover(anyString())).thenAnswer(i -> approver);
         service = new ProjectServicesService(catalog, connectors, clusters, gitops, repo, new ServiceUsage(repo, projects), audit,
-                mock(KubernetesClient.class));
+                promotions, mock(KubernetesClient.class));
         service.secrets = new ProjectServicesService.Secrets() {
             public Secret get(String ns, String name) {
                 return secrets.get(ns + "/" + name);
@@ -321,7 +324,7 @@ class ProjectServicesTest {
         assertTrue(commits.isEmpty());
         assertTrue(rows.isEmpty());
 
-        var overview = service.overview(shop);
+        var overview = service.overview(shop, "alice");
         @SuppressWarnings("unchecked")
         var valkey = ((List<Map<String, Object>>) overview.get("available")).stream()
                 .filter(m -> "valkey".equals(m.get("connector"))).findFirst().orElseThrow();
@@ -389,5 +392,21 @@ class ProjectServicesTest {
 
         real.disable("dapr", true);                       // admin force
         verify(argo).deleteApp("connector-dapr");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void prodChangesAreApproverOnly() {
+        attach("cloudnative-pg", "prod", null);                   // approver
+        approver = false;
+        var e = assertThrows(SecurityException.class, () -> attach("dapr", "prod", null));
+        assertTrue(e.getMessage().contains("approvers"), e.getMessage());
+        assertThrows(SecurityException.class, () -> service.detach(shop, "cloudnative-pg", "prod", "shop", "bob"));
+        assertTrue(files.get("prod").contains("cloudnative-pg"));
+        attach("dapr", "dev", null);                               // dev and staging stay open
+        var envs = (List<Map<String, Object>>) service.overview(shop, "bob").get("envs");
+        assertEquals(List.of(true, true, false), envs.stream().map(m -> m.get("canChange")).toList());
+        assertEquals("APPROVER_ONLY", envs.get(2).get("reason"));
+        assertNull(envs.get(0).get("reason"));
     }
 }

@@ -61,11 +61,13 @@ public class ProjectServicesService {
     private final AttachedServiceRepo repo;
     private final ServiceUsage usage;
     private final AuditService audit;
+    private final PromotionService promotions;
     Secrets secrets;
 
     public ProjectServicesService(ConnectorCatalog catalog, ConnectorService connectors, ClusterRegistry clusters,
                                   GitOpsService gitops, AttachedServiceRepo repo, ServiceUsage usage, AuditService audit,
-                                  KubernetesClient k8s) {
+                                  PromotionService promotions, KubernetesClient k8s) {
+        this.promotions = promotions;
         this.catalog = catalog;
         this.connectors = connectors;
         this.clusters = clusters;
@@ -91,7 +93,7 @@ public class ProjectServicesService {
     // ------------------------------------------------------------------ overview
 
     /** GET /api/projects/{id}/services: see "API shapes" in docs/architecture/PROJECT-SERVICES.md. */
-    public Map<String, Object> overview(Project p) {
+    public Map<String, Object> overview(Project p, String actor) {
         List<String> warnings = new ArrayList<>();
         Map<String, Map<String, Object>> inGit = new LinkedHashMap<>();
         for (String env : GitOpsService.ENVS) {
@@ -109,6 +111,9 @@ public class ProjectServicesService {
             m.put("cluster", c.name());
             m.put("platformCluster", clusters.inCluster(c));
             m.put("namespace", ClusterService.namespace(p, env));
+            boolean canChange = mayChange(env, actor);
+            m.put("canChange", canChange);
+            m.put("reason", canChange ? null : "APPROVER_ONLY");
             envs.add(m);
         }
         List<AttachedService> rows = repo.findByProjectIdOrderByConnectorIdAscEnvAsc(p.id);
@@ -175,6 +180,16 @@ public class ProjectServicesService {
         }
         m.put("envs", perEnv);
         return m;
+    }
+
+    /** Prod services are approver-only, like prod domains; dev and staging: anyone who may change the project. */
+    private boolean mayChange(String env, String actor) {
+        return !"prod".equals(env) || promotions.isApprover(actor);
+    }
+
+    private void requireMayChange(String env, String actor) {
+        if (!mayChange(env, actor))
+            throw new SecurityException("Only approvers can attach or remove services in prod");
     }
 
     private static boolean usable(Object status) {
@@ -257,6 +272,7 @@ public class ProjectServicesService {
         if (b == null) throw new IllegalArgumentException(c.name() + " cannot be used by projects");
         String env = req.env();
         if (env == null || !GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("choose dev, staging or prod");
+        requireMayChange(env, actor);
         if (!c.supports(catalog.cloud())) throw new IllegalArgumentException(c.name() + " is not supported on " + catalog.cloud());
         String[] reason = unavailable(c, env, connectors.describe(c).get("status"));
         if (reason != null) {
@@ -304,6 +320,7 @@ public class ProjectServicesService {
      */
     public DetachResult detach(Project p, String connectorId, String env, String confirm, String actor) {
         if (env == null || !GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("env must be dev, staging or prod");
+        requireMayChange(env, actor);
         Connector c = catalog.find(connectorId).orElse(null);
         AttachedService row = repo.findByProjectIdAndConnectorIdAndEnv(p.id, connectorId, env).orElse(null);
         Map<String, Object> block = asMap(ServicesValues.read(gitops.readRaw(p, env).yaml()).get(connectorId));

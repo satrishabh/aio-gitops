@@ -199,9 +199,10 @@ Test, exit check, then the next phase.
 ## API shapes
 
 Defined by part 2 (`ProjectServicesController`, `ConnectorController`); the portal codes against these. All under the
-usual session + CSRF rules. Project endpoints need the project (owner or admin, tiers admin/business); connector
+usual session + CSRF rules. Project endpoints need the project (owner or admin, tiers admin/business); attaching or
+removing in **prod** additionally needs an approver (the same check as prod domains), dev and staging do not. Connector
 endpoints are admin-only. Errors are `{ "message": "..." }` with 400 (bad input: unknown connector or option, option not
-in its choices, env not allowed for the binding, missing confirmation), 404 (no such service), 409 (cannot right now:
+in its choices, env not allowed for the binding, missing confirmation), 403 (prod change by a non-approver), 404 (no such service), 409 (cannot right now:
 connector not switched on or not healthy, env on another cluster, Secret conflict, values file changed meanwhile, disable
 while used), 502 (Kubernetes / GitHub failure).
 
@@ -210,7 +211,9 @@ while used), 502 (Kubernetes / GitHub failure).
 ```jsonc
 {
   "envs": [   // always dev, staging, prod in that order
-    { "env": "dev", "cluster": "in-cluster", "platformCluster": true, "namespace": "dev" }
+    { "env": "dev", "cluster": "in-cluster", "platformCluster": true, "namespace": "dev",
+      "canChange": true, "reason": null },   // whether this user may attach/remove here
+    { "env": "prod", "...": "...", "canChange": false, "reason": "APPROVER_ONLY" }   // prod, user is not an approver
   ],
   "available": [   // every connector with a binding that supports this cloud, catalog order
     {

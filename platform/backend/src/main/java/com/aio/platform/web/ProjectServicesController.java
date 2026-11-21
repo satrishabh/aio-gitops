@@ -10,7 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Project -> Services: connectors a project uses per environment. Access is the project's (owner or admin, via the
- * ownership interceptor); anyone who may change the project's settings may attach and remove. Shapes: "API shapes"
+ * ownership interceptor); anyone who may change the project's settings may attach and remove in dev and staging,
+ * approvers only in prod (as prod domains). Shapes: "API shapes"
  * in docs/architecture/PROJECT-SERVICES.md.
  */
 @RestController
@@ -25,8 +26,8 @@ public class ProjectServicesController {
     }
 
     @GetMapping
-    public Map<String, Object> list(@PathVariable Long id) {
-        return services.overview(project(id));
+    public Map<String, Object> list(@PathVariable Long id, @AuthenticationPrincipal OAuth2User user) {
+        return services.overview(project(id), Me.login(user));
     }
 
     @PostMapping

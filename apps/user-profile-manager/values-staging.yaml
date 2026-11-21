@@ -21,6 +21,9 @@ ingress:
   host: user-profile-manager-staging.52.140.55.184.nip.io
   className: aio-azure       # AKS Traefik (the chart default nginx does not exist on this cluster)
   controller: traefik
+  tls: true                 # Keycloak's realm requires HTTPS for external requests
+  issuer: letsencrypt-azure
+  forceHttps: true
 env:
   - name: KC_DB
     value: "postgres"
@@ -33,7 +36,7 @@ env:
   - name: KC_DB_POOL_MAX_SIZE
     value: "5"
   - name: KC_HOSTNAME
-    value: "http://user-profile-manager-staging.52.140.55.184.nip.io"
+    value: "https://user-profile-manager-staging.52.140.55.184.nip.io"
   - name: KC_HTTP_ENABLED
     value: "true"
   - name: KC_PROXY_HEADERS

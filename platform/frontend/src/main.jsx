@@ -23,6 +23,7 @@ import './metrics.css'
 import './polish.css'
 import './connectors.css'
 import './flow.css'
+import './clusters.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

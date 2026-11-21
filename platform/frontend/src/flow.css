@@ -114,7 +114,10 @@
 .fl-track-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 0 2px 14px; }
 .fl-track-head h2 { margin: 0; font-size: 1.15rem; }
 .fl-track-head p { margin: 0; color: var(--text-2); font-size: 0.86rem; }
-.fl-stops { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; }
+.fl-stops { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--stops, 3), minmax(0, 1fr)); gap: 40px; }
+/* 4+ environments: tighter gap; two per row on mid-size screens (arrows only within a row) */
+.fl-stops.many { gap: 32px; }
+.fl-stops.many .fl-stop:not(:last-child)::after { right: -26px; }
 .fl-stop {
   position: relative; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 16px;
   border-radius: var(--radius); background: var(--panel-2);
@@ -197,7 +200,7 @@
   background: var(--fill-2); color: var(--text-2); font-size: 0.84rem;
 }
 .fl-defaults svg { color: var(--accent); vertical-align: -2px; margin-right: 6px; }
-.fl-env-path { list-style: none; margin: 0 0 20px; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.fl-env-path { list-style: none; margin: 0 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .fl-env-path li { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--panel-2); }
 .fl-env-path b { text-transform: capitalize; }
 .fl-env-path span { color: var(--text-2); font-size: 0.84rem; }
@@ -264,6 +267,10 @@
 }
 
 /* ---------- narrower screens */
+@media (max-width: 1360px) and (min-width: 1101px) {
+  .fl-stops.many { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fl-stops.many .fl-stop:nth-child(2n)::after { display: none; }
+}
 @media (max-width: 1100px) {
   .fl-stops { grid-template-columns: minmax(0, 1fr); gap: 34px; }
   .fl-stop:not(:last-child)::after { right: auto; left: 50%; top: auto; bottom: -27px; margin-left: -10px; transform: rotate(90deg); }

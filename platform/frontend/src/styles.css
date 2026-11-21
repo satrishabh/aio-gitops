@@ -307,6 +307,7 @@ select option { background: var(--panel-solid); color: var(--text); }
 .project-card h3 { margin: 0; font-size: 1.08rem; }
 .project-card .repo { color: var(--muted); font-size: 0.82rem; }
 .env-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+.env-strip.many { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 .env-chip { border-radius: 12px; padding: 9px 11px; background: var(--fill-2); }
 .env-chip .name { font-size: 0.74rem; color: var(--muted); display: flex; align-items: center; gap: 6px; text-transform: capitalize; }
 .env-chip .tag { font-family: var(--mono); font-size: 0.8rem; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

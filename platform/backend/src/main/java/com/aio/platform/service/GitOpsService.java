@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class GitOpsService {
-    public static final List<String> ENVS = List.of("dev", "staging", "prod");
     public static final String PLACEHOLDER_TAG = "0.0.0";
     public static final String PULL_SECRET = "ghcr-pull";
 
@@ -36,6 +35,9 @@ public class GitOpsService {
     private final ClusterRegistry clusters;
     private final SpotDefaults spot;
     private final Map<String, Cached> cache = new ConcurrentHashMap<>();
+    /** The environments (was the ENVS constant); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments;
 
     public GitOpsService(GitHubClient github, AppProperties props, RolloutService rollouts, ClusterRegistry clusters,
                          SpotDefaults spot) {
@@ -58,7 +60,7 @@ public class GitOpsService {
     /** Creates values-<env>.yaml for each environment if missing. */
     public void initProject(Project p) {
         var g = props.gitops();
-        for (String env : ENVS) {
+        for (String env : environments.names()) {
             String path = valuesPath(g, p.name, env);
             if (github.getFile(g.owner(), g.repo(), path, g.branch()) == null) {
                 github.putFile(g.owner(), g.repo(), path, g.branch(), initialValues(p, env), null,
@@ -76,7 +78,7 @@ public class GitOpsService {
      */
     public void reconcile(Project p, java.util.Set<String> retarget) {
         var g = props.gitops();
-        for (String env : ENVS) {
+        for (String env : environments.names()) {
             String path = valuesPath(g, p.name, env);
             var file = github.getFile(g.owner(), g.repo(), path, g.branch());
             if (file == null) continue;
@@ -128,7 +130,7 @@ public class GitOpsService {
     public List<String> applyRuntime(Project p, String message) {
         var g = props.gitops();
         List<String> changed = new java.util.ArrayList<>();
-        for (String env : ENVS) {
+        for (String env : environments.names()) {
             String path = valuesPath(g, p.name, env);
             var file = github.getFile(g.owner(), g.repo(), path, g.branch());
             if (file == null) continue;
@@ -214,7 +216,7 @@ public class GitOpsService {
      * committed since, the save is refused instead of overwriting their change.
      */
     public void writeRaw(Project p, String env, String yaml, String sha, String message) {
-        validateValues(yaml, p.imageRepo, env);
+        validateValues(yaml, p.imageRepo, environments.isProdLike(env) ? "prod" : env);
         var g = props.gitops();
         String path = valuesPath(g, p.name, env);
         var file = github.getFile(g.owner(), g.repo(), path, g.branch());
@@ -258,13 +260,13 @@ public class GitOpsService {
             if (provider != null && !SpotDefaults.PROVIDERS.contains(String.valueOf(provider)))
                 throw new IllegalArgumentException("spot.provider must be aks or gke");
             if (Boolean.TRUE.equals(m.get("enabled")) && "prod".equals(env))
-                throw new IllegalArgumentException("spot is for dev and staging only, not prod");
+                throw new IllegalArgumentException("spot is for non-production environments only, not prod or a prod-like one");
         }
     }
 
     public void deleteProjectFiles(Project p) {
         var g = props.gitops();
-        for (String env : ENVS) {
+        for (String env : environments.names()) {
             String path = valuesPath(g, p.name, env);
             var file = github.getFile(g.owner(), g.repo(), path, g.branch());
             if (file != null) {
@@ -272,6 +274,15 @@ public class GitOpsService {
             }
             cache.remove(p.name + "/" + env);
         }
+    }
+
+    /** Deletes one environment's values file (environment removed). */
+    public void deleteEnvFile(Project p, String env) {
+        var g = props.gitops();
+        String path = valuesPath(g, p.name, env);
+        var file = github.getFile(g.owner(), g.repo(), path, g.branch());
+        if (file != null) github.deleteFile(g.owner(), g.repo(), path, g.branch(), file.sha(), "platform: remove " + p.name + " " + env);
+        cache.remove(p.name + "/" + env);
     }
 
     // ------------------------------------------------------------------ pure helpers (unit tested)
@@ -403,6 +414,80 @@ public class GitOpsService {
             if (from.equals(to)) continue;
             out = replaceHost(out, "host", hostOn(p, env, from), hostOn(p, env, to));
             if (RolloutService.ENV.equals(env)) out = replaceHost(out, "previewHost", p.name + "-preview." + from, p.name + "-preview." + to);
+        }
+        return retargetNipIo(out, p, env, to);
+    }
+
+    private static final Pattern NIP_IO = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,3}){3}\\.nip\\.io)");
+
+    /**
+     * Generated hosts left on a nip.io domain of another IP (e.g. a cluster that no longer exists) move to the env
+     * cluster's domain. Only the top-level ingress host (and prod's blue-green preview host) is considered, and only
+     * when it is exactly the generated name ({@code <app>-<env>.<ip>.nip.io}); custom hosts and routes are left alone.
+     */
+    static String retargetNipIo(String yaml, Project p, String env, String to) {
+        if (to == null) return yaml;
+        String out = replaceNipHostInBlock(yaml, "ingress", "host", hostOn(p, env, "@").replace("@", ""), to);
+        if (RolloutService.ENV.equals(env)) out = replaceNipHostInBlock(out, "blueGreen", "previewHost", p.name + "-preview.", to);
+        return out;
+    }
+
+    /** In the top-level {@code block:}, rewrites {@code key: <prefix><ip>.nip.io} to {@code <prefix><to>} (direct children only). */
+    static String replaceNipHostInBlock(String yaml, String block, String key, String prefix, String to) {
+        Matcher b = Pattern.compile("(?m)^" + Pattern.quote(block) + ":.*\\R((?:[ \\t]+.*(?:\\R|$))*)").matcher(yaml);
+        if (!b.find()) return yaml;
+        String body = b.group(1);
+        Matcher first = Pattern.compile("(?m)^([ \\t]+)\\S").matcher(body);
+        if (!first.find()) return yaml;
+        String indent = first.group(1);
+        Matcher line = Pattern.compile("(?m)^(" + Pattern.quote(indent) + Pattern.quote(key) + ":\\s*[\"']?)"
+                + Pattern.quote(prefix) + NIP_IO.pattern() + "([\"']?\\s*)$").matcher(body);
+        if (!line.find() || line.group(2).equals(to)) return yaml;
+        String newBody = body.substring(0, line.start()) + line.group(1) + prefix + to + line.group(3) + body.substring(line.end());
+        return yaml.substring(0, b.start(1)) + newBody + yaml.substring(b.end(1));
+    }
+
+    /** One values file before / after re-applying its cluster's ingress settings. */
+    public record ClusterSettingsChange(String project, String env, String path, boolean changed, List<String> diff) {}
+
+    /**
+     * Re-applies the env cluster's ingress settings to one project's values: {@code ingress.className},
+     * {@code ingress.controller} and the generated default host on the cluster's base domain (hosts on an old
+     * nip.io IP or an old cluster domain). Custom hosts and routes are never touched. {@code dryRun} only
+     * returns the diff.
+     */
+    public ClusterSettingsChange reapplyClusterSettings(Project p, String env, boolean dryRun, String message) {
+        var g = props.gitops();
+        String path = valuesPath(g, p.name, env);
+        var file = github.getFile(g.owner(), g.repo(), path, g.branch());
+        if (file == null) return new ClusterSettingsChange(p.name, env, path, false, List.of("(values file missing)"));
+        String updated = clusterSettings(file.content(), p, env);
+        boolean changed = !updated.equals(file.content());
+        if (changed && !dryRun) {
+            github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message);
+            cache.remove(p.name + "/" + env);
+        }
+        return new ClusterSettingsChange(p.name, env, path, changed, changed ? lineDiff(file.content(), updated) : List.of());
+    }
+
+    /** The cluster-owned ingress keys of a values file (see {@link #reapplyClusterSettings}). */
+    String clusterSettings(String yaml, Project p, String env) {
+        return withIngressClass(retargetHosts(yaml, p, env), env);
+    }
+
+    /** Minimal line diff ("- old" / "+ new") for previews; values files are small. */
+    static List<String> lineDiff(String a, String b) {
+        String[] x = a.split("\\R", -1), y = b.split("\\R", -1);
+        int[][] l = new int[x.length + 1][y.length + 1];
+        for (int i = x.length - 1; i >= 0; i--)
+            for (int j = y.length - 1; j >= 0; j--)
+                l[i][j] = x[i].equals(y[j]) ? l[i + 1][j + 1] + 1 : Math.max(l[i + 1][j], l[i][j + 1]);
+        List<String> out = new java.util.ArrayList<>();
+        int i = 0, j = 0;
+        while (i < x.length || j < y.length) {
+            if (i < x.length && j < y.length && x[i].equals(y[j])) { i++; j++; }
+            else if (j < y.length && (i == x.length || l[i][j + 1] > l[i + 1][j])) out.add("+ " + y[j++]);
+            else out.add("- " + x[i++]);
         }
         return out;
     }

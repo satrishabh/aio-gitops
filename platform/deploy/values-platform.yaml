@@ -44,8 +44,10 @@ env:
   - { name: APPROVERS, value: "satrishabh" }
   - { name: APP_REGISTRY_USER, value: "satrishabh" }
   # Workload clusters (hub = this cluster runs only the platform, Tekton and Argo CD). Each env maps to exactly
-  # one cluster; add clusters with bootstrap/add-cluster.sh, which prints these lines. With none configured,
-  # apps keep deploying to this cluster (in-cluster).
+  # one cluster. Since V13 these lines only SEED the clusters/environments tables on the first start (later
+  # changes here are ignored): add clusters and environments on the Clusters page instead. With none configured,
+  # apps keep deploying to this cluster (in-cluster). Optional APP_CLUSTERS_<n>_INGRESSNAMESPACE names the ingress
+  # controller's namespace so env namespaces get the default-deny + ingress NetworkPolicies.
   # - { name: APP_CLUSTERS_0_NAME,       value: "aio-nonprod" }
   # - { name: APP_CLUSTERS_0_SERVER,     value: "https://<endpoint>" }
   # - { name: APP_CLUSTERS_0_ENVS,       value: "dev,staging" }

@@ -28,6 +28,9 @@ public class DeploymentPoller {
     private final ArgoCdService argo;
     private final GitOpsService gitops;
     private final AuditService audit;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments;
 
     public DeploymentPoller(ProjectRepo projects, EnvStatusRepo envs, DeploymentRepo deployments,
                             ArgoCdService argo, GitOpsService gitops, AuditService audit) {
@@ -43,7 +46,7 @@ public class DeploymentPoller {
     public void poll() {
         if (!workersEnabled) return;
         for (Project p : projects.findAll()) {
-            for (String env : GitOpsService.ENVS) {
+            for (String env : environments.names()) {
                 try {
                     syncEnv(p, env);
                 } catch (Exception e) {

@@ -1,0 +1,91 @@
+/* ---------- Clusters page: add cluster / environment dialogs, environment path */
+
+.cl-row-actions { white-space: nowrap; text-align: right; }
+.cl-row-actions .btn + .btn { margin-left: 6px; }
+
+/* dialogs (native <dialog>: focus trap, Esc, backdrop) */
+.cl-dialog {
+  width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto;
+  padding: 20px 22px; border: var(--border-w, 1px) solid var(--line-2); border-radius: var(--radius-lg, 18px);
+  background: var(--panel); color: var(--text); box-shadow: var(--card-shadow);
+}
+.cl-dialog.wide { width: min(880px, calc(100vw - 32px)); }
+.cl-dialog::backdrop { background: rgba(10, 12, 20, 0.55); }
+.cl-dialog-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.cl-dialog-head h2 { flex: 1; margin: 0; font-size: 1.2rem; }
+.cl-dialog p { line-height: 1.5; }
+
+.cl-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 16px; padding: 0; color: var(--muted); font-size: 0.88rem; }
+.cl-steps li { display: flex; align-items: center; gap: 8px; }
+.cl-steps li.current { color: var(--text); font-weight: 700; }
+.cl-steps li.done { color: var(--text-2); }
+.cl-step-n {
+  width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; flex: none;
+  border: 2px solid currentColor; font-family: var(--font-mono); font-size: 0.75rem;
+}
+.cl-steps li.current .cl-step-n { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+.cl-form { max-width: none; }
+.cl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.cl-grid .span-2 { grid-column: 1 / -1; }
+.cl-grid .hint { display: block; margin-top: 4px; font-weight: 400; }
+.cl-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.cl-manual { margin: 0 0 12px; }
+.cl-manual summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--text-2); }
+
+.cl-script-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0 10px; }
+.cl-script {
+  max-height: 320px; overflow: auto; margin: 0; padding: 14px; border-radius: var(--radius-sm, 12px);
+  background: var(--panel-2); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.45;
+  white-space: pre; color: var(--text);
+}
+.cl-script:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.cl-checks { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 6px; }
+.cl-check { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: var(--radius-sm, 12px); background: var(--panel-2); font-size: 0.86rem; }
+.cl-check .muted { overflow-wrap: anywhere; }
+
+.cl-diff { margin: 8px 0; }
+.cl-diff summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; }
+.cl-diff pre { margin: 6px 0 0; padding: 10px 12px; overflow: auto; border-radius: var(--radius-sm, 12px); background: var(--panel-2);
+  font-family: var(--font-mono); font-size: 0.78rem; }
+.cl-diff .add { color: var(--ok-text, var(--green)); }
+.cl-diff .del { color: var(--bad-text, var(--red)); }
+
+/* environment path: wraps for any number of stops */
+.cl-envs { margin-top: 20px; }
+.cl-envs > p { margin-top: 0; }
+.cl-env-path { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 14px; }
+.cl-env { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius, 18px); background: var(--panel-2); min-width: 0; }
+.cl-env.prod { background: var(--orange-bg, var(--amber-bg)); }
+.cl-env.down { outline: 2px solid var(--red); outline-offset: -2px; }
+.cl-env-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.cl-env-head b { font-size: 1.05rem; margin-right: auto; }
+.cl-env-n {
+  width: 26px; height: 26px; border-radius: 8px; display: inline-grid; place-items: center; flex: none;
+  background: var(--text); color: var(--bg); font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+}
+.cl-env dl { margin: 0; display: grid; gap: 4px; font-size: 0.85rem; }
+.cl-env dl div { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 8px; }
+.cl-env dt { color: var(--muted); }
+.cl-env dd { margin: 0; overflow-wrap: anywhere; }
+.cl-env-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+
+[data-theme="bright"] .cl-env, [data-theme="bright"] .cl-check, [data-theme="bright"] .cl-script { border: 2px solid #0A0A0A; border-radius: 0; background: #FFFFFF; }
+[data-theme="bright"] .cl-env.prod { background: #FFD9C7; }
+[data-theme="bright"] .cl-dialog { border: 3px solid #0A0A0A; box-shadow: 6px 6px 0 #0A0A0A; }
+[data-theme="dark"] .cl-env, [data-theme="dark"] .cl-check { border: 1px solid var(--line); }
+[data-theme="dark"] .cl-env-n { background: var(--accent); color: var(--on-accent); }
+
+@media (max-width: 760px) {
+  .cl-grid { grid-template-columns: minmax(0, 1fr); }
+  .cl-dialog { padding: 16px; }
+  .cl-row-actions { white-space: normal; text-align: left; }
+  .cl-row-actions .btn { min-height: 44px; margin: 4px 6px 0 0; }
+  .cl-row-actions .btn + .btn { margin-left: 0; }
+  .cl-env-actions .btn, .cl-actions .btn { min-height: 44px; }
+  .cl-check { grid-template-columns: auto minmax(0, 1fr); }
+  .cl-check .muted { grid-column: 1 / -1; }
+}
+@media (pointer: coarse) { .cl-row-actions .btn, .cl-env-actions .btn { min-height: 44px; } }

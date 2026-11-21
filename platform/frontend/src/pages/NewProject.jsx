@@ -6,6 +6,7 @@ import { useToast } from '../components/Toast.jsx'
 import { Avatar, PageHead, ago } from '../components/ui.jsx'
 import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/RuntimeFields.jsx'
 import { PRESETS } from '../projectOptions.js'
+import { useEnvironments } from '../environments.js'
 
 const STEPS = [
   { label: 'Repository', decides: 'Which GitHub repository to build, and the project name.' },
@@ -30,6 +31,7 @@ export default function NewProject() {
   const [repoError, setRepoError] = useState('')
   const [q, setQ] = useState('')
   const [step, setStep] = useState(0)
+  const { envs, gated } = useEnvironments()
   const formRef = useRef(null)
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
 
@@ -203,9 +205,8 @@ export default function NewProject() {
 
         {panel(2, <>
           <ol className="fl-env-path" aria-label="How a build reaches each environment">
-            <li><b>dev</b><span>every passing build of the default branch</span></li>
-            <li><b>staging</b><span>when someone presses Promote</span></li>
-            <li><b>prod</b><span>after an approver accepts the promotion</span></li>
+            {envs.map(e => <li key={e.name}><b>{e.name}</b><span>{!e.promoteFrom ? 'every passing build of the default branch'
+              : gated(e.name) ? `promoted from ${e.promoteFrom}, after an approver accepts` : `when someone presses Promote on ${e.promoteFrom}`}</span></li>)}
           </ol>
           <div className="form fl-form">
             <p className="hint" style={{ margin: '0 0 16px' }}>Initial values, editable later in the project's Settings.</p>

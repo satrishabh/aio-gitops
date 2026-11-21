@@ -34,8 +34,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/webhooks/**", "/actuator/health/**", "/actuator/health").permitAll()
                 .requestMatchers("/api/me").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
-                .requestMatchers("/api/users", "/api/clusters", "/api/connectors", "/api/connectors/**").hasRole("AIO_ADMIN")
-                .requestMatchers(HttpMethod.GET, "/api/projects", "/api/metrics").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
+                .requestMatchers("/api/users", "/api/clusters", "/api/clusters/**", "/api/connectors", "/api/connectors/**").hasRole("AIO_ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/projects", "/api/metrics", "/api/environments").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS", "AIO_COMMUNITY")
+                .requestMatchers("/api/environments/**").hasRole("AIO_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/environments").hasRole("AIO_ADMIN")
                 .requestMatchers("/api/**").hasAnyRole("AIO_ADMIN", "AIO_BUSINESS")
                 .anyRequest().permitAll()) // static SPA assets + client-side routes
             .oauth2Login(o -> o

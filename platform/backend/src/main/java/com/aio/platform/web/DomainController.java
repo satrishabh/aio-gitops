@@ -6,7 +6,6 @@ import com.aio.platform.repo.ProjectRepo;
 import com.aio.platform.service.ClusterRegistry;
 import com.aio.platform.service.DomainService;
 import com.aio.platform.service.DomainWatcher;
-import com.aio.platform.service.GitOpsService;
 import com.aio.platform.service.PromotionService;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,6 +23,9 @@ public class DomainController {
     private final DomainWatcher watcher;
     private final ClusterRegistry clusters;
     private final PromotionService promotions;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    com.aio.platform.service.EnvironmentRegistry environments;
 
     public DomainController(ProjectRepo projects, DomainService domains, DomainWatcher watcher, ClusterRegistry clusters,
                             PromotionService promotions) {
@@ -38,7 +40,7 @@ public class DomainController {
     public Map<String, Object> list(@PathVariable Long id) {
         Project p = projects.findById(id).orElseThrow();
         Map<String, Object> envs = new LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             var c = clusters.clusterFor(env);
             envs.put(env, Map.of(
                     "cluster", c.name(),
@@ -103,7 +105,7 @@ public class DomainController {
 
     private String guard(String env, OAuth2User user) {
         String actor = Me.login(user);
-        if ("prod".equals(env) && !promotions.isApprover(actor)) throw new SecurityException("only approvers can change prod domains");
+        if (environments.approvalRequired(env) && !promotions.isApprover(actor)) throw new SecurityException("only approvers can change " + env + " domains");
         return actor;
     }
 }

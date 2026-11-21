@@ -33,6 +33,9 @@ public class CdController {
     private final PromotionService promotions;
     private final AuditService audit;
     private final ClusterRegistry clusters;
+    /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    com.aio.platform.service.EnvironmentRegistry environments;
 
     public CdController(ProjectRepo projects, ArgoCdService argo, GitOpsService gitops, PromotionService promotions,
                         AuditService audit, ClusterRegistry clusters) {
@@ -195,13 +198,13 @@ public class CdController {
     }
 
     private Project project(Long id, String env) {
-        if (!GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("unknown environment: " + env);
+        if (!environments.exists(env)) throw new IllegalArgumentException("unknown environment: " + env);
         return projects.findById(id).orElseThrow();
     }
 
     private String guardProd(String env, OAuth2User user, String what) {
         String actor = Me.login(user);
-        if ("prod".equals(env) && !promotions.isApprover(actor)) throw new SecurityException("only approvers can " + what);
+        if (environments.approvalRequired(env) && !promotions.isApprover(actor)) throw new SecurityException("only approvers can " + what);
         return actor;
     }
 

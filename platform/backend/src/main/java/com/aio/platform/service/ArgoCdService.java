@@ -34,6 +34,9 @@ public class ArgoCdService {
     private final RestClient argo;
     private final AppProperties props;
     private final ClusterRegistry clusters;
+    /** Which envs need approval (no auto-sync for new apps); field-injected to keep the constructor stable. */
+    @org.springframework.beans.factory.annotation.Autowired
+    EnvironmentRegistry environments;
 
     public ArgoCdService(RestClient argoRestClient, AppProperties props, ClusterRegistry clusters) {
         this.argo = argoRestClient;
@@ -48,7 +51,7 @@ public class ArgoCdService {
     /** What {@link #upsertApp} did. MOVE_PENDING: the app sits on another cluster and moving it was not allowed. */
     public enum Outcome { CREATED, UPDATED, MOVED, MOVE_PENDING }
 
-    /** Upserts the Argo CD Application. dev/staging auto-sync; prod is manual (approval gate). */
+    /** Upserts the Argo CD Application. Envs without approval auto-sync; approval-required ones (prod, ...) are manual. */
     public Outcome upsertApp(Project p, String env) {
         return upsertApp(p, env, false, false);
     }
@@ -109,7 +112,7 @@ public class ArgoCdService {
         if (existing != null) {
             Object automated = J.get(existing.get("spec"), "syncPolicy", "automated");
             if (automated != null) syncPolicy.put("automated", automated);
-        } else if (!"prod".equals(env)) {
+        } else if (!(environments == null ? "prod".equals(env) : environments.approvalRequired(env))) {
             syncPolicy.put("automated", Map.of("prune", true, "selfHeal", true));
         }
         spec.put("syncPolicy", syncPolicy);

@@ -150,6 +150,8 @@ a.ov-project:hover { text-decoration: none; color: var(--text); }
   .ov-value { font-size: 1.8rem; }
   .ov-project { padding: 12px 14px; }
   .ov-link { margin: 0 8px; }
+  .ov-track.many .ov-link { min-width: 6px; margin: 0 4px; }
+  .ov-track.many .ov-stop code { font-size: 0.72rem; }
   /* on a phone, what needs a decision comes before the project list; activity stays last */
   .ov-columns { flex-direction: column; align-items: stretch; }
   .ov-side { display: contents; }

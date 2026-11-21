@@ -65,11 +65,15 @@ public class ClusterService {
     private final ClusterRegistry clusters;
     private final DomainService domains;
     private final WorkloadPullCredentials pullCredentials;
+    private final EnvironmentRegistry environments;
+    private final ClusterAccess access;
 
     public ClusterService(KubernetesClient k8s, AppProperties props, ProjectRepo projects, CiRunRepo runs,
                           RunStepRepo steps, TektonService tekton, GitOpsService gitops, ArgoCdService argo,
                           AuditService audit, ClusterRegistry clusters, DomainService domains,
-                          WorkloadPullCredentials pullCredentials) {
+                          WorkloadPullCredentials pullCredentials, EnvironmentRegistry environments, ClusterAccess access) {
+        this.environments = environments;
+        this.access = access;
         this.pullCredentials = pullCredentials;
         this.clusters = clusters;
         this.domains = domains;
@@ -85,11 +89,12 @@ public class ClusterService {
     }
 
     /**
-     * Shared environment namespaces: every project deploys into {@code dev}, {@code staging} or {@code prod}
-     * as its own Helm release (Deployment/Service/Ingress named after the project).
+     * Shared environment namespaces: every project deploys into its environment's namespace (by default the env
+     * name: {@code dev}, {@code staging}, {@code prod}) as its own Helm release.
      */
     public static String namespace(Project p, String env) {
-        return env;
+        EnvironmentRegistry r = EnvironmentRegistry.current();
+        return r == null ? env : r.namespaceOf(env);
     }
 
     /** Namespace used by the earlier one-namespace-per-project-per-env layout (migrated away on reconcile). */
@@ -107,20 +112,51 @@ public class ClusterService {
      * {@code bootstrap/add-cluster.sh}: the platform holds no credentials for them, only Argo CD does.
      */
     public void ensureEnvironment(Project p, String env) {
-        if (!clusters.inCluster(clusters.clusterFor(env))) return;
-        String ns = namespace(p, env);
+        ensureNamespace(env);
+    }
+
+    /**
+     * The env namespace baseline on its cluster: Pod Security labels, LimitRange, NetworkPolicies (default-deny ingress
+     * plus the ingress controller and the namespace itself, when the cluster names its ingress namespace) and the
+     * {@code ghcr-pull} Secret. On the hub with the platform's own service account; on a cluster added from the portal
+     * with its limited {@code aio-deployer} token (read from the Argo CD cluster Secret, see {@link ClusterAccess});
+     * clusters prepared by {@code bootstrap/add-cluster.sh} are skipped as before.
+     */
+    public void ensureNamespace(String env) {
+        var cluster = clusters.clusterFor(env);
+        if (clusters.inCluster(cluster)) {
+            applyBaseline(k8s, environments.namespaceOf(env), env, cluster.ingressNamespace(), false);
+            return;
+        }
+        KubernetesClient remote = access.client(cluster.name());
+        if (remote == null) return;   // not added from the portal: prepared by add-cluster.sh
+        applyBaseline(remote, environments.namespaceOf(env), env, cluster.ingressNamespace(), true);
+    }
+
+    /** Idempotent namespace baseline (server-side apply). {@code bindDeployer}: grant aio-deployer the app role there. */
+    void applyBaseline(KubernetesClient k8s, String ns, String env, String ingressNamespace, boolean bindDeployer) {
         k8s.namespaces().resource(new NamespaceBuilder().withNewMetadata().withName(ns)
                 .addToLabels("aio.platform/managed", "true")
                 .addToLabels("aio.platform/env", env)
                 .addToLabels("pod-security.kubernetes.io/enforce", "baseline")
                 .addToLabels("pod-security.kubernetes.io/warn", "restricted")
                 .endMetadata().build()).forceConflicts().serverSideApply();
+        if (bindDeployer) ClusterAccess.bindDeployer(k8s, ns);
         k8s.limitRanges().inNamespace(ns).resource(new LimitRangeBuilder()
                 .withNewMetadata().withName("defaults").withNamespace(ns).endMetadata()
                 .withNewSpec().addNewLimit().withType("Container")
                 .addToDefaultRequest("cpu", new Quantity("50m")).addToDefaultRequest("memory", new Quantity("64Mi"))
                 .addToDefault("cpu", new Quantity("500m")).addToDefault("memory", new Quantity("512Mi"))
                 .endLimit().endSpec().build()).forceConflicts().serverSideApply();
+        if (ingressNamespace != null && !ingressNamespace.isBlank()) {
+            try {
+                for (var np : ClusterAccess.networkPolicies(ns, ingressNamespace.trim()))
+                    k8s.network().v1().networkPolicies().inNamespace(ns).resource(np).forceConflicts().serverSideApply();
+            } catch (RuntimeException e) {
+                // RBAC not updated yet (networkpolicies in aio-platform-envs): the rest of the baseline still applies
+                log.warn("NetworkPolicies in {} not applied: {}", ns, e.getMessage());
+            }
+        }
         String dockerConfig = pullCredentials.encodedConfig(registryHost());
         if (dockerConfig == null) {
             log.warn("No workload pull credential configured; skipping {} in {}", GitOpsService.PULL_SECRET, ns);
@@ -185,16 +221,19 @@ public class ClusterService {
      */
     public Map<String, ArgoCdService.Outcome> reconcile(Project p, boolean allowProdMove) {
         java.util.Set<String> onTarget = new java.util.HashSet<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             var app = argo.getApp(ArgoCdService.appName(p, env), false);
-            boolean mayMove = !RolloutService.ENV.equals(env) || allowProdMove;
+            boolean mayMove = !environments.approvalRequired(env) || allowProdMove;
             if (app == null || ArgoCdService.onCluster(app, clusters.clusterFor(env)) || mayMove) onTarget.add(env);
         }
-        for (String env : GitOpsService.ENVS) ensureEnvironment(p, env);
+        for (String env : environments.names()) {
+            try { ensureEnvironment(p, env); }
+            catch (RuntimeException e) { log.warn("namespace of {} not prepared: {}", env, e.getMessage()); }   // e.g. cluster unreachable
+        }
         gitops.reconcile(p, onTarget);
         domains.reconcile(p, onTarget);
         Map<String, ArgoCdService.Outcome> outcomes = new java.util.LinkedHashMap<>();
-        for (String env : GitOpsService.ENVS) {
+        for (String env : environments.names()) {
             // Remove the legacy per-project namespace first: its Ingress claims the same host, and the
             // ingress-nginx admission webhook would reject the release in the shared namespace.
             deleteLegacyNamespace(p, env);

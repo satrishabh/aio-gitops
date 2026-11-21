@@ -2,28 +2,82 @@ package com.aio.platform.web;
 
 import com.aio.platform.config.AppProperties.Cluster;
 import com.aio.platform.repo.ProjectRepo;
+import com.aio.platform.security.UserScope;
 import com.aio.platform.service.ArgoCdService;
+import com.aio.platform.service.ClusterAccess;
+import com.aio.platform.service.ClusterAdminService;
 import com.aio.platform.service.ClusterRegistry;
+import com.aio.platform.service.EnvironmentRegistry;
 import com.aio.platform.service.J;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.*;
 
-/** Configured workload clusters joined with what Argo CD reports about them (connection, version, app count). */
+/**
+ * Clusters (admin): each one joined with what Argo CD reports (connection, version, app count) and the platform's own
+ * 5-minute health check; Add cluster (describe → bootstrap script → paste token), Rotate token, Remove, Check now.
+ */
 @RestController
 @RequestMapping("/api/clusters")
 public class ClustersController {
     private final ClusterRegistry clusters;
     private final ArgoCdService argo;
     private final ProjectRepo projects;
+    private final EnvironmentRegistry environments;
+    private final ClusterAdminService admin;
+    private final ClusterAccess access;
 
-    public ClustersController(ClusterRegistry clusters, ArgoCdService argo, ProjectRepo projects) {
+    public ClustersController(ClusterRegistry clusters, ArgoCdService argo, ProjectRepo projects,
+                              EnvironmentRegistry environments, ClusterAdminService admin, ClusterAccess access) {
         this.clusters = clusters;
         this.argo = argo;
         this.projects = projects;
+        this.environments = environments;
+        this.admin = admin;
+        this.access = access;
+    }
+
+    /** Step 2: the bootstrap script for a new cluster (or, with {@code rotate}, for an existing one). No secrets. */
+    @PostMapping("/bootstrap")
+    public Map<String, String> bootstrap(@RequestBody ClusterAdminService.ClusterRequest req,
+                                         @RequestParam(defaultValue = "false") boolean rotate) {
+        requireAdmin();
+        return admin.bootstrap(req, rotate);
+    }
+
+    /** Step 3: register the cluster in Argo CD with the pasted token, test it, store it (no credentials). */
+    @PostMapping
+    public ClusterAdminService.ConnectResult connect(@RequestBody ClusterAdminService.ClusterRequest req,
+                                                     @AuthenticationPrincipal OAuth2User user) {
+        requireAdmin();
+        return admin.connect(req, Me.login(user));
+    }
+
+    @PostMapping("/{name}/token")
+    public ClusterAdminService.ConnectResult rotate(@PathVariable String name, @RequestBody ClusterAdminService.ClusterRequest req,
+                                                    @AuthenticationPrincipal OAuth2User user) {
+        requireAdmin();
+        return admin.rotate(name, req, Me.login(user));
+    }
+
+    @PostMapping("/{name}/check")
+    public Map<String, Object> check(@PathVariable String name) {
+        requireAdmin();
+        var c = admin.check(name);
+        return Map.of("name", c.name, "health", c.status, "error", c.lastError == null ? "" : c.lastError);
+    }
+
+    @DeleteMapping("/{name}")
+    public Map<String, Object> remove(@PathVariable String name, @AuthenticationPrincipal OAuth2User user) {
+        requireAdmin();
+        return admin.remove(name, Me.login(user));
+    }
+
+    private static void requireAdmin() {
+        if (!UserScope.admin()) throw new SecurityException("clusters are managed by admins");
     }
 
     @GetMapping
@@ -63,6 +117,17 @@ public class ClustersController {
             m.put("version", a == null ? null : first(J.str(a, "serverVersion"), J.str(a, "info", "serverVersion"), null));
             m.put("argoApps", a == null ? null : J.get(a, "info", "applicationsCount"));
             m.put("platformApps", projectCount * c.envs().size());   // one app per project per hosted env
+            var row = environments.cluster(c.name()).orElse(null);
+            m.put("cloud", row == null ? null : row.cloud);
+            m.put("ingressNamespace", c.ingressNamespace());
+            m.put("health", row == null ? null : row.status);
+            m.put("healthError", row == null ? null : row.lastError);
+            m.put("checkedAt", row == null ? null : row.lastCheckAt);
+            m.put("createdBy", row == null ? null : row.createdBy);
+            boolean managed;
+            try { managed = !clusters.inCluster(c) && access.hasSecret(c.name()); }
+            catch (RuntimeException e) { managed = false; }
+            m.put("managed", managed);   // added from the portal: token can be rotated, cluster removed
             return m;
         }).toList();
     }

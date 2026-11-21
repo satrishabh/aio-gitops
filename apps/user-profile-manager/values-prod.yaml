@@ -10,7 +10,9 @@ pdb:
   enabled: false
 ingress:
   enabled: true
-  host: user-profile-manager.34.180.3.18.nip.io
+  host: user-profile-manager.52.140.55.184.nip.io
+  className: aio-azure
+  controller: traefik
 env:
   - name: KC_DB
     value: "postgres"
@@ -25,4 +27,4 @@ resources:
   limits: { cpu: "1000m", memory: "1024Mi" }
 blueGreen:
   enabled: true
-  previewHost: user-profile-manager-preview.34.180.3.18.nip.io
+  previewHost: user-profile-manager-preview.52.140.55.184.nip.io

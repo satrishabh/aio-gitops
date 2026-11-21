@@ -70,6 +70,37 @@ class EnvironmentsTest {
         return p;
     }
 
+    // ------------------------------------------------------------------ automatic re-apply of cluster settings
+
+    @Test
+    void clusterSettingsAreReappliedAutomaticallyOnlyWhereTheyDiffer() {
+        Harness h = harness(registry());
+        // shop's dev values still carry the old GCP nip.io host and the chart's nginx class; the rest have no ingress block
+        when(h.github().getFile(eq("o"), eq("aio-gitops"), anyString(), eq("main"))).thenAnswer(inv ->
+                "apps/shop/values-dev.yaml".equals(inv.getArgument(2))
+                        ? new GitHubClient.FileContent("image:\n  tag: \"1\"\ningress:\n  enabled: true\n  host: shop-dev.34.180.3.18.nip.io\n", "sha")
+                        : new GitHubClient.FileContent("image:\n  tag: \"1\"\n", "sha"));
+        h.service().autoReapplyClusterSettings();
+
+        ArgumentCaptor<String> path = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> content = ArgumentCaptor.forClass(String.class);
+        verify(h.github(), atLeastOnce()).putFile(eq("o"), eq("aio-gitops"), path.capture(), eq("main"), content.capture(), any(), anyString());
+        int i = path.getAllValues().indexOf("apps/shop/values-dev.yaml");
+        assertTrue(i >= 0, path.getAllValues().toString());
+        String dev = content.getAllValues().get(i);
+        assertFalse(dev.contains("34.180.3.18"), dev);
+        assertTrue(dev.contains("shop-dev.52.140.55.184.nip.io"), dev);
+        assertTrue(dev.contains("aio-azure"), dev);
+    }
+
+    @Test
+    void automaticReapplyCanBeSwitchedOff() {
+        Harness h = harness(registry());
+        h.service().autoClusterSettings = false;
+        h.service().autoReapplyClusterSettings();
+        verifyNoInteractions(h.github());
+    }
+
     // ------------------------------------------------------------------ seeding (pure part; the DB part is in EnvironmentSeedTest)
 
     @Test

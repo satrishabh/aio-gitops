@@ -20,6 +20,7 @@ import './account.css'
 import './shell.css'
 import './overview.css'
 import './metrics.css'
+import './polish.css'
 import './connectors.css'
 import './flow.css'
 

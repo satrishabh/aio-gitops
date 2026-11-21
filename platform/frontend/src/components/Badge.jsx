@@ -4,17 +4,21 @@ export const COLORS = {
   RUNNING: 'blue', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber', Suspended: 'amber',
   FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
   CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray', 'RISK ACCEPTED': 'orange', 'NOT DEPLOYED': 'gray',
+  // scan finding severities
+  CRITICAL: 'red', HIGH: 'orange', MEDIUM: 'amber', LOW: 'gray', UNKNOWN: 'gray',
 }
 export const colorOf = v => COLORS[v] || 'gray'
 
 const LABELS = { SUCCEEDED: 'Succeeded', RUNNING: 'Running', PENDING: 'Pending', FAILED: 'Failed', CANCELLED: 'Cancelled',
   WAITING: 'Waiting', SKIPPED: 'Skipped', DONE: 'Done', REJECTED: 'Rejected', OutOfSync: 'Out of sync',
-  'RISK ACCEPTED': 'Risk accepted', 'NOT DEPLOYED': 'Not deployed' }
+  'RISK ACCEPTED': 'Risk accepted', 'NOT DEPLOYED': 'Not deployed',
+  CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', UNKNOWN: 'Unknown' }
 
 // The dot is decoration; the text label carries the meaning, so colour is never the only signal.
-export default function Badge({ value, label, quiet }) {
-  if (!value) return <span className="badge gray quiet" aria-label="No status">—</span>
-  return <span className={`badge ${colorOf(value)}${quiet ? ' quiet' : ''}`}>{label || LABELS[value] || value}</span>
+// `tone` (green | blue | amber | orange | red | gray) styles a non-status tag, e.g. an audit action or an environment name.
+export default function Badge({ value, label, quiet, tone, title }) {
+  if (!value && !tone) return <span className="badge gray quiet" aria-label="No status">—</span>
+  return <span className={`badge ${tone || colorOf(value)}${quiet ? ' quiet' : ''}`} title={title}>{label || LABELS[value] || value}</span>
 }
 
 export function Vulns({ run }) {

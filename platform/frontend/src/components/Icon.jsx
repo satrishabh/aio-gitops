@@ -38,7 +38,25 @@ const P = {
   moon: 'M20.5 14.1A8.5 8.5 0 1 1 9.9 3.5a7 7 0 0 0 10.6 10.6z',
   auto: 'M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM12 3v18M12 6h4M12 9h5.6M12 12h6M12 15h5.6M12 18h4',
   github: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3.1-.4 6.4-1.5 6.4-6.9A5.4 5.4 0 0 0 20 4.8 5 5 0 0 0 19.9 1S18.7.6 16 2.5a13.4 13.4 0 0 0-7 0C6.3.6 5.1 1 5.1 1A5 5 0 0 0 5 4.8a5.4 5.4 0 0 0-1.5 3.8c0 5.4 3.3 6.5 6.4 6.9a3.4 3.4 0 0 0-.9 2.6V22',
+  // Phase 6 additions (polish pass): status, empty-state and page glyphs
+  alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01',
+  server: 'M3 4h18v6H3zM3 14h18v6H3zM7 7h.01M7 17h.01',
+  chat: 'M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.4 8.4 0 1 1 21 11.5z',
+  send: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  download: 'M12 3v12M7 10l5 5 5-5M4 21h16',
+  compass: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16.2 7.8l-2.1 6.3-6.3 2.1 2.1-6.3z',
+  activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
+  file: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6',
+  filter: 'M3 4h18l-7 9v6l-4 2v-8z',
+  sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 3v4M17 5h4',
+  inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z',
+  cloud: 'M17.5 19a4.5 4.5 0 1 0-1.3-8.8A6.5 6.5 0 0 0 4 12.5 3.5 3.5 0 0 0 6.5 19z',
+  chevron: 'M9 6l6 6-6 6',
 }
+
+/** The raw 24x24 path of an icon, for drawing it inside a larger SVG (empty-state illustrations). */
+export const iconPath = name => P[name] || P.box
 
 export default function Icon({ name, size = 16, stroke = 1.75, className, style }) {
   return (

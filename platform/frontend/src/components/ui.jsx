@@ -1,4 +1,4 @@
-import Icon from './Icon.jsx'
+import Icon, { iconPath } from './Icon.jsx'
 
 export function PageHead({ title, sub, children }) {
   return (
@@ -34,11 +34,39 @@ export function Avatar({ name, size = 38 }) {
   )
 }
 
-export function Skeleton({ h = 120, count = 1 }) {
+/**
+ * Loading placeholder. Alone it is a labelled status region with `count` blocks of height `h`.
+ * `bare` drops the wrapper and margin so blocks can be composed inside <Loading> into a page-shaped skeleton;
+ * `w` sets a width and `className` adds shape classes (`line`, `round`).
+ */
+export function Skeleton({ h = 120, count = 1, w, bare, className = '', style }) {
+  const block = i => <div key={i} className={`skeleton${className ? ` ${className}` : ''}`}
+                          style={{ height: h, width: w, marginBottom: bare ? undefined : 18, ...style }} />
+  if (bare) return <>{Array.from({ length: count }, (_, i) => block(i))}</>
   return (
     <div role="status" aria-busy="true" aria-label="Loading">
-      {Array.from({ length: count }, (_, i) => <div key={i} className="skeleton" style={{ height: h, marginBottom: 18 }} />)}
+      {Array.from({ length: count }, (_, i) => block(i))}
     </div>
+  )
+}
+
+/** One status region around a composed skeleton, so screen readers hear "Loading" once. */
+export function Loading({ label = 'Loading', className, children }) {
+  return <div role="status" aria-busy="true" aria-label={label} className={className}>{children}</div>
+}
+
+/** Skeleton shaped like a table in a flush card: a header rule and `rows` rows of `cols` cells (rows become cards on phones). */
+export function SkeletonTable({ rows = 6, cols = 5, label = 'Loading' }) {
+  const widths = ['70%', '55%', '40%', '62%', '48%', '35%', '58%']
+  return (
+    <Loading label={label} className="card flush skeleton-table">
+      <div className="skeleton-table-head">{Array.from({ length: cols }, (_, c) => <Skeleton key={c} bare h={10} w="38%" className="line" />)}</div>
+      {Array.from({ length: rows }, (_, r) => (
+        <div key={r} className="skeleton-table-row" style={{ '--cols': cols }}>
+          {Array.from({ length: cols }, (_, c) => <Skeleton key={c} bare h={c === 0 ? 14 : 12} w={widths[(r + c) % widths.length]} className="line" />)}
+        </div>
+      ))}
+    </Loading>
   )
 }
 
@@ -69,14 +97,40 @@ export function Tabs({ tabs, value, onChange, label }) {
   )
 }
 
-export function Empty({ icon = 'box', title, children, action }) {
+/**
+ * Empty state: a small illustration (theme colours, decorative), a title, one line of guidance and an optional action.
+ * `compact` swaps the illustration for the plain tinted glyph (for small panels); `heading` sets the title element
+ * (h3 by default; the 404 page uses h1); `tone="bad"` marks an error with the red badge.
+ */
+export function Empty({ icon = 'box', title, children, action, compact, heading: H = 'h3', tone, className }) {
   return (
-    <div className="empty-state">
-      <div className="glyph"><Icon name={icon} size={24} /></div>
-      <h3>{title}</h3>
+    <div className={`empty-state${compact ? ' compact' : ''}${tone ? ` tone-${tone}` : ''}${className ? ` ${className}` : ''}`}>
+      {compact ? <div className="glyph"><Icon name={icon} size={24} /></div> : <EmptyArt icon={icon} />}
+      <H className="empty-title">{title}</H>
       {children && <div className="muted">{children}</div>}
       {action && <div className="actions">{action}</div>}
     </div>
+  )
+}
+
+/** Decorative illustration for empty states: two stacked cards with an icon badge. Colours come from theme tokens (styles.css). */
+export function EmptyArt({ icon = 'box' }) {
+  return (
+    <svg className="empty-art" viewBox="0 0 168 116" width="168" height="116" aria-hidden="true" focusable="false">
+      <ellipse className="ea-blob" cx="84" cy="62" rx="72" ry="48" />
+      <rect className="ea-card ea-back" x="50" y="18" width="78" height="56" rx="10" transform="rotate(-7 89 46)" />
+      <rect className="ea-card" x="38" y="30" width="86" height="62" rx="10" />
+      <rect className="ea-line ea-strong" x="50" y="44" width="34" height="7" rx="3.5" />
+      <rect className="ea-line" x="50" y="58" width="60" height="5" rx="2.5" />
+      <rect className="ea-line" x="50" y="70" width="44" height="5" rx="2.5" />
+      <circle className="ea-dot ea-ok" cx="28" cy="34" r="4" />
+      <circle className="ea-dot ea-warn" cx="142" cy="26" r="3" />
+      <path className="ea-spark" d="M24 84v8M20 88h8" />
+      <circle className="ea-badge" cx="122" cy="86" r="19" />
+      <svg x="110" y="74" width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path className="ea-icon" d={iconPath(icon)} />
+      </svg>
+    </svg>
   )
 }
 

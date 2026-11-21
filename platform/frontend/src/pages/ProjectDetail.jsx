@@ -11,6 +11,7 @@ import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
 import CertificateManager from '../components/CertificateManager.jsx'
 import { DetailHead, StateWord } from '../components/flow/FlowParts.jsx'
+import { PromoteDialog, PromotionStatus } from '../components/Promotion.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const NEXT = { dev: 'staging', staging: 'prod' }
@@ -34,6 +35,7 @@ export default function ProjectDetail() {
   const [ref, setRef] = useState('')
   const [deployBuild, setDeployBuild] = useState(true)
   const [tab, setTab] = useState('runs')
+  const [promoting, setPromoting] = useState(null)   // env whose Promote dialog is open
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}`), 8000, [id])
   const { busy, run } = useAction(refresh)
 
@@ -46,9 +48,8 @@ export default function ProjectDetail() {
     const r = await run('run', () => api(`/api/projects/${id}/runs`, { method: 'POST', body: { ref, deploy: deployBuild } }), r => `CI run #${r.id} started`)
     if (r) nav(`/runs/${r.id}`)
   }
-  const promote = env => run(`promote-${env}`,
-    () => api(`/api/projects/${id}/promote`, { method: 'POST', body: { from: env, to: NEXT[env] } }),
-    NEXT[env] === 'prod' ? 'Prod promotion requested — approve it on the Approvals page' : `Promoted to ${NEXT[env]}`)
+  /** Latest promotion or rollback that reached this env (DEPLOYING / FAILED are shown on the stop). */
+  const lastPromotionTo = env => promotions.find(pr => pr.toEnv === env && pr.status !== 'PENDING' && pr.status !== 'REJECTED')
   const scale = (env, n) => run(`scale-${env}`,
     () => api(`/api/projects/${id}/environments/${env}/scale`, { method: 'POST', body: { replicas: n } }),
     n === 0 ? `${env} scaled down — the app is stopped` : `${env} scaling to ${n} replica${n > 1 ? 's' : ''}`)
@@ -129,6 +130,11 @@ export default function ProjectDetail() {
                 <div className="fl-stop-label">{parked ? 'Not deployed' : stopped ? 'Stopped · image' : 'Running image'}</div>
                 <div className="fl-stop-tag">{parked ? <span className="muted">—</span> : (current || '—')}</div>
                 {rolling && <div className="fl-stop-rolling"><Badge value="Progressing" label="Rolling out" /> <span className="muted">live {s.imageTag}</span></div>}
+                {(() => {
+                  const last = lastPromotionTo(env)
+                  if (!last || !['DEPLOYING', 'FAILED'].includes(last.status)) return null
+                  return <div className="fl-stop-promo" aria-label={`Last ${last.kind.toLowerCase()} to ${env}`}><PromotionStatus pr={last} compact /></div>
+                })()}
                 {env === 'prod' && rollout.enabled && <BlueGreen ro={rollout} appUrl={s.appUrl} p={p} btn={btn} run={run} id={id} />}
 
                 <dl className="fl-stop-meta">
@@ -151,7 +157,7 @@ export default function ProjectDetail() {
                   <div className="fl-stop-move">
                     {NEXT[env] && <button {...btn(`promote-${env}`, 'btn primary small')} disabled={!!busy || parked}
                                           title={parked ? `Nothing in ${env} to promote yet` : `Promote ${env} → ${NEXT[env]}`}
-                                          onClick={() => promote(env)}>
+                                          onClick={() => setPromoting(env)}>
                       {NEXT[env] === 'prod' ? <Icon name="lock" size={12} /> : <Icon name="arrow" size={12} />}
                       Promote to {NEXT[env]}{NEXT[env] === 'prod' && <span className="fl-needs"> · needs approval</span>}
                     </button>}
@@ -173,6 +179,9 @@ export default function ProjectDetail() {
           })}
         </ol>
       </section>
+
+      {promoting && <PromoteDialog project={p} from={promoting} to={NEXT[promoting]}
+                                   onClose={() => setPromoting(null)} onDone={() => { setPromoting(null); refresh() }} />}
 
       <div className="fl-extras">
         <ToolLinks key={`tools-${p.id}`} projectId={p.id} />
@@ -258,7 +267,7 @@ export default function ProjectDetail() {
                   <td data-label="Kind"><Icon name={pr.kind === 'ROLLBACK' ? 'undo' : 'rocket'} size={13} /> {pr.kind.toLowerCase()}</td>
                   <td data-label="Target">{pr.fromEnv ? <>{pr.fromEnv} <Icon name="arrow" size={11} /> </> : ''}<b>{pr.toEnv}</b></td>
                   <td data-label="Tag"><code>{pr.imageTag}</code></td>
-                  <td data-label="Status"><Badge value={pr.status} /> {pr.message && <div className="muted fl-small">{pr.message}</div>}</td>
+                  <td data-label="Status"><PromotionStatus pr={pr} /></td>
                   <td data-label="Requested">{pr.requestedBy} <div className="muted fl-small">{ago(pr.requestedAt)}</div></td>
                   <td data-label="Decided">{pr.decidedBy || '—'} <div className="muted fl-small">{pr.decidedAt ? ago(pr.decidedAt) : ''}</div></td>
                 </tr>

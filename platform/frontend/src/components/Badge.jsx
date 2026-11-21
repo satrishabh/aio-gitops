@@ -2,7 +2,7 @@ export const COLORS = {
   SUCCEEDED: 'green', Synced: 'green', Healthy: 'green', DONE: 'green',
   READY: 'green', ISSUING: 'blue', PENDING_DNS: 'amber',
   RUNNING: 'blue', Progressing: 'blue', PENDING: 'amber', WAITING: 'amber', OutOfSync: 'amber', Suspended: 'amber',
-  FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
+  DEPLOYING: 'blue', FAILED: 'red', Degraded: 'red', REJECTED: 'red', Missing: 'red',
   CANCELLED: 'gray', SKIPPED: 'gray', Unknown: 'gray', 'RISK ACCEPTED': 'orange', 'NOT DEPLOYED': 'gray',
   // scan finding severities
   CRITICAL: 'red', HIGH: 'orange', MEDIUM: 'amber', LOW: 'gray', UNKNOWN: 'gray',
@@ -10,7 +10,7 @@ export const COLORS = {
 export const colorOf = v => COLORS[v] || 'gray'
 
 const LABELS = { SUCCEEDED: 'Succeeded', RUNNING: 'Running', PENDING: 'Pending', FAILED: 'Failed', CANCELLED: 'Cancelled',
-  WAITING: 'Waiting', SKIPPED: 'Skipped', DONE: 'Done', REJECTED: 'Rejected', OutOfSync: 'Out of sync',
+  WAITING: 'Waiting', SKIPPED: 'Skipped', DONE: 'Done', DEPLOYING: 'Deploying', REJECTED: 'Rejected', OutOfSync: 'Out of sync',
   'RISK ACCEPTED': 'Risk accepted', 'NOT DEPLOYED': 'Not deployed',
   CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low', UNKNOWN: 'Unknown' }
 

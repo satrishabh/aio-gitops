@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Direction C: Flow</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3F4F8}
+a{color:#5B3FE6;text-decoration:none}a:hover{color:#3B22B8}
+</style>
+</helmet>
+<div style="min-height: 1060px; background: #F3F4F8; color: #161A2B; font-family: Manrope, system-ui, sans-serif;">
+
+  <header style="background: #FFFFFF; border-bottom: 1px solid #E3E5EE;">
+    <div style="max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 12px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px;">
+      <a href="#" style="display: inline-flex; align-items: center; gap: 9px; color: #161A2B; font-weight: 800; font-size: 19px; letter-spacing: -0.02em;">
+        <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="9" fill="#5B3FE6"></rect><path d="M7 18 C11 18 11 10 15 10 S19 18 21 18" stroke="#FFFFFF" stroke-width="2.4" fill="none" stroke-linecap="round"></path></svg>
+        AIO
+      </a>
+      <nav aria-label="Main" style="display: flex; flex-wrap: wrap; gap: 4px;">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+          <a href="#" style="{{t.style}}">{{t.label}}<sc-if value="{{t.count}}" hint-placeholder-val="{{false}}"><span style="margin-left: 6px; background: #FFE3DC; color: #A8321F; border-radius: 999px; padding: 0 7px; font-size: 12px; font-weight: 700;">{{t.count}}</span></sc-if></a>
+        </sc-for>
+      </nav>
+      <label style="flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; background: #F3F4F8; border-radius: 12px; color: #5C6378; font-size: 14px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input type="search" placeholder="Search projects, runs, connectors…" aria-label="Search" style="flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: #161A2B; outline: none;">
+        <span style="font-family: 'DM Mono', monospace; font-size: 12px; border: 1px solid #D5D8E3; border-radius: 6px; padding: 1px 6px;">Ctrl K</span>
+      </label>
+      <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 12px; background: #5B3FE6; color: #FFFFFF; font-weight: 700; font-size: 14px;">New project</a>
+    </div>
+  </header>
+
+  <main style="max-width: 1240px; margin: 0 auto; box-sizing: border-box; padding: 28px 24px 44px; display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px;">
+      <div>
+        <h1 style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.025em;">Good afternoon</h1>
+        <p style="margin: 6px 0 0; color: #4A5168; font-size: 15px;">Your delivery pipeline over the last 14 days. <span style="color: #0E7C6F; font-weight: 700;">● Live</span></p>
+      </div>
+      <div role="group" aria-label="Period" style="display: inline-flex; background: #FFFFFF; border: 1px solid #E3E5EE; border-radius: 12px; padding: 4px;">
+        <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; background: transparent; border-radius: 9px; font: inherit; font-size: 13px; color: #4A5168;">7 days</button>
+        <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; background: #161A2B; color: #FFFFFF; border-radius: 9px; font: inherit; font-size: 13px; font-weight: 700;">14 days</button>
+        <button type="button" style="min-height: 36px; padding: 0 12px; border: 0; background: transparent; border-radius: 9px; font: inherit; font-size: 13px; color: #4A5168;">30 days</button>
+      </div>
+    </div>
+
+    <section aria-label="Delivery pipeline" style="background: #FFFFFF; border-radius: 22px; padding: 22px; box-shadow: 0 1px 2px rgba(22,26,43,0.05), 0 8px 28px rgba(22,26,43,0.06);">
+      <div style="display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px;">
+        <sc-for list="{{stages}}" as="s" hint-placeholder-count="5">
+          <div style="flex: 1 1 170px; display: flex; align-items: center; gap: 10px;">
+            <div style="flex: 1; border-radius: 18px; padding: 16px; background: {{s.bg}}; display: flex; flex-direction: column; gap: 6px; min-height: 132px; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 30px; height: 30px; border-radius: 10px; background: {{s.chip}}; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;">{{s.step}}</span>
+                <span style="font-weight: 700; font-size: 14px;">{{s.name}}</span>
+              </div>
+              <span style="font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1;">{{s.value}}</span>
+              <span style="font-size: 13px; color: #4A5168;">{{s.sub}}</span>
+              <div style="display: flex; gap: 3px; margin-top: auto;">
+                <sc-for list="{{s.ticks}}" as="t" hint-placeholder-count="14"><span style="flex: 1; height: 6px; border-radius: 3px; background: {{t}};"></span></sc-for>
+              </div>
+            </div>
+            <sc-if value="{{s.arrow}}" hint-placeholder-val="{{true}}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA0B4" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin: 14px 2px 0; font-size: 13px; color: #4A5168;">Each bar under a stage is one day: green passed, red failed, grey idle. Lead time 3.2 h · time to restore 41 min · <a href="#" style="font-weight: 700;">DORA metrics</a></p>
+    </section>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start;">
+      <section aria-label="Projects" style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em;">Projects</h2>
+          <a href="#" style="font-weight: 700; font-size: 14px;">See all 5</a>
+        </div>
+        <sc-for list="{{projects}}" as="p" hint-placeholder-count="5">
+          <a href="#" style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; background: #FFFFFF; border-radius: 18px; padding: 14px 18px; color: #161A2B; box-shadow: 0 1px 2px rgba(22,26,43,0.05);">
+            <span style="display: flex; align-items: center; gap: 12px; flex: 1 1 200px;">
+              <span style="width: 38px; height: 38px; border-radius: 12px; background: {{p.hue}}; color: #161A2B; font-weight: 800; font-size: 14px; display: inline-flex; align-items: center; justify-content: center;">{{p.initials}}</span>
+              <span style="display: flex; flex-direction: column;"><span style="font-weight: 700; font-size: 15px;">{{p.name}}</span><span style="font-size: 12px; color: {{p.ciColor}}; font-weight: 600;">{{p.ci}}</span></span>
+            </span>
+            <span style="display: flex; align-items: center; flex: 2 1 320px;">
+              <sc-for list="{{p.envs}}" as="e" hint-placeholder-count="3">
+                <span style="display: flex; align-items: center; flex: 1;">
+                  <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4A5168;"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{e.dot}};"></span>{{e.env}}</span>
+                    <span style="font-family: 'DM Mono', monospace; font-size: 12px; color: {{e.text}};">{{e.tag}}</span>
+                  </span>
+                  <sc-if value="{{e.line}}" hint-placeholder-val="{{true}}"><span style="flex: 1; height: 2px; background: #E3E5EE; margin: 0 10px; border-radius: 1px;"></span></sc-if>
+                </span>
+              </sc-for>
+            </span>
+          </a>
+        </sc-for>
+      </section>
+
+      <aside style="flex: 1 1 300px; display: flex; flex-direction: column; gap: 22px;">
+        <section aria-label="Needs you" style="background: #161A2B; color: #FFFFFF; border-radius: 22px; padding: 20px;">
+          <h2 style="margin: 0 0 4px; font-size: 18px; font-weight: 800;">Needs you</h2>
+          <p style="margin: 0 0 12px; font-size: 13px; color: #C3C7D6;">3 things are waiting on a decision.</p>
+          <sc-for list="{{todo}}" as="t" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #2C3148;">
+              <span style="width: 34px; height: 34px; border-radius: 10px; background: {{t.bg}}; color: #161A2B; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;">{{t.mark}}</span>
+              <span style="flex: 1; display: flex; flex-direction: column; font-size: 13px;"><b>{{t.title}}</b><span style="color: #C3C7D6;">{{t.sub}}</span></span>
+              <a href="#" style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 10px; background: #FFFFFF; color: #161A2B; font-weight: 700; font-size: 13px;">{{t.action}}</a>
+            </div>
+          </sc-for>
+        </section>
+        <section aria-label="Activity" style="background: #FFFFFF; border-radius: 22px; padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+            <h2 style="margin: 0; font-size: 18px; font-weight: 800;">Activity</h2>
+            <a href="#" style="font-weight: 700; font-size: 13px;">Audit log</a>
+          </div>
+          <sc-for list="{{feed}}" as="f" hint-placeholder-count="4">
+            <div style="display: flex; gap: 10px; padding: 8px 0; font-size: 13px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: {{f.dot}}; margin-top: 6px; flex: none;"></span>
+              <span style="display: flex; flex-direction: column;"><span><b>{{f.who}}</b> {{f.what}}</span><span style="color: #5C6378; font-size: 12px;">{{f.when}}</span></span>
+            </div>
+          </sc-for>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tabs = ['Overview', 'Projects', 'Pipelines', 'Delivery', 'Connectors'].map((label, i) => ({
+      label: label, count: label === 'Delivery' ? '2' : '',
+      style: 'display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 700; ' +
+        (i === 0 ? 'background: #EEEAFF; color: #3B22B8;' : 'color: #4A5168;')
+    }));
+    const G = '#1FAF8E', R = '#E2553F', Z = '#DADDE7';
+    const row = (pattern) => pattern.split('').map(c => (c === 'g' ? G : c === 'r' ? R : Z));
+    const stages = [
+      { step: '1', name: 'Commits', value: '31', sub: 'from 5 GitHub repos', bg: '#F6F4FF', chip: '#5B3FE6', ticks: row('ggggg_gggggggg'), arrow: true },
+      { step: '2', name: 'CI runs', value: '48', sub: '92% passed · avg 6.4 min', bg: '#F1FAF7', chip: '#0E7C6F', ticks: row('rgrgr_grgrgggr'), arrow: true },
+      { step: '3', name: 'Dev', value: '19', sub: 'deploys · all healthy', bg: '#F1FAF7', chip: '#0E7C6F', ticks: row('ggggg__ggggggg'), arrow: true },
+      { step: '4', name: 'Staging', value: '7', sub: 'deploys · 1 scaled down', bg: '#F3F4F8', chip: '#4A5168', ticks: row('g_g_g__g_g_g_g'), arrow: true },
+      { step: '5', name: 'Prod', value: '4', sub: '2 waiting for approval', bg: '#FFF4F0', chip: '#A8321F', ticks: row('__g___g___g__g'), arrow: false }
+    ];
+    const tone = {
+      ok: { dot: '#1FAF8E', text: '#161A2B' }, sync: { dot: '#5B3FE6', text: '#161A2B' },
+      bad: { dot: '#E2553F', text: '#A8321F' }, off: { dot: '#C9CDD9', text: '#5C6378' }
+    };
+    const envs = (a) => ['dev', 'staging', 'prod'].map((name, i) => Object.assign({ env: name, tag: a[i][0], line: i < 2 }, tone[a[i][1]]));
+    const ciColor = { 'CI passed': '#0E7C6F', 'CI running': '#5B3FE6', 'CI failed': '#A8321F' };
+    const projects = [
+      { name: 'scalesafe-site', initials: 'SS', hue: '#D9F5EC', ci: 'CI passed', envs: envs([['9c6a478', 'ok'], ['9c6a478', 'ok'], ['b6dff53', 'ok']]) },
+      { name: 'sarvaikam', initials: 'SA', hue: '#E6E0FF', ci: 'CI running', envs: envs([['4f1e2a0', 'sync'], ['31ac9d2', 'ok'], ['31ac9d2', 'ok']]) },
+      { name: 'profile-manager', initials: 'PM', hue: '#FFE3DC', ci: 'CI failed', envs: envs([['e81b7c4', 'bad'], ['a02f6d1', 'ok'], ['a02f6d1', 'ok']]) },
+      { name: 'sarvaika-blog', initials: 'SB', hue: '#FFF0C9', ci: 'CI passed', envs: envs([['7d3c0e9', 'ok'], ['scaled down', 'off'], ['7d3c0e9', 'ok']]) },
+      { name: 'learn', initials: 'LE', hue: '#DCEBFF', ci: 'CI passed', envs: envs([['c51a88f', 'ok'], ['c51a88f', 'ok'], ['not deployed', 'off']]) }
+    ].map(p => Object.assign(p, { ciColor: ciColor[p.ci] }));
+    const todo = [
+      { mark: '↑', bg: '#C9F2E6', title: 'scalesafe-site → prod', sub: 'Promotion requested 20 min ago', action: 'Review' },
+      { mark: '↑', bg: '#C9F2E6', title: 'learn → prod', sub: 'Promotion requested 2 h ago', action: 'Review' },
+      { mark: '!', bg: '#FFC9BC', title: 'profile-manager #88 failed', sub: 'Tests: 2 failing in AuthFlowTest', action: 'Open' }
+    ];
+    const feed = [
+      { who: 'You', what: 'approved scalesafe-site → prod', when: '12 min ago', dot: '#1FAF8E' },
+      { who: 'CI', what: 'started sarvaikam #214', when: '18 min ago', dot: '#5B3FE6' },
+      { who: 'CI', what: 'failed profile-manager #88', when: '1 h ago', dot: '#E2553F' },
+      { who: 'Argo CD', what: 'synced sarvaika-blog/prod', when: '2 h ago', dot: '#1FAF8E' }
+    ];
+    return { tabs: tabs, stages: stages, projects: projects, todo: todo, feed: feed };
+  }
+}
+</script>
+</body>
+</html>

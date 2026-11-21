@@ -57,7 +57,8 @@ export default function AccountControls({ me }) {
           </div>
           <label className="profile-appearance">Appearance
             <select aria-label="Appearance" value={theme} onChange={event => setTheme(event.target.value)}>
-              <option value="system">Use device appearance</option><option value="light">Light</option><option value="dark">Dark</option>
+              <option value="default">Default</option><option value="bright">Bright</option><option value="dark">Dark</option>
+              <option value="auto">Auto (match device)</option>
             </select>
           </label>
           <button type="button" className="btn account-logout" onClick={logout}><Icon name="logout" />Log out</button>

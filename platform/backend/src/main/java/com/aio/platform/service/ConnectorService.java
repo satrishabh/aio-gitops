@@ -78,6 +78,9 @@ public class ConnectorService {
     /** Held-off pipeline steps (Biome, Buildah); absent in unit tests that do not need them = all off. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     PlatformSwitches switches;
+    /** Projects using a connector (Project -> Services); absent in unit tests that do not need it = unused. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ServiceUsage usage;
 
     public ConnectorService(ConnectorCatalog catalog, ArgoCdService argo, KubernetesClient k8s, AppProperties props) {
         this.catalog = catalog;
@@ -87,7 +90,31 @@ public class ConnectorService {
     }
 
     public List<Map<String, Object>> list() {
-        return catalog.all().stream().map(this::describe).toList();
+        return catalog.all().stream().map(c -> {
+            Map<String, Object> m = describe(c);
+            if (c.binding() != null) m.put("usedBy", usedBy(c.id()));
+            return m;
+        }).toList();
+    }
+
+    /** Projects that use the connector through Project -> Services (empty when none or unknown). */
+    public List<ServiceUsage.Use> usedBy(String id) {
+        if (usage == null) return List.of();
+        try {
+            return usage.of(id);
+        } catch (RuntimeException e) {
+            log.warn("usage of connector {} not available: {}", id, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Disable and phase Switch off refuse while projects use the connector, unless an admin forces it. */
+    private void refuseWhileUsed(Connector c, boolean force) {
+        if (force) return;
+        List<ServiceUsage.Use> users = usedBy(c.id());
+        if (!users.isEmpty())
+            throw new IllegalStateException(c.name() + " is used by " + ServiceUsage.describe(users)
+                    + "; remove it from those projects (Project -> Services) first, or force");
     }
 
     Map<String, Object> describe(Connector c) {
@@ -102,6 +129,9 @@ public class ConnectorService {
         m.put("pinnedVersion", c.version());
         m.put("previousVersion", c.previousVersion());
         m.put("accessHint", c.accessHint());
+        m.put("bindable", c.binding() != null);
+        if (c.binding() != null) m.put("binding", Map.of("label", c.binding().label(),
+                "scope", c.binding().scopeEnum().name().toLowerCase(java.util.Locale.ROOT)));
         m.putAll(ConnectorCatalog.metadata(c));
         m.put("requires", c.requiresList().stream().map(id -> catalog.find(id).map(Connector::name).orElse(id)).toList());
         TestResult t = lastTests.get(c.id());
@@ -264,7 +294,13 @@ public class ConnectorService {
 
     /** Removes the connector and everything it installed (cascade). */
     public void disable(String id) {
+        disable(id, false);
+    }
+
+    /** As {@link #disable(String)}; {@code force} (admin) disables even while projects use it. */
+    public void disable(String id, boolean force) {
         Connector c = managed(id);
+        refuseWhileUsed(c, force);
         List<String> users = catalog.all().stream()
                 .filter(o -> o.requiresList().contains(id) && o.kindEnum() == ConnectorCatalog.Kind.MANAGED
                         && argo.getApp(o.appName(), false) != null)
@@ -345,6 +381,11 @@ public class ConnectorService {
      * wanted state are left alone. One failure does not stop the rest; each member reports its own outcome.
      */
     public List<PhaseStep> switchPhase(String phase, boolean on, String actor) {
+        return switchPhase(phase, on, actor, false);
+    }
+
+    /** As above; switching off skips (fails) members that projects use unless {@code force}. */
+    public List<PhaseStep> switchPhase(String phase, boolean on, String actor, boolean force) {
         List<Connector> members = new ArrayList<>(phaseMembers(phase));
         if (members.isEmpty()) throw new IllegalArgumentException("Phase " + phase + " has nothing to switch on this cloud");
         if (!on) java.util.Collections.reverse(members);
@@ -362,7 +403,7 @@ public class ConnectorService {
                 } else {
                     if (argo.getApp(c.appName(), false) == null) steps.add(new PhaseStep(c.id(), c.name(), true, "already off"));
                     else {
-                        disable(c.id());
+                        disable(c.id(), force);
                         steps.add(new PhaseStep(c.id(), c.name(), true, "removing"));
                     }
                 }

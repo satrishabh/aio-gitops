@@ -1,0 +1,79 @@
+# Project -> Services: get on the one Secret each shared connector's binding copies (copySecret.from) into an app's
+# env namespace. Namespaced Roles, so the grant names exactly those Secrets. Apply after the connector is enabled
+# (kubectl apply fails while its namespace does not exist): kubectl apply -f platform/deploy/rbac-shared-services.yaml
+# The aio-platform-envs ClusterRole (rbac.yaml) also allows get on Secrets cluster-wide for the single-cluster
+# fallback; these Roles keep Project -> Services working if that rule is ever narrowed.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-shared-service
+  namespace: valkey
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["valkey-users"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-shared-service
+  namespace: valkey
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-shared-service
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-shared-service
+  namespace: langfuse
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["langfuse-secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-shared-service
+  namespace: langfuse
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-shared-service
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aio-platform-shared-service
+  namespace: milvus
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["milvus-root"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aio-platform-shared-service
+  namespace: milvus
+subjects:
+  - kind: ServiceAccount
+    name: aio-platform
+    namespace: aio-platform
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aio-platform-shared-service

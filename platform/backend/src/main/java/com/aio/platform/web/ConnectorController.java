@@ -61,14 +61,15 @@ public class ConnectorController {
      */
     @PostMapping("/phases/{phase}/{state:on|off}")
     public Map<String, Object> switchPhase(@PathVariable String phase, @PathVariable String state,
+                                           @RequestParam(defaultValue = "false") boolean force,
                                            @AuthenticationPrincipal OAuth2User user) {
         requireAdmin();
         if (!phase.matches("[0-9A-Za-z.-]{1,10}")) throw new IllegalArgumentException("Invalid phase");
         boolean on = "on".equals(state);
         String actor = Me.login(user);
-        List<ConnectorService.PhaseStep> steps = connectors.switchPhase(phase, on, actor);
+        List<ConnectorService.PhaseStep> steps = connectors.switchPhase(phase, on, actor, force);
         long failed = steps.stream().filter(s -> !s.ok()).count();
-        audit.record(actor, "connector.phase-" + state, "phase " + phase, steps.stream()
+        audit.record(actor, "connector.phase-" + state, "phase " + phase + (force && !on ? " (forced)" : ""), steps.stream()
                 .map(s -> s.id() + ": " + (s.ok() ? s.detail() : "failed (" + s.detail() + ")"))
                 .collect(java.util.stream.Collectors.joining("; ")));
         Map<String, Object> m = new LinkedHashMap<>();
@@ -102,12 +103,36 @@ public class ConnectorController {
         return Map.of("status", "rolling back", "version", v);
     }
 
+    public Map<String, String> disable(String id, OAuth2User user) {
+        return disable(id, false, user);
+    }
+
+    /**
+     * Refused (409, message lists the projects) while projects use the connector through Project -> Services,
+     * unless {@code force=true}: their services then stay in git but stop working.
+     */
     @PostMapping("/{id}/disable")
-    public Map<String, String> disable(@PathVariable String id, @AuthenticationPrincipal OAuth2User user) {
+    public Map<String, String> disable(@PathVariable String id, @RequestParam(defaultValue = "false") boolean force,
+                                       @AuthenticationPrincipal OAuth2User user) {
         requireAdmin();
-        connectors.disable(id);
-        audit.record(Me.login(user), "connector.disable", id, null);
+        List<com.aio.platform.service.ServiceUsage.Use> users = force ? connectors.usedBy(id) : List.of();
+        connectors.disable(id, force);
+        audit.record(Me.login(user), "connector.disable", id, users.isEmpty() ? null
+                : "forced while used by " + users.stream().map(u -> u.project() + " " + u.envs()).toList());
         return Map.of("status", "removing");
+    }
+
+    /** Projects (and their environments) that use this connector through Project -> Services. */
+    @GetMapping("/{id}/usage")
+    public Map<String, Object> usage(@PathVariable String id) {
+        requireAdmin();
+        catalog.find(id).orElseThrow();
+        List<com.aio.platform.service.ServiceUsage.Use> users = connectors.usedBy(id);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("connector", id);
+        m.put("count", users.size());
+        m.put("projects", users);
+        return m;
     }
 
     private static void requireAdmin() {

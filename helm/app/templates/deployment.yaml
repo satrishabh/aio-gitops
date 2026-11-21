@@ -39,9 +39,19 @@ spec:
     {{- end }}
   selector:
     matchLabels: {{- include "app.selectorLabels" . | nindent 6 }}
+  {{- /* Project services (services: values, written by the platform) add env vars and pod annotations */}}
+  {{- $svcEnv := list }}
+  {{- $podAnnotations := dict }}
+  {{- range $id, $svc := (.Values.services | default dict) }}
+  {{- $svcEnv = concat $svcEnv (($svc | default dict).env | default list) }}
+  {{- $podAnnotations = merge $podAnnotations (($svc | default dict).podAnnotations | default dict) }}
+  {{- end }}
   template:
     metadata:
       labels: {{- include "app.selectorLabels" . | nindent 8 }}
+      {{- with $podAnnotations }}
+      annotations: {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{- toYaml . | nindent 8 }}
@@ -82,7 +92,7 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.containerPort }}
-          {{- with .Values.env }}
+          {{- with concat (.Values.env | default list) $svcEnv }}
           env: {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with .Values.envFrom }}

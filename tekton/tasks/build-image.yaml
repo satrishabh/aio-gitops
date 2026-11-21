@@ -206,6 +206,13 @@ spec:
           echo "Skipped: build strategy is $(cat "$STRATEGY_PATH")."; exit 0
         fi
         buildah --version
+        # Short image names (FROM maven:3.9, node:22) resolve to Docker Hub, as with BuildKit and Kaniko. The stock
+        # image lists several search registries in enforcing mode, which needs a TTY prompt and fails in CI.
+        mkdir -p "$HOME/.config/containers"
+        cat > "$HOME/.config/containers/registries.conf" <<'CONF'
+        unqualified-search-registries = ["docker.io"]
+        short-name-mode = "permissive"
+        CONF
         # Same daily build arg as BuildKit, so Dockerfiles that declare it behave identically.
         # --format docker: like BuildKit's image output (Docker media types); OCI format would drop HEALTHCHECK/SHELL.
         PATCH_DATE=$(date -u +%Y-%m-%d)

@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
@@ -82,18 +83,28 @@ public class PromotionService {
     }
 
     public Promotion promote(Project p, String from, String to, String actor) {
-        return promote(p, from, to, actor, false, null);
+        return promote(p, from, to, actor, false, null, null);
+    }
+
+    public Promotion promote(Project p, String from, String to, String actor, boolean copySettings, String confirm) {
+        return promote(p, from, to, actor, copySettings, confirm, null);
     }
 
     /**
      * @param copySettings copy the source's runtime settings into the target values with the tag ({@link PromotionCheck#merge})
      * @param confirm      the project name, typed by the user to promote despite remaining check findings
+     * @param envOverrides values for env vars Copy settings adds (edited in the dialog); plain values only
      */
-    public Promotion promote(Project p, String from, String to, String actor, boolean copySettings, String confirm) {
+    public Promotion promote(Project p, String from, String to, String actor, boolean copySettings, String confirm,
+                             Map<String, String> envOverrides) {
         requireValid(from, to);
+        Map<String, String> overrides = envOverrides == null ? Map.of() : envOverrides;
+        if (!overrides.isEmpty() && !copySettings) throw new IllegalArgumentException("env values can only be set with Copy settings");
         String tag = gitops.readTag(p, from);
         if (tag == null || "0.0.0".equals(tag)) throw new IllegalArgumentException(from + " has no deployed image yet");
         CheckResult c = check(p, from, to);
+        // refuse bad overrides now rather than at apply/approval time
+        if (!overrides.isEmpty()) PromotionCheck.merge(gitops.readRaw(p, from).yaml(), gitops.readRaw(p, to).yaml(), overrides);
         int blocking = blocking(c, copySettings);
         if (blocking > 0) {
             if (confirm == null || !confirm.trim().equals(p.name))
@@ -102,7 +113,7 @@ public class PromotionService {
                         + ". Fix them, or type the project name to promote anyway.");
             audit.record(actor, "promotion.force", p.name + "/" + to, blocking + " check finding(s): " + summary(c, copySettings));
         }
-        return request(p, from, to, tag, "PROMOTE", actor, copySettings);
+        return request(p, from, to, tag, "PROMOTE", actor, copySettings, overrides);
     }
 
     private static String summary(CheckResult c, boolean copySettings) {
@@ -119,10 +130,11 @@ public class PromotionService {
     public Promotion rollback(Project p, String env, Deployment target, String actor) {
         if (!GitOpsService.ENVS.contains(env)) throw new IllegalArgumentException("unknown env");
         if (target.imageTag == null) throw new IllegalArgumentException("image tag unknown for that deployment");
-        return request(p, null, env, target.imageTag, "ROLLBACK", actor, false);
+        return request(p, null, env, target.imageTag, "ROLLBACK", actor, false, Map.of());
     }
 
-    private Promotion request(Project p, String from, String to, String tag, String kind, String actor, boolean copySettings) {
+    private Promotion request(Project p, String from, String to, String tag, String kind, String actor, boolean copySettings,
+                              Map<String, String> envOverrides) {
         if (tag.startsWith("sha256:") && !ArtifactTrustPolicy.canDeploy(ArtifactTrustPolicy.Tier.NORMAL, to, true))
             throw new IllegalArgumentException("Digest releases require verified artifact evidence for staging and golden evidence for production; evidence verification is not configured yet");
         Promotion pr = new Promotion();
@@ -134,6 +146,7 @@ public class PromotionService {
         pr.requestedBy = actor;
         pr.status = Promotion.PENDING;
         pr.copySettings = copySettings ? Boolean.TRUE : null;
+        pr.envOverrides = envOverrides.isEmpty() ? null : writeOverrides(envOverrides);
         pr = promotions.save(pr);
         audit.record(actor, kind.toLowerCase() + ".request", p.name + "/" + to, tag);
         return "prod".equals(to) ? pr : apply(p, pr, actor);
@@ -192,7 +205,8 @@ public class PromotionService {
             boolean copy = Boolean.TRUE.equals(pr.copySettings) && pr.fromEnv != null;
             if (copy) {
                 String source = gitops.readRaw(p, pr.fromEnv).yaml();
-                gitops.setTagWithSettings(p, pr.toEnv, pr.imageTag, target -> PromotionCheck.merge(source, target),
+                Map<String, String> overrides = readOverrides(pr.envOverrides);
+                gitops.setTagWithSettings(p, pr.toEnv, pr.imageTag, target -> PromotionCheck.merge(source, target, overrides),
                         message + " with settings from " + pr.fromEnv + " (by " + actor + ")");
             } else {
                 gitops.setTag(p, pr.toEnv, pr.imageTag, message + " (by " + actor + ")");
@@ -215,6 +229,17 @@ public class PromotionService {
             audit.record(actor, pr.kind.toLowerCase() + ".failed", p.name + "/" + pr.toEnv, e.getMessage());
         }
         return promotions.save(pr);
+    }
+
+    private static final tools.jackson.databind.ObjectMapper JSON = tools.jackson.databind.json.JsonMapper.builder().build();
+
+    static String writeOverrides(Map<String, String> overrides) {
+        return JSON.writeValueAsString(new java.util.TreeMap<>(overrides));
+    }
+
+    static Map<String, String> readOverrides(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        return JSON.readValue(json, new tools.jackson.core.type.TypeReference<Map<String, String>>() {});
     }
 
     private void refreshQuietly(String app) {

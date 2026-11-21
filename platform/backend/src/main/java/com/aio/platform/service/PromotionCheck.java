@@ -40,7 +40,18 @@ public final class PromotionCheck {
     static final Map<String, Object> DEFAULT_POD_SECURITY = Map.of("runAsNonRoot", true, "fsGroup", 10001);
 
     /** One gap. kind: env | envFrom | volume | volumeMount (copyable) or secret | configMap (must exist in the namespace). */
-    public record Finding(String kind, String name, String detail, boolean copyable, List<String> commands) {}
+    /**
+     * One gap. kind: env | envFrom | volume | volumeMount (copyable) or secret | configMap (must exist in the namespace).
+     * For env: {@code value} is the source's plain value (already in git; null when it comes from {@code valueFrom}),
+     * {@code valueFrom} describes the reference instead (never a Secret's content), {@code envSpecific} flags a value
+     * that likely names the source env (a host/URL, or dev/staging/prod) and should be checked for the target.
+     */
+    public record Finding(String kind, String name, String detail, boolean copyable, List<String> commands,
+                          String value, String valueFrom, boolean envSpecific) {
+        Finding(String kind, String name, String detail, boolean copyable, List<String> commands) {
+            this(kind, name, detail, copyable, commands, null, null, false);
+        }
+    }
 
     /** A setting whose effective value differs between the two envs (fixed by Copy settings). */
     public record Difference(String key, String from, String to) {}
@@ -62,7 +73,13 @@ public final class PromotionCheck {
         for (Map<String, Object> e : maps(src.get("env"))) {
             String name = String.valueOf(e.get("name"));
             if (!targetEnv.contains(name))
-                missing.add(new Finding("env", name, "set in " + from + ", missing in " + to, true, List.of()));
+            {
+                Object value = e.get("value");
+                String plain = e.containsKey("valueFrom") || value == null ? null : String.valueOf(value);
+                String ref = e.containsKey("valueFrom") ? describeValueFrom(e.get("valueFrom")) : null;
+                missing.add(new Finding("env", name, "set in " + from + ", missing in " + to, true, List.of(),
+                        plain, ref, plain != null && envSpecific(plain, from)));
+            }
         }
         Set<String> targetEnvFrom = new LinkedHashSet<>();
         for (Map<String, Object> e : maps(dst.get("envFrom"))) targetEnvFrom.add(envFromLabel(e));
@@ -162,6 +179,25 @@ public final class PromotionCheck {
         return List.of(create, copy);
     }
 
+    private static final Pattern ENV_WORD = Pattern.compile("(?i)(^|[^a-z0-9])(dev|develop|development|staging|stage|prod|production)([^a-z0-9]|$)");
+    private static final Pattern URL_OR_HOST = Pattern.compile("(?i)(://|(^|[^a-z0-9.-])[a-z0-9-]+(\\.[a-z0-9-]+)*\\.[a-z]{2,}(:\\d+)?(/|$|[^a-z0-9.-]))");
+
+    /** A value that probably differs per env: names the source env, an env word, or contains a URL / host name. */
+    static boolean envSpecific(String value, String sourceEnv) {
+        if (value == null || value.isBlank()) return false;
+        if (sourceEnv != null && Pattern.compile("(?i)(^|[^a-z0-9])" + Pattern.quote(sourceEnv) + "([^a-z0-9]|$)").matcher(value).find()) return true;
+        return ENV_WORD.matcher(value).find() || URL_OR_HOST.matcher(value).find();
+    }
+
+    /** "secretKeyRef db-creds/url" - names only, never values. */
+    static String describeValueFrom(Object valueFrom) {
+        if (J.get(valueFrom, "secretKeyRef") instanceof Map<?, ?> r) return "secretKeyRef " + r.get("name") + "/" + r.get("key");
+        if (J.get(valueFrom, "configMapKeyRef") instanceof Map<?, ?> r) return "configMapKeyRef " + r.get("name") + "/" + r.get("key");
+        if (J.get(valueFrom, "fieldRef") instanceof Map<?, ?> r) return "fieldRef " + r.get("fieldPath");
+        if (J.get(valueFrom, "resourceFieldRef") instanceof Map<?, ?> r) return "resourceFieldRef " + r.get("resource");
+        return "valueFrom";
+    }
+
     // ------------------------------------------------------------------ copy settings
 
     /**
@@ -170,6 +206,15 @@ public final class PromotionCheck {
      * gain the source entries they lack. Nothing in {@link #NEVER_COPIED} is touched.
      */
     public static String merge(String sourceYaml, String targetYaml) {
+        return merge(sourceYaml, targetYaml, Map.of());
+    }
+
+    /**
+     * As {@link #merge(String, String)}, with {@code envOverrides} replacing the source value of env vars being added
+     * (edited in the promote dialog). Only names that are added with a plain value may be overridden.
+     */
+    public static String merge(String sourceYaml, String targetYaml, Map<String, String> envOverrides) {
+        Map<String, String> overrides = envOverrides == null ? Map.of() : envOverrides;
         Map<String, Object> src = load(sourceYaml);
         Map<String, Object> dst = load(targetYaml);
         String out = targetYaml;
@@ -178,11 +223,40 @@ public final class PromotionCheck {
             String block = rawBlock(sourceYaml, key);
             if (block != null && !Objects.equals(src.get(key), dst.get(key))) out = RuntimeConfig.setBlock(out, key, block);
         }
-        out = mergeList(out, sourceYaml, "env", maps(src.get("env")), maps(dst.get("env")), e -> String.valueOf(e.get("name")), true);
+        out = mergeList(out, overrides.isEmpty() ? sourceYaml : null, "env", withOverrides(maps(src.get("env")), maps(dst.get("env")), overrides),
+                maps(dst.get("env")), e -> String.valueOf(e.get("name")), true);
         out = mergeList(out, sourceYaml, "envFrom", maps(src.get("envFrom")), maps(dst.get("envFrom")), PromotionCheck::envFromLabel, false);
         out = mergeList(out, sourceYaml, "extraVolumes", maps(src.get("extraVolumes")), maps(dst.get("extraVolumes")), v -> String.valueOf(v.get("name")), false);
         out = mergeList(out, sourceYaml, "extraVolumeMounts", maps(src.get("extraVolumeMounts")), maps(dst.get("extraVolumeMounts")), m -> String.valueOf(m.get("mountPath")), false);
         load(out); // must still parse
+        return out;
+    }
+
+    /** Source env entries with the overridden values; refuses names that aren't added as plain values. */
+    static List<Map<String, Object>> withOverrides(List<Map<String, Object>> src, List<Map<String, Object>> dst,
+                                                   Map<String, String> overrides) {
+        if (overrides.isEmpty()) return src;
+        Set<String> inTarget = new LinkedHashSet<>();
+        dst.forEach(d -> inTarget.add(String.valueOf(d.get("name"))));
+        Set<String> plainAdded = new LinkedHashSet<>();
+        for (Map<String, Object> e : src) {
+            String name = String.valueOf(e.get("name"));
+            if (!inTarget.contains(name) && !e.containsKey("valueFrom")) plainAdded.add(name);
+        }
+        for (var o : overrides.entrySet()) {
+            if (!plainAdded.contains(o.getKey()))
+                throw new IllegalArgumentException("env var " + o.getKey() + " is not added by Copy settings with a plain value, so its value can't be set here");
+            if (o.getValue() == null || o.getValue().length() > RuntimeConfig.MAX_VALUE)
+                throw new IllegalArgumentException(o.getKey() + " must be a value of at most " + RuntimeConfig.MAX_VALUE + " characters");
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> e : src) {
+            String name = String.valueOf(e.get("name"));
+            if (!overrides.containsKey(name)) { out.add(e); continue; }
+            Map<String, Object> copy = new LinkedHashMap<>(e);
+            copy.put("value", overrides.get(name));
+            out.add(copy);
+        }
         return out;
     }
 
@@ -192,7 +266,7 @@ public final class PromotionCheck {
         for (Map<String, Object> d : dst) have.add(id.apply(d));
         List<Map<String, Object>> add = src.stream().filter(s -> !have.contains(id.apply(s))).toList();
         if (add.isEmpty()) return yaml;
-        if (!hasKey(yaml, key)) {
+        if (sourceYaml != null && !hasKey(yaml, key)) {
             // target has no such block: take the source's as written (keeps its comments and layout)
             String block = rawBlock(sourceYaml, key);
             if (block != null) return RuntimeConfig.setBlock(yaml, key, block);

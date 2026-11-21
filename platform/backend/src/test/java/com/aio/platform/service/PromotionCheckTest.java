@@ -184,6 +184,64 @@ class PromotionCheckTest {
     }
 
     @Test
+    void envFindingsCarryTheSourceValueAndFlagEnvSpecificOnes() {
+        var env = PromotionCheck.compare(DEV, STAGING, "dev", "staging").missing().stream()
+                .filter(f -> f.kind().equals("env")).collect(java.util.stream.Collectors.toMap(PromotionCheck.Finding::name, f -> f));
+        assertEquals("https://profile.sarvaikam.com", env.get("KC_HOSTNAME").value());
+        assertTrue(env.get("KC_HOSTNAME").envSpecific(), "a URL is likely different in staging");
+        assertEquals("profile_manager", env.get("KC_DB_SCHEMA").value());
+        assertFalse(env.get("KC_DB_SCHEMA").envSpecific());
+        assertFalse(env.get("KC_CACHE").envSpecific());
+        assertFalse(env.get("JAVA_OPTS_APPEND").envSpecific());
+        assertNull(env.get("KC_CACHE").valueFrom());
+
+        assertTrue(PromotionCheck.envSpecific("jdbc:postgresql://db/app_dev", "dev"));
+        assertTrue(PromotionCheck.envSpecific("my-app-dev", "dev"));
+        assertTrue(PromotionCheck.envSpecific("staging", "dev"));
+        assertTrue(PromotionCheck.envSpecific("api.example.com", "dev"));
+        assertFalse(PromotionCheck.envSpecific("device", "dev"));
+        assertFalse(PromotionCheck.envSpecific("5", "dev"));
+
+        String source = """
+                env:
+                  - name: DB_URL
+                    valueFrom: {secretKeyRef: {name: db, key: url}}
+                """;
+        var ref = PromotionCheck.compare(source, "env: []\n", "dev", "staging").missing().get(0);
+        assertNull(ref.value(), "values behind a reference are never shown");
+        assertEquals("secretKeyRef db/url", ref.valueFrom());
+    }
+
+    @Test
+    void envOverridesReplaceSourceValuesOfAddedVarsOnly() {
+        String merged = PromotionCheck.merge(DEV, STAGING, Map.of("KC_HOSTNAME", "https://profile-staging.example.com"));
+        var env = PromotionCheck.maps(PromotionCheck.load(merged).get("env"));
+        Map<Object, Object> byName = new java.util.HashMap<>();
+        env.forEach(e -> byName.put(e.get("name"), e.get("value")));
+        assertEquals("https://profile-staging.example.com", byName.get("KC_HOSTNAME"));
+        assertEquals("profile_manager", byName.get("KC_DB_SCHEMA"), "not overridden: dev's value");
+        assertEquals("postgres", byName.get("KC_DB"), "target value untouched");
+        assertFalse(merged.contains("profile.sarvaikam.com"));
+
+        // the target has no env block at all: overrides still apply
+        String noEnv = STAGING.replaceAll("(?s)env:\n(  .*?\n)+(?=resources:)", "");
+        assertFalse(noEnv.contains("env:"));
+        String merged2 = PromotionCheck.merge(DEV, noEnv, Map.of("KC_HOSTNAME", "x"));
+        assertTrue(merged2.contains("value: \"x\""));
+        assertEquals(10, PromotionCheck.maps(PromotionCheck.load(merged2).get("env")).size());
+
+        // a var the target already has, one not in the source, or one behind a reference can't be set this way
+        assertThrows(IllegalArgumentException.class, () -> PromotionCheck.merge(DEV, STAGING, Map.of("KC_DB", "mysql")));
+        assertThrows(IllegalArgumentException.class, () -> PromotionCheck.merge(DEV, STAGING, Map.of("NOPE", "1")));
+        String refSource = """
+                env:
+                  - name: DB_URL
+                    valueFrom: {secretKeyRef: {name: db, key: url}}
+                """;
+        assertThrows(IllegalArgumentException.class, () -> PromotionCheck.merge(refSource, "env: []\n", Map.of("DB_URL", "leak")));
+    }
+
+    @Test
     void neverCopiedKeysStayPutEvenWhenSourceHasThem() {
         String source = """
                 image:

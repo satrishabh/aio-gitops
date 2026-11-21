@@ -55,6 +55,7 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
   const [check, setCheck] = useState(null)
   const [error, setError] = useState('')
   const [typed, setTyped] = useState('')
+  const [values, setValues] = useState({})   // edited values of env vars Copy settings adds (plain values only)
   const [busy, setBusy] = useState(null)
   const ref = useRef(null)
   const busyRef = useRef(busy)
@@ -62,7 +63,10 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
 
   useEffect(() => {
     api(`/api/projects/${project.id}/promotions/check?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
-      .then(setCheck).catch(e => setError(e.message))
+      .then(c => {
+        setCheck(c)
+        setValues(Object.fromEntries(c.missing.filter(f => f.kind === 'env' && f.value != null).map(f => [f.name, f.value])))
+      }).catch(e => setError(e.message))
   }, [project.id, from, to])
 
   // Modal behaviour: focus inside, Tab trapped, Esc closes, focus returns to the Promote button
@@ -89,6 +93,10 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
   const missing = check?.missing || []
   const differs = check?.differs || []
   const copyable = missing.filter(f => f.copyable)
+  const envAdds = copyable.filter(f => f.kind === 'env')
+  const otherAdds = copyable.filter(f => f.kind !== 'env')
+  // only values the user changed are sent; the rest are copied from the source as they are in git
+  const overrides = Object.fromEntries(envAdds.filter(f => f.value != null && values[f.name] !== f.value).map(f => [f.name, values[f.name] ?? '']))
   const objects = missing.filter(f => !f.copyable)
   const clean = check && missing.length === 0 && differs.length === 0
   const canCopy = copyable.length > 0 || differs.length > 0
@@ -101,7 +109,8 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
     try {
       await api(`/api/projects/${project.id}/promote`, {
         method: 'POST',
-        body: { from, to, copySettings: mode === 'copy', confirm: confirmed ? project.name : undefined },
+        body: { from, to, copySettings: mode === 'copy', confirm: confirmed ? project.name : undefined,
+                envOverrides: mode === 'copy' && Object.keys(overrides).length ? overrides : undefined },
       })
       toast('ok', gated ? `Prod promotion requested${mode === 'copy' ? ' with copied settings' : ''} — approve it on the Approvals page`
         : `Promoting to ${to}${mode === 'copy' ? ' with settings from ' + from : ''} — watching until it is healthy`)
@@ -138,11 +147,30 @@ export function PromoteDialog({ project, from, to, onClose, onDone }) {
             <p className="pm-warn"><Icon name="alert" size={15} />
               {to} lacks {missing.length + differs.length} setting{missing.length + differs.length === 1 ? '' : 's'} that {from} runs with. Promoting only the image may leave {to} broken.</p>
 
-            {copyable.length > 0 && <section aria-labelledby="pm-copyable-h">
-              <h4 id="pm-copyable-h">Missing in {to} (Copy settings adds them)</h4>
+            {envAdds.length > 0 && <section aria-labelledby="pm-env-h">
+              <h4 id="pm-env-h">Env vars missing in {to} (Copy settings adds them)</h4>
+              <p className="muted fl-small">Values come from <code>values-{from}.yaml</code>; edit any that should differ in {to}.</p>
+              <ul className="pm-list pm-env">
+                {envAdds.map(f => {
+                  const id = `pm-env-${f.name}`
+                  return <li key={f.name} className={f.envSpecific ? 'pm-env-flag' : undefined}>
+                    <label htmlFor={id}><code>{f.name}</code></label>
+                    {f.value != null
+                      ? <input id={id} value={values[f.name] ?? ''} onChange={e => setValues({ ...values, [f.name]: e.target.value })}
+                               autoComplete="off" spellCheck={false} disabled={!!busy}
+                               aria-describedby={f.envSpecific ? `${id}-hint` : undefined} />
+                      : <span className="pm-ref" id={id}>from <code>{f.valueFrom}</code></span>}
+                    {f.envSpecific && <span id={`${id}-hint`} className="pm-hint"><Icon name="alert" size={12} /> check this for {to}</span>}
+                  </li>
+                })}
+              </ul>
+            </section>}
+
+            {otherAdds.length > 0 && <section aria-labelledby="pm-copyable-h">
+              <h4 id="pm-copyable-h">Also missing in {to} (Copy settings adds them)</h4>
               <ul className="pm-list">
-                {copyable.map(f => <li key={f.kind + f.name}><span className="pm-kind">{KIND[f.kind] || f.kind}</span> <code>{f.name}</code>
-                  {f.kind !== 'env' && <span className="muted fl-small"> {f.detail}</span>}</li>)}
+                {otherAdds.map(f => <li key={f.kind + f.name}><span className="pm-kind">{KIND[f.kind] || f.kind}</span> <code>{f.name}</code>
+                  <span className="muted fl-small"> {f.detail}</span></li>)}
               </ul>
             </section>}
 

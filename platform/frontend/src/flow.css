@@ -455,3 +455,9 @@
 [data-theme="bright"] .pm-ok, [data-theme="bright"] .pm-warn { border: 2px solid #0A0A0A; border-radius: 0; color: #0A0A0A; }
 [data-theme="bright"] .pm-logs pre, [data-theme="bright"] .pm-cmd code { border-radius: 0; }
 [data-theme="dark"] .pm-logs pre { background: var(--bg); border: 1px solid var(--line); }
+.pm-env li { display: grid; grid-template-columns: minmax(8em, 38%) 1fr; gap: 4px 10px; align-items: center; }
+.pm-env input { width: 100%; min-width: 0; font-family: var(--font-mono, var(--mono)); font-size: 0.82rem; }
+.pm-env .pm-hint { grid-column: 2; display: inline-flex; gap: 4px; align-items: center; color: var(--amber); font-size: 0.78rem; font-weight: 600; }
+.pm-env-flag input { border-color: var(--warn-fill); box-shadow: 0 0 0 1px var(--warn-fill); }
+.pm-ref { font-size: 0.82rem; color: var(--text-2); }
+@media (max-width: 760px) { .pm-env li { grid-template-columns: 1fr; } .pm-env .pm-hint { grid-column: 1; } }

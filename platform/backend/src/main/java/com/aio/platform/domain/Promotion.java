@@ -31,4 +31,7 @@ public class Promotion {
     public String detail;
     /** Copy the source env's runtime settings into the target values with the tag (applied on approval for prod). */
     public Boolean copySettings;
+    /** JSON {name: value}: values edited in the promote dialog for env vars Copy settings adds (plain values only). */
+    @Column(columnDefinition = "text")
+    public String envOverrides;
 }

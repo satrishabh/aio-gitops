@@ -100,6 +100,30 @@ class PromotionServiceTest {
         verify(audit, never()).record(any(), eq("promotion.force"), any(), any());
     }
 
+    @SuppressWarnings("unchecked")
+    @Test
+    void editedEnvValuesAreStoredAndCommittedWithTheTag() {
+        when(objects.exists(any(), any(), any())).thenReturn(true);
+        Promotion pr = service.promote(p, "dev", "staging", "alice", true, null,
+                java.util.Map.of("KC_HOSTNAME", "https://profile-staging.example.com"));
+        assertEquals("{\"KC_HOSTNAME\":\"https://profile-staging.example.com\"}", pr.envOverrides);
+        ArgumentCaptor<UnaryOperator<String>> settings = ArgumentCaptor.forClass(UnaryOperator.class);
+        verify(gitops).setTagWithSettings(eq(p), eq("staging"), eq("d5cd7e4d7180"), settings.capture(), anyString());
+        String written = settings.getValue().apply(PromotionCheckTest.STAGING);
+        assertTrue(written.contains("value: \"https://profile-staging.example.com\""));
+        assertFalse(written.contains("profile.sarvaikam.com"));
+    }
+
+    @Test
+    void envOverridesNeedCopySettingsAndValidNames() {
+        when(objects.exists(any(), any(), any())).thenReturn(true);
+        assertThrows(IllegalArgumentException.class, () -> service.promote(p, "dev", "staging", "alice", false,
+                "user-profile-manager", java.util.Map.of("KC_HOSTNAME", "x")));
+        assertThrows(IllegalArgumentException.class, () -> service.promote(p, "dev", "staging", "alice", true, null,
+                java.util.Map.of("KC_DB", "x")));
+        verify(promotions, never()).save(any());
+    }
+
     @Test
     void cleanCheckPromotesWithoutConfirmation() {
         when(gitops.readRaw(p, "staging")).thenReturn(new GitOpsService.RawValues("staging", PromotionCheckTest.DEV, "s2"));

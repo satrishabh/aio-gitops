@@ -172,6 +172,39 @@ public class EnvironmentService {
         return new Result(e, steps);
     }
 
+    /** Actor recorded for the automatic re-apply. */
+    static final String AUTO_ACTOR = "aio-platform";
+
+    /** Automatic re-apply of cluster settings; on by default, independent of app.runtime.workers-enabled. */
+    @org.springframework.beans.factory.annotation.Value("${app.environments.auto-cluster-settings:true}")
+    boolean autoClusterSettings = true;
+
+    /**
+     * Keeps every app's cluster-owned ingress settings (class, controller, the generated {@code <app>-<env>.<domain>}
+     * host) in line with its environment's cluster, so nobody has to press "Re-apply cluster settings" after a
+     * cluster changes or an app was created under an old cluster. Runs shortly after startup and then every 30
+     * minutes; it commits only files that differ, never touches custom hosts or {@code routes:}, and an env whose
+     * cluster is unreachable only logs. Prod is changed in git like the others but, as always, waits for an
+     * approver's sync.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(
+            fixedDelayString = "${app.environments.auto-cluster-settings-ms:1800000}",
+            initialDelayString = "${app.environments.auto-cluster-settings-initial-ms:120000}")
+    public void autoReapplyClusterSettings() {
+        if (!autoClusterSettings) return;
+        for (String env : environments.names()) {
+            try {
+                Map<String, Object> r = reapplyClusterSettings(env, false, AUTO_ACTOR);
+                long changed = (long) r.get("changed");
+                if (changed > 0) log.info("cluster settings re-applied to {} values file(s) in {}", changed, env);
+                if (r.get("errors") instanceof List<?> errs && !errs.isEmpty())
+                    log.warn("cluster settings for {} not re-applied for: {}", env, errs);
+            } catch (RuntimeException e) {
+                log.warn("automatic re-apply of cluster settings for {} failed: {}", env, ClusterAccess.short_(e));
+            }
+        }
+    }
+
     /** Re-applies the cluster's ingress settings to every project's values of one env (dry run: diff only). */
     public Map<String, Object> reapplyClusterSettings(String env, boolean dryRun, String actor) {
         environments.get(env);
@@ -186,7 +219,9 @@ public class EnvironmentService {
             }
         }
         long changed = changes.stream().filter(GitOpsService.ClusterSettingsChange::changed).count();
-        if (!dryRun) audit.record(actor, "environment.reapply", env, changed + " values file(s) updated");
+        // the automatic run audits only when it actually changed something, so the log isn't flooded every 30 minutes
+        if (!dryRun && (changed > 0 || !AUTO_ACTOR.equals(actor)))
+            audit.record(actor, "environment.reapply", env, changed + " values file(s) updated");
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("environment", env);
         out.put("cluster", clusters.clusterFor(env).name());

@@ -1,7 +1,8 @@
 package com.aio.platform.service;
 
 import com.aio.platform.config.AppProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 /** Separates managed workload image reads from source/GitOps authorization. */
 @Component
 public class WorkloadPullCredentials {
+    private static final ObjectMapper JSON = JsonMapper.builderWithJackson2Defaults().build();
     private final KubernetesClient k8s;
     private final AppProperties props;
     private final String sourceSecret;
@@ -48,22 +50,20 @@ public class WorkloadPullCredentials {
             throw new IllegalStateException(invalid);
         String encoded = secret.getData().get(".dockerconfigjson");
         try {
-            var auths = new ObjectMapper().readTree(Base64.getDecoder().decode(encoded)).path("auths");
-            var selected = new ObjectMapper().createObjectNode();
-            var fields = auths.fields();
-            while (fields.hasNext()) {
-                var entry = fields.next();
+            var auths = JSON.readTree(Base64.getDecoder().decode(encoded)).path("auths");
+            var selected = JSON.createObjectNode();
+            for (var entry : auths.properties()) {
                 String key = entry.getKey().replaceFirst("^https?://", "").replaceFirst("/.*$", "");
                 if ("index.docker.io".equals(key) || "registry-1.docker.io".equals(key)) key = "docker.io";
                 String wanted = "index.docker.io".equals(host) ? "docker.io" : host;
                 var credentials = entry.getValue();
-                boolean populated = !credentials.path("auth").asText("").isBlank()
-                        || !credentials.path("identitytoken").asText("").isBlank()
-                        || (!credentials.path("username").asText("").isBlank() && !credentials.path("password").asText("").isBlank());
+                boolean populated = !credentials.path("auth").asString("").isBlank()
+                        || !credentials.path("identitytoken").asString("").isBlank()
+                        || (!credentials.path("username").asString("").isBlank() && !credentials.path("password").asString("").isBlank());
                 if (wanted.equals(key) && populated) selected.set(entry.getKey(), credentials);
             }
             if (selected.isEmpty()) throw new IllegalArgumentException();
-            var config = new ObjectMapper().createObjectNode();
+            var config = JSON.createObjectNode();
             config.set("auths", selected);
             return Base64.getEncoder().encodeToString(config.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) {

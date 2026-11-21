@@ -1,7 +1,8 @@
 package com.aio.platform.service;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -264,8 +265,13 @@ public class ConnectorCatalog {
     static List<Connector> parse(InputStream in) {
         Object raw = new Yaml(new SafeConstructor(new LoaderOptions())).load(in);
         if (!(raw instanceof Map<?, ?>)) throw new IllegalStateException("connector catalog must be a YAML map");
-        CatalogFile f = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
-                .convertValue(raw, CatalogFile.class);
+        CatalogFile f;
+        try {
+            f = JsonMapper.builderWithJackson2Defaults().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build()
+                    .convertValue(raw, CatalogFile.class);
+        } catch (JacksonException e) { // Jackson 2's convertValue threw IllegalArgumentException; keep that contract
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
         List<Connector> list = f.connectors() == null ? List.of() : List.copyOf(f.connectors());
         Set<String> ids = new HashSet<>();
         for (Connector c : list) {

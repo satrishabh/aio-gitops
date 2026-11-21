@@ -7,8 +7,9 @@ import com.aio.platform.domain.ScanStep;
 import com.aio.platform.repo.ScanFindingRepo;
 import com.aio.platform.repo.ScanRunRepo;
 import com.aio.platform.repo.ScanStepRepo;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,7 +33,7 @@ public class ScanWatcher {
     boolean workersEnabled = true;
 
     private static final Logger log = LoggerFactory.getLogger(ScanWatcher.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builderWithJackson2Defaults().build();
     /** Pipeline tasks that are scanners (each has scan / report / gate steps). */
     static final List<String> SCANNER_TASKS = List.of("vuln", "secret", "misconfig", "license", "image");
     static final int MAX_FINDINGS = 5000, MAX_LOG_CHARS = 256 * 1024, KEEP_RUNS = 20;
@@ -173,46 +174,46 @@ public class ScanWatcher {
         }
         boolean truncated = false;
         for (JsonNode res : root.path("Results")) {
-            String target = res.path("Target").asText(null);
+            String target = res.path("Target").asString(null);
             for (JsonNode v : res.path("Vulnerabilities")) {
                 if (out.size() >= limit) { truncated = true; break; }
-                ScanFinding f = base(scanId, scanner, target, v.path("Severity").asText("UNKNOWN"));
-                f.ruleId = v.path("VulnerabilityID").asText(null);
-                f.pkg = v.path("PkgName").asText(null);
-                f.installedVersion = v.path("InstalledVersion").asText(null);
-                f.fixedVersion = v.path("FixedVersion").asText(null);
-                f.title = v.path("Title").asText(null);
-                f.url = v.path("PrimaryURL").asText(null);
+                ScanFinding f = base(scanId, scanner, target, v.path("Severity").asString("UNKNOWN"));
+                f.ruleId = v.path("VulnerabilityID").asString(null);
+                f.pkg = v.path("PkgName").asString(null);
+                f.installedVersion = v.path("InstalledVersion").asString(null);
+                f.fixedVersion = v.path("FixedVersion").asString(null);
+                f.title = v.path("Title").asString(null);
+                f.url = v.path("PrimaryURL").asString(null);
                 out.add(f);
             }
             for (JsonNode m : res.path("Misconfigurations")) {
-                if ("PASS".equals(m.path("Status").asText())) continue;
+                if ("PASS".equals(m.path("Status").asString())) continue;
                 if (out.size() >= limit) { truncated = true; break; }
-                ScanFinding f = base(scanId, scanner, target, m.path("Severity").asText("UNKNOWN"));
-                f.ruleId = m.hasNonNull("AVDID") ? m.path("AVDID").asText() : m.path("ID").asText(null);
-                String title = m.path("Title").asText(""), msg = m.path("Message").asText("");
+                ScanFinding f = base(scanId, scanner, target, m.path("Severity").asString("UNKNOWN"));
+                f.ruleId = m.hasNonNull("AVDID") ? m.path("AVDID").asString() : m.path("ID").asString(null);
+                String title = m.path("Title").asString(""), msg = m.path("Message").asString("");
                 f.title = title.isEmpty() ? msg : msg.isEmpty() ? title : title + " - " + msg;
-                f.url = m.path("PrimaryURL").asText(null);
+                f.url = m.path("PrimaryURL").asString(null);
                 f.location = lines(m.path("CauseMetadata").path("StartLine"), m.path("CauseMetadata").path("EndLine"));
                 out.add(f);
             }
             for (JsonNode sec : res.path("Secrets")) {
                 if (out.size() >= limit) { truncated = true; break; }
-                ScanFinding f = base(scanId, scanner, target, sec.path("Severity").asText("UNKNOWN"));
-                f.ruleId = sec.path("RuleID").asText(null);
-                f.pkg = sec.path("Category").asText(null);
-                f.title = sec.path("Title").asText(null);   // never "Match": that is the secret itself
+                ScanFinding f = base(scanId, scanner, target, sec.path("Severity").asString("UNKNOWN"));
+                f.ruleId = sec.path("RuleID").asString(null);
+                f.pkg = sec.path("Category").asString(null);
+                f.title = sec.path("Title").asString(null);   // never "Match": that is the secret itself
                 f.location = lines(sec.path("StartLine"), sec.path("EndLine"));
                 out.add(f);
             }
             for (JsonNode lic : res.path("Licenses")) {
                 if (out.size() >= limit) { truncated = true; break; }
-                ScanFinding f = base(scanId, scanner, lic.path("FilePath").asText(target), lic.path("Severity").asText("UNKNOWN"));
-                f.ruleId = lic.path("Name").asText(null);
-                f.pkg = lic.path("PkgName").asText(null);
-                String cat = lic.path("Category").asText("");
+                ScanFinding f = base(scanId, scanner, lic.path("FilePath").asString(target), lic.path("Severity").asString("UNKNOWN"));
+                f.ruleId = lic.path("Name").asString(null);
+                f.pkg = lic.path("PkgName").asString(null);
+                String cat = lic.path("Category").asString("");
                 f.title = cat.isEmpty() ? "license" : cat + " license";
-                f.url = lic.path("Link").asText(null);
+                f.url = lic.path("Link").asString(null);
                 out.add(f);
             }
         }

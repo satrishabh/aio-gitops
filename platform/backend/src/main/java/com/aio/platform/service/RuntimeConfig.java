@@ -1,9 +1,10 @@
 package com.aio.platform.service;
 
 import com.aio.platform.domain.Project;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -21,7 +22,7 @@ public final class RuntimeConfig {
 
     public record Env(String name, String value) {}
 
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builderWithJackson2Defaults().build();
     private static final Pattern ENV_NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]{0,127}$");
     private static final Pattern CPU = Pattern.compile("^(\\d{1,6})(\\.\\d{1,3})?(m?)$");
     private static final Pattern MEMORY = Pattern.compile("^(\\d{1,6})(Ki|Mi|Gi)$");
@@ -81,12 +82,12 @@ public final class RuntimeConfig {
     public static List<Env> readEnv(String json) {
         if (json == null || json.isBlank()) return List.of();
         try { return JSON.readValue(json, new TypeReference<List<Env>>() {}); }
-        catch (JsonProcessingException e) { return List.of(); }
+        catch (JacksonException e) { return List.of(); }
     }
 
     public static String writeEnv(List<Env> env) {
         try { return JSON.writeValueAsString(env); }
-        catch (JsonProcessingException e) { throw new IllegalStateException(e); }
+        catch (JacksonException e) { throw new IllegalStateException(e); }
     }
 
     // ------------------------------------------------------------------ YAML
@@ -94,7 +95,7 @@ public final class RuntimeConfig {
     /** JSON strings are valid YAML double-quoted scalars, so this is a safe quoting for any value. */
     private static String quote(String s) {
         try { return JSON.writeValueAsString(s); }
-        catch (JsonProcessingException e) { throw new IllegalStateException(e); }
+        catch (JacksonException e) { throw new IllegalStateException(e); }
     }
 
     static String envBlock(List<Env> env) {

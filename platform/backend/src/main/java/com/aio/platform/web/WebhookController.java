@@ -3,8 +3,8 @@ package com.aio.platform.web;
 import com.aio.platform.domain.Project;
 import com.aio.platform.repo.ProjectRepo;
 import com.aio.platform.service.RunService;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -39,16 +39,16 @@ public class WebhookController {
         if (p == null || !validSignature(p.webhookSecret, body, sig)) return ResponseEntity.status(401).body("bad signature");
 
         JsonNode e = json.readTree(body);
-        String sender = "github:" + e.path("sender").path("login").asText("unknown");
+        String sender = "github:" + e.path("sender").path("login").asString("unknown");
         if ("push".equals(event)) {
-            if (!("refs/heads/" + p.defaultBranch).equals(e.path("ref").asText())) return ResponseEntity.ok("ignored ref");
+            if (!("refs/heads/" + p.defaultBranch).equals(e.path("ref").asString())) return ResponseEntity.ok("ignored ref");
             if (e.path("deleted").asBoolean(false)) return ResponseEntity.ok("ignored delete");
-            runs.trigger(p, e.path("after").asText(), "PUSH", sender, true);
+            runs.trigger(p, e.path("after").asString(), "PUSH", sender, true);
             return ResponseEntity.accepted().body("queued");
         }
-        if ("pull_request".equals(event) && PR_ACTIONS.contains(e.path("action").asText())) {
+        if ("pull_request".equals(event) && PR_ACTIONS.contains(e.path("action").asString())) {
             // GitHub exposes PR head commits (incl. forks) on the base repo, so fetching by SHA works
-            String sha = e.path("pull_request").path("head").path("sha").asText();
+            String sha = e.path("pull_request").path("head").path("sha").asString();
             runs.trigger(p, sha, "PR", sender, false);
             return ResponseEntity.accepted().body("queued");
         }

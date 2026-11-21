@@ -3,8 +3,9 @@ package com.aio.platform.service;
 import com.aio.platform.config.AppProperties;
 import com.aio.platform.config.AppProperties.Cluster;
 import com.aio.platform.domain.Project;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -27,7 +28,7 @@ import org.springframework.web.util.UriBuilder;
 public class ArgoCdService {
     private static final Logger log = LoggerFactory.getLogger(ArgoCdService.class);
     private static final ParameterizedTypeReference<Map<String, Object>> MAP = new ParameterizedTypeReference<>() {};
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builderWithJackson2Defaults().build();
     private static final Duration DELETE_WAIT = Duration.ofMinutes(4);
 
     private final RestClient argo;
@@ -233,8 +234,8 @@ public class ArgoCdService {
             try {
                 JsonNode n = JSON.readTree(line);
                 JsonNode r = n.has("result") ? n.get("result") : n;
-                if (r.hasNonNull("content") && !r.path("last").asBoolean(false)) out.append(r.get("content").asText()).append('\n');
-                else if (n.has("error")) out.append("(").append(n.path("error").path("message").asText("log stream error")).append(")\n");
+                if (r.hasNonNull("content") && !r.path("last").asBoolean(false)) out.append(r.get("content").asString()).append('\n');
+                else if (n.has("error")) out.append("(").append(n.path("error").path("message").asString("log stream error")).append(")\n");
             } catch (Exception e) {
                 out.append(line).append('\n');   // not JSON: pass through
             }
@@ -251,12 +252,12 @@ public class ArgoCdService {
             return manifest == null || manifest.isBlank() ? null : JSON.readValue(manifest, MAP_TYPE);
         } catch (HttpClientErrorException.NotFound e) {
             return null;
-        } catch (java.io.IOException e) {
+        } catch (tools.jackson.core.JacksonException e) {
             throw new IllegalStateException("unreadable manifest for " + ref.kind() + "/" + ref.name());
         }
     }
 
-    private static final com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>> MAP_TYPE = new com.fasterxml.jackson.core.type.TypeReference<>() {};
+    private static final tools.jackson.core.type.TypeReference<Map<String, Object>> MAP_TYPE = new tools.jackson.core.type.TypeReference<>() {};
 
     /** Runs a resource action (e.g. Rollout promote-full / abort / retry) on the workload cluster. */
     public void runAction(String app, Ref ref, String action) {

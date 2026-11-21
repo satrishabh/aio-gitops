@@ -10,8 +10,9 @@ import com.aio.platform.service.AssistantService;
 import com.aio.platform.service.AssistantService.Proposal;
 import com.aio.platform.service.GitHubClient;
 import com.aio.platform.service.AuditService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +41,8 @@ public class AssistantController {
     private final RunStepRepo steps;
     private final GitHubClient github;
     private final AuditService audit;
-    private final ObjectMapper json = new ObjectMapper().findAndRegisterModules()
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper json = JsonMapper.builderWithJackson2Defaults()
+            .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS).build();
 
     public AssistantController(AssistantService assistant, ProjectController projectsApi, RunController runsApi,
                                ConnectorController connectorsApi, ProjectRepo projects, CiRunRepo runs, RunStepRepo steps,

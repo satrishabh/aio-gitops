@@ -3,8 +3,9 @@ package com.aio.platform.service;
 import com.aio.platform.config.AppProperties;
 import com.aio.platform.domain.Project;
 import com.aio.platform.repo.ProjectRepo;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -22,7 +23,7 @@ import org.springframework.web.client.HttpClientErrorException;
 @Service
 public class TemplateService {
     private static final Logger log = LoggerFactory.getLogger(TemplateService.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = JsonMapper.builderWithJackson2Defaults().build();
     static final Pattern FULL_NAME = Pattern.compile("^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9_.-]{1,100}$");
     static final String TOPIC = "aio-template";
     static final List<String> STARTERS = List.of("react-vite", "nextjs", "spring-boot", "fastapi", "go-api");
@@ -199,7 +200,7 @@ public class TemplateService {
             boolean hasBuild = false;
             try {
                 JsonNode n = JSON.readTree(packageJson);
-                for (String k : List.of("dependencies", "devDependencies")) n.path(k).fieldNames().forEachRemaining(deps::add);
+                for (String k : List.of("dependencies", "devDependencies")) deps.addAll(n.path(k).propertyNames());
                 hasBuild = n.path("scripts").has("build");
             } catch (Exception e) {
                 return new Stack("Node.js (unreadable package.json)", null, null, null);

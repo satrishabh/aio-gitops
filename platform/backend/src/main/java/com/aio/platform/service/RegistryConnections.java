@@ -2,7 +2,7 @@ package com.aio.platform.service;
 
 import com.aio.platform.config.AppProperties;
 import com.aio.platform.domain.Project;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -57,7 +57,7 @@ public class RegistryConnections {
                     .withType("Opaque").addToData("config.json", b64(docker)).build();
             k8s.secrets().inNamespace(props.tekton().namespace()).resource(secret).serverSideApply();
             return new Connection(name, registration.host(), registration.repository(), registration.access(), "REGISTERED");
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new IllegalStateException("Cannot encode registry connection"); }
+        } catch (tools.jackson.core.JacksonException e) { throw new IllegalStateException("Cannot encode registry connection"); }
     }
     public Secret require(Project project, String connection, String host, String repository, String access) {
         if (!allowedHosts.contains(host)) throw new IllegalArgumentException("Registry host is no longer approved by the platform operator");

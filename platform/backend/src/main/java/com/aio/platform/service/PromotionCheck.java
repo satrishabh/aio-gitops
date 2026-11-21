@@ -214,6 +214,9 @@ public final class PromotionCheck {
      * (edited in the promote dialog). Only names that are added with a plain value may be overridden.
      */
     public static String merge(String sourceYaml, String targetYaml, Map<String, String> envOverrides) {
+        // values files edited on Windows can come back from git with CRLF; the block edits below work on LF lines
+        sourceYaml = sourceYaml == null ? "" : sourceYaml.replace("\r\n", "\n");
+        targetYaml = targetYaml == null ? "" : targetYaml.replace("\r\n", "\n");
         Map<String, String> overrides = envOverrides == null ? Map.of() : envOverrides;
         Map<String, Object> src = load(sourceYaml);
         Map<String, Object> dst = load(targetYaml);

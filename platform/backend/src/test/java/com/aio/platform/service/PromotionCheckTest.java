@@ -17,7 +17,8 @@ class PromotionCheckTest {
 
     static String fixture(String name) {
         try (InputStream in = PromotionCheckTest.class.getResourceAsStream("/promotion/" + name)) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            // fixtures check out with CRLF on Windows (core.autocrlf); the text-block edits below are LF
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8).replace("\r\n", "\n");
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
@@ -130,6 +131,14 @@ class PromotionCheckTest {
         assertTrue(after.differs().isEmpty(), after.differs().toString());
         assertDoesNotThrow(() -> GitOpsService.validateValues(GitOpsService.replaceTag(merged, "d5cd7e4d7180"),
                 "ghcr.io/satrishabh/user-profile-manager", "staging"));
+    }
+
+    @Test
+    void mergeHandlesCrlfValuesFiles() {
+        String merged = PromotionCheck.merge(DEV.replace("\n", "\r\n"), STAGING.replace("\n", "\r\n"));
+        var env = PromotionCheck.maps(PromotionCheck.load(merged).get("env"));
+        assertTrue(env.stream().anyMatch(e -> "KC_DB_SCHEMA".equals(e.get("name"))), merged);
+        assertFalse(merged.contains("\r"), "merged file is written with LF");
     }
 
     @Test

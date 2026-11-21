@@ -300,6 +300,35 @@ public class ArgoCdService {
         argo.post().uri("/api/v1/applications?upsert=true").body(app).retrieve().toBodilessEntity();
     }
 
+    /** A project app as the platform labels it: Application name, the project it belongs to, its env. */
+    public record ProjectApp(String name, String project, String env) {}
+
+    /**
+     * Every Application the platform created for a project ({@code aio.platform/project} label) in the apps
+     * AppProject. Connector apps live in another AppProject and are never returned.
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.List<ProjectApp> projectApps() {
+        Map<String, Object> list = argo.get()
+                .uri(b -> b.path("/api/v1/applications").queryParam("selector", "aio.platform/project")
+                        .queryParam("projects", props.argocd().project()).build())
+                .retrieve().body(MAP);
+        java.util.List<ProjectApp> out = new java.util.ArrayList<>();
+        Object items = list == null ? null : list.get("items");
+        if (!(items instanceof java.util.List<?> l)) return out;
+        for (Object o : l) {
+            if (!(o instanceof Map<?, ?> app)) continue;
+            Map<String, Object> meta = (Map<String, Object>) app.get("metadata");
+            Map<String, Object> spec = (Map<String, Object>) app.get("spec");
+            if (meta == null || spec == null || !props.argocd().project().equals(spec.get("project"))) continue;
+            Map<String, Object> labels = meta.get("labels") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+            Object project = labels.get("aio.platform/project");
+            if (project == null) continue;
+            out.add(new ProjectApp(String.valueOf(meta.get("name")), String.valueOf(project), String.valueOf(labels.getOrDefault("env", ""))));
+        }
+        return out;
+    }
+
     /** Deletes the Application and (cascade) everything it deployed. Missing apps are ignored. */
     public void deleteApp(String name) {
         try {

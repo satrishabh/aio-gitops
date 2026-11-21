@@ -161,7 +161,8 @@ public class ProjectService {
         java.util.List<String> warnings = new java.util.ArrayList<>();
         for (String env : environments.names()) {
             try { argo.deleteApp(ArgoCdService.appName(p, env)); }
-            catch (Exception e) { warnings.add("argo app " + env + ": " + e.getMessage()); }
+            // e.g. Argo CD asleep: OrphanAppSweeper removes the app on a later pass once the project is gone
+            catch (Exception e) { warnings.add("argo app " + env + ": " + e.getMessage() + " (removed automatically later)"); }
         }
         // dev/staging/prod are shared: the Argo cascade above removes only this project's release.
         for (String env : environments.names()) {

@@ -121,6 +121,34 @@ export function BarChart({ data, series, height = 220, label = 'Bar chart' }) {
   )
 }
 
+/**
+ * Small trend line for one value per day. null means "no reading that day" and leaves a gap
+ * (a missing lead time is not a zero lead time); isolated readings are drawn as dots.
+ */
+export function Sparkline({ values, color = 'var(--accent)', label, height = 36 }) {
+  const W = 120, H = height, pad = 3
+  const nums = values.filter(v => v != null)
+  if (nums.length === 0) return <div className="spark-empty">No readings in this period</div>
+  const max = Math.max(...nums), min = Math.min(0, ...nums)
+  const span = max - min || 1
+  const x = i => (values.length === 1 ? W / 2 : (i / (values.length - 1)) * W)
+  const y = v => H - pad - ((v - min) / span) * (H - pad * 2)
+  const runs = []
+  let current = []
+  values.forEach((v, i) => {
+    if (v == null) { if (current.length) runs.push(current); current = [] } else current.push([x(i), y(v)])
+  })
+  if (current.length) runs.push(current)
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      {runs.map((pts, k) => (pts.length === 1
+        ? <circle key={k} cx={pts[0][0]} cy={pts[0][1]} r="2.2" fill={color} vectorEffect="non-scaling-stroke" />
+        : <polyline key={k} points={pts.map(p => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth="2"
+                    strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+    </svg>
+  )
+}
+
 /** Circular progress ring for a 0..1 ratio (single accent). */
 export function Ring({ value, size = 64, color = 'var(--accent)', label }) {
   const r = (size - 8) / 2, c = 2 * Math.PI * r

@@ -75,12 +75,28 @@ public class MetricsService {
         out.put("days", d);
         out.put("overall", compute(d, allDeps, allRuns, allPromos));
         out.put("projects", perProject);
-        out.put("daily", daily(d, allRuns, allDeps));
+        out.put("daily", daily(d, allRuns, allDeps, allPromos));
         return out;
     }
 
-    /** Per-day CI outcomes and deployments for charts (UTC days, oldest first, zero-filled), with deploys split per environment. */
+    /** A measurement (hours) that happened at a point in time: one prod lead time, or one pipeline recovery. */
+    record Timed(Instant at, double hours) {}
+
     static List<Map<String, Object>> daily(int days, List<CiRun> ciRuns, List<Deployment> deps) {
+        return daily(days, ciRuns, deps, List.of());
+    }
+
+    /**
+     * Per-day CI outcomes and deployments for charts (UTC days, oldest first, zero-filled), with deploys split per
+     * environment, plus the day's DORA readings for sparklines: median lead time of that day's prod deploys,
+     * completed prod rollbacks, and mean time to restore of recoveries that finished that day (null when none).
+     */
+    static List<Map<String, Object>> daily(int days, List<CiRun> ciRuns, List<Deployment> deps, List<Promotion> promos) {
+        List<Deployment> prod = deps.stream().filter(x -> x.deployedAt != null && "prod".equals(x.environment)
+                && !GitOpsService.PLACEHOLDER_TAG.equals(x.imageTag)).toList();
+        List<Timed> leads = leadTimes(prod, ciRuns);
+        List<Timed> restores = restores(ciRuns);
+        List<Promotion> rollbacks = promos.stream().filter(MetricsService::isProdRollback).toList();
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
         List<Map<String, Object>> out = new ArrayList<>();
         for (int i = days - 1; i >= 0; i--) {
@@ -95,6 +111,12 @@ public class MetricsService {
             row.put("deploysDev", that.stream().filter(x -> "dev".equals(x.environment)).count());
             row.put("deploysStaging", that.stream().filter(x -> "staging".equals(x.environment)).count());
             row.put("deploysProd", that.stream().filter(x -> "prod".equals(x.environment)).count());
+            row.put("leadTimeHours", median(leads.stream().filter(t -> day(t.at()).equals(day)).map(Timed::hours).toList()));
+            row.put("rollbacks", rollbacks.stream().filter(p -> {
+                Instant at = p.decidedAt != null ? p.decidedAt : p.requestedAt;
+                return at != null && day(at).equals(day);
+            }).count());
+            row.put("restoreHours", mean(restores.stream().filter(t -> day(t.at()).equals(day)).map(Timed::hours).toList()));
             out.add(row);
         }
         return out;
@@ -112,34 +134,9 @@ public class MetricsService {
         int staging = (int) real.stream().filter(x -> "staging".equals(x.environment)).count();
         int commits = (int) ciRuns.stream().map(r -> r.commitSha).filter(Objects::nonNull).filter(sha -> !sha.isBlank()).distinct().count();
 
-        // lead time: match prod deploy tag -> the successful run that produced image ...:<tag>
-        List<Double> leads = new ArrayList<>();
-        for (Deployment pd : prod) {
-            if (pd.imageTag == null) continue;
-            ciRuns.stream()
-                    .filter(r -> CiRun.SUCCEEDED.equals(r.status) && r.imageUrl != null && r.imageUrl.endsWith(":" + pd.imageTag)
-                            && Objects.equals(r.projectId, pd.projectId) && r.createdAt.isBefore(pd.deployedAt))
-                    .min(Comparator.comparing(r -> r.createdAt))
-                    .ifPresent(r -> leads.add(hours(r.createdAt, pd.deployedAt)));
-        }
-
-        int rollbacks = (int) promos.stream()
-                .filter(p -> "ROLLBACK".equals(p.kind) && "prod".equals(p.toEnv) && Promotion.DONE.equals(p.status)).count();
-
-        // time to restore: per project, failing deploy-eligible run -> next succeeded deploy-eligible run
-        List<Double> restores = new ArrayList<>();
-        Map<Long, List<CiRun>> byProject = ciRuns.stream().filter(r -> r.deploy)
-                .collect(Collectors.groupingBy(r -> r.projectId));
-        for (List<CiRun> list : byProject.values()) {
-            Instant brokenSince = null;
-            for (CiRun r : list.stream().sorted(Comparator.comparing(r -> r.createdAt)).toList()) {
-                if (CiRun.FAILED.equals(r.status) && brokenSince == null) brokenSince = end(r);
-                else if (CiRun.SUCCEEDED.equals(r.status) && brokenSince != null) {
-                    restores.add(hours(brokenSince, end(r)));
-                    brokenSince = null;
-                }
-            }
-        }
+        List<Double> leads = leadTimes(prod, ciRuns).stream().map(Timed::hours).toList();
+        int rollbacks = (int) promos.stream().filter(MetricsService::isProdRollback).count();
+        List<Double> restores = restores(ciRuns).stream().map(Timed::hours).toList();
 
         List<CiRun> finished = ciRuns.stream()
                 .filter(r -> CiRun.SUCCEEDED.equals(r.status) || CiRun.FAILED.equals(r.status)).toList();
@@ -158,6 +155,42 @@ public class MetricsService {
                 rollbacks,
                 staging,
                 commits);
+    }
+
+    private static boolean isProdRollback(Promotion p) {
+        return "ROLLBACK".equals(p.kind) && "prod".equals(p.toEnv) && Promotion.DONE.equals(p.status);
+    }
+
+    /** Lead time per prod deploy: the successful run that built image ...:<tag> -> the deploy, timed at the deploy. */
+    static List<Timed> leadTimes(List<Deployment> prod, List<CiRun> ciRuns) {
+        List<Timed> out = new ArrayList<>();
+        for (Deployment pd : prod) {
+            if (pd.imageTag == null) continue;
+            ciRuns.stream()
+                    .filter(r -> CiRun.SUCCEEDED.equals(r.status) && r.imageUrl != null && r.imageUrl.endsWith(":" + pd.imageTag)
+                            && Objects.equals(r.projectId, pd.projectId) && r.createdAt.isBefore(pd.deployedAt))
+                    .min(Comparator.comparing(r -> r.createdAt))
+                    .ifPresent(r -> out.add(new Timed(pd.deployedAt, hours(r.createdAt, pd.deployedAt))));
+        }
+        return out;
+    }
+
+    /** Pipeline recoveries per project: failing deploy-eligible run -> next succeeded one, timed when the green run ended. */
+    static List<Timed> restores(List<CiRun> ciRuns) {
+        List<Timed> out = new ArrayList<>();
+        Map<Long, List<CiRun>> byProject = ciRuns.stream().filter(r -> r.deploy)
+                .collect(Collectors.groupingBy(r -> r.projectId));
+        for (List<CiRun> list : byProject.values()) {
+            Instant brokenSince = null;
+            for (CiRun r : list.stream().sorted(Comparator.comparing(r -> r.createdAt)).toList()) {
+                if (CiRun.FAILED.equals(r.status) && brokenSince == null) brokenSince = end(r);
+                else if (CiRun.SUCCEEDED.equals(r.status) && brokenSince != null) {
+                    out.add(new Timed(end(r), hours(brokenSince, end(r))));
+                    brokenSince = null;
+                }
+            }
+        }
+        return out;
     }
 
     private static Instant end(CiRun r) {

@@ -8,6 +8,23 @@ import java.net.ConnectException;
 import org.junit.jupiter.api.Test;
 
 class TektonServiceTest {
+    @Test void ciRunsGoToSpotOnlyWhenConfigured() {
+        var svc = new TektonService(org.mockito.Mockito.mock(io.fabric8.kubernetes.client.KubernetesClient.class), null);
+        var off = svc.podTemplate();
+        assertEquals(java.util.Map.of("fsGroup", 65532), off.get("securityContext"));
+        assertFalse(off.containsKey("tolerations"));
+        assertFalse(off.containsKey("nodeSelector"));
+
+        svc.ciSpot = "aks";
+        var aks = svc.podTemplate();
+        assertEquals(java.util.Map.of("kubernetes.azure.com/scalesetpriority", "spot"), aks.get("nodeSelector"));
+        assertEquals("spot", ((java.util.Map<?, ?>) ((java.util.List<?>) aks.get("tolerations")).get(0)).get("value"));
+        assertEquals(java.util.Map.of("fsGroup", 65532), aks.get("securityContext"));
+
+        svc.ciSpot = "GKE";
+        assertEquals(java.util.Map.of("cloud.google.com/compute-class", "aio-spot"), svc.podTemplate().get("nodeSelector"));
+    }
+
     @Test void independentProfileRejectsArbitraryTestImagesBeforeCallingKubernetes() {
         var k8s = org.mockito.Mockito.mock(io.fabric8.kubernetes.client.KubernetesClient.class);
         var props = org.mockito.Mockito.mock(com.aio.platform.config.AppProperties.class);

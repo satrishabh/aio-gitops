@@ -101,6 +101,8 @@ app:
     registry-read-secret: ${AIO_REGISTRY_READ_SECRET:registry-read-credentials}
     registry-hosts: ${AIO_REGISTRY_HOSTS:ghcr.io,index.docker.io,docker.io}
     test-images: ${AIO_TEST_IMAGES:alpine:3.20,node:20-alpine,python:3.12-slim,maven:3.9-eclipse-temurin-21,golang:1.23-alpine}
+    # Run CI and scan pipelines on spot capacity: aks (spot node pool) | gke (aio-spot compute class) | off
+    ci-spot: ${CI_SPOT:off}
   tools:
     argocd-url: ${TOOLS_ARGOCD_URL:}
     tekton-url: ${TOOLS_TEKTON_URL:}

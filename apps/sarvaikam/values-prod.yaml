@@ -7,11 +7,13 @@ pdb:
   enabled: false
 ingress:
   enabled: true
-  host: sarvaikam.34.180.3.18.nip.io
+  host: sarvaikam.52.140.55.184.nip.io
   tls: false
   issuer: gts
   forceHttps: true
   externalDns: false
+  className: aio-azure
+  controller: traefik
 imagePullSecrets:
   - name: ghcr-pull
 env: []
@@ -20,4 +22,4 @@ resources:
   limits: { cpu: "1000m", memory: "2048Mi" }
 blueGreen:
   enabled: true
-  previewHost: sarvaikam-preview.34.180.3.18.nip.io
+  previewHost: sarvaikam-preview.52.140.55.184.nip.io

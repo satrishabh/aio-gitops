@@ -350,6 +350,10 @@ class ExportBundleTest {
                 assertEquals(0, proc.exitValue(), "helm template failed for " + env + ":\n" + out);
                 assertTrue(out.contains("kind: Deployment"), out);
                 assertTrue(out.contains("ghcr.io/acme/shop"), out);
+                if ("dev".equals(env) && Files.exists(tmp.resolve("shop/chart/templates/services.yaml"))) {
+                    assertTrue(out.contains("kind: Cluster"), "services: manifests rendered\n" + out);
+                    assertTrue(out.contains("DATABASE_URL"), out);
+                }
             }
         } finally {
             try (Stream<Path> s = Files.walk(tmp)) {

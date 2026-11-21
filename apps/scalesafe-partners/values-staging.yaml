@@ -11,6 +11,8 @@ pdb:
 ingress:
   enabled: true
   host: scalesafe-partners-staging.52.140.55.184.nip.io
+  className: aio-azure
+  controller: traefik
 env: []
 resources:
   requests: { cpu: "50m", memory: "128Mi" }

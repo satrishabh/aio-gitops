@@ -24,8 +24,28 @@ class OrphanAppSweeperTest {
 
     static List<ArgoCdService.ProjectApp> apps(String... projects) {
         List<ArgoCdService.ProjectApp> out = new ArrayList<>();
-        for (String p : projects) for (String env : List.of("dev", "staging", "prod")) out.add(new ArgoCdService.ProjectApp(p + "-" + env, p, env));
+        for (String p : projects) for (String env : List.of("dev", "staging", "prod")) out.add(new ArgoCdService.ProjectApp(p + "-" + env, p, env, "helm/app"));
         return out;
+    }
+
+    @Test
+    void neverTouchesAHandMadeAppThatSharesTheLabel() {
+        // scalesafe-data: labelled like a project, no DB row, no values-<env>.yaml, but deploys apps/scalesafe-data
+        // (Postgres + Keycloak). The 2026-11-21 first pass flagged it; only a 415 from Argo CD saved it.
+        List<ArgoCdService.ProjectApp> inArgo = new ArrayList<>(apps("shop", "contri"));
+        inArgo.add(new ArgoCdService.ProjectApp("scalesafe-data-dev", "scalesafe-data", "dev", "apps/scalesafe-data"));
+        H h = harness(List.of(project("shop")), inArgo);
+        Map<String, List<String>> removed = h.sweeper().sweep();
+        assertEquals(java.util.Set.of("contri"), removed.keySet());
+        verify(h.argo(), never()).deleteApp("scalesafe-data-dev");
+    }
+
+    @Test
+    void anAppWithoutASourcePathIsLeftAlone() {
+        List<ArgoCdService.ProjectApp> inArgo = List.of(new ArgoCdService.ProjectApp("odd-dev", "odd", "dev"));
+        H h = harness(List.of(project("shop")), inArgo);
+        assertTrue(h.sweeper().sweep().isEmpty());
+        verify(h.argo(), never()).deleteApp(anyString());
     }
 
     H harness(List<Project> inDb, List<ArgoCdService.ProjectApp> inArgo) {

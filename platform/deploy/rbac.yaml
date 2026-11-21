@@ -58,6 +58,10 @@ rules:
   - apiGroups: [""]
     resources: ["secrets", "limitranges"]
     verbs: ["get", "create", "update", "patch"]
+  # Pre-promotion check: does a ConfigMap an app mounts exist in the target env namespace (metadata only)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
   # Project -> Services: Detach (and project delete) removes the Secret the platform copied into dev/staging/prod for a
   # shared connector. Only Secrets labelled aio.platform/managed + aio.platform/project + aio.platform/service are
   # deleted (checked in code; RBAC cannot select by label).

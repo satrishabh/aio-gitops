@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.js'
-import Badge, { Vulns } from '../components/Badge.jsx'
+import { Vulns } from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
 import { Avatar, Empty, PageHead, ago } from '../components/ui.jsx'
 import { Stale, useAction, usePoll } from '../hooks.jsx'
+import { PromotionStatus } from '../components/Promotion.jsx'
 
-const FILTERS = [['PENDING', 'Pending'], ['', 'All'], ['DONE', 'Approved'], ['REJECTED', 'Rejected'], ['FAILED', 'Failed']]
+const FILTERS = [['PENDING', 'Pending'], ['', 'All'], ['DEPLOYING', 'Deploying'], ['DONE', 'Deployed'], ['REJECTED', 'Rejected'], ['FAILED', 'Failed']]
 
 /** The tag part of an image reference (repo/name:tag). */
 const tagOf = url => (url && url.includes(':') ? url.split(':').pop() : null)
@@ -42,7 +43,7 @@ export default function Approvals({ me }) {
       body = { reason }
     }
     run(`${action}-${pr.id}`, () => api(`/api/promotions/${pr.id}/${action}`, { method: 'POST', body }),
-      action === 'approve' ? `Approved — ${pr.toEnv} is deploying ${pr.imageTag}` : 'Rejected')
+      action === 'approve' ? `Approved — ${pr.toEnv} is deploying ${pr.imageTag}; watching until it is healthy` : 'Rejected')
   }
 
   return (
@@ -76,7 +77,7 @@ export default function Approvals({ me }) {
                   <b><Link to={`/projects/${pr.projectId}`}>{name}</Link> <span className="muted">#{pr.id}</span></b>
                   <span className="fl-kind"><Icon name={rollback ? 'undo' : 'rocket'} size={13} />{rollback ? 'Rollback' : 'Promotion'} to {pr.toEnv}</span>
                 </div>
-                <Badge value={pr.status} />
+                <PromotionStatus pr={{ ...pr, message: null, detail: null }} compact />
               </div>
 
               <div className="fl-change" aria-label={`Changes ${pr.toEnv} from ${live || 'nothing deployed'} to ${pr.imageTag}`}>
@@ -86,7 +87,7 @@ export default function Approvals({ me }) {
                 </div>
                 <Icon name="arrow" size={18} className="fl-change-arrow" />
                 <div className="fl-change-side">
-                  <span className="fl-change-label">{pr.status === 'DONE' ? 'Deployed' : 'Would deploy'}</span>
+                  <span className="fl-change-label">{pr.status === 'DONE' ? 'Deployed' : pr.status === 'DEPLOYING' ? 'Deploying' : pr.status === 'FAILED' && pr.deployingSince ? 'Failed to deploy' : 'Would deploy'}</span>
                   <code className="fl-tag new">{pr.imageTag}</code>
                 </div>
               </div>
@@ -97,7 +98,10 @@ export default function Approvals({ me }) {
                 <div><dt>Scan</dt><dd>{scan ? <><Vulns run={scan} /> <Link to={`/runs/${scan.id}`} className="fl-small">run #{scan.id}</Link></> : <span className="muted">No scan result found for this tag</span>}</dd></div>
               </dl>
 
-              {pr.message && <p className="fl-approval-msg">{pr.message}</p>}
+              {pr.copySettings && <p className="muted fl-small" style={{ margin: 0 }}><Icon name="layers" size={12} /> Copies {pr.fromEnv}'s runtime settings into {pr.toEnv} with the tag.</p>}
+              {pr.status === 'FAILED' || pr.status === 'DEPLOYING'
+                ? (pr.message || pr.detail || pr.status === 'DEPLOYING') && <PromotionStatus pr={pr} />
+                : pr.message && <p className="fl-approval-msg">{pr.message}</p>}
               {pr.decidedBy && <p className="muted fl-small" style={{ margin: 0 }}>Decided by {pr.decidedBy} · {ago(pr.decidedAt)}</p>}
               {canDecide(pr) && (
                 <div className="fl-approval-actions">

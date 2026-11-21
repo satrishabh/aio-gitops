@@ -124,6 +124,24 @@ public class GitOpsService {
         github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message);
     }
 
+    /**
+     * Like {@link #setTag}, but first applies {@code settings} to the target file's current content (promotion with
+     * "Copy settings"), so the copied settings and the new tag land in one commit. The result is validated like a
+     * hand edit on the CD page.
+     */
+    public void setTagWithSettings(Project p, String env, String tag, java.util.function.UnaryOperator<String> settings,
+                                   String message) {
+        var g = props.gitops();
+        String path = valuesPath(g, p.name, env);
+        var file = github.getFile(g.owner(), g.repo(), path, g.branch());
+        if (file == null) throw new IllegalStateException("values file missing: " + path);
+        String updated = ensureRunning(normalize(replaceTag(settings.apply(file.content()), tag)));
+        validateValues(updated, p.imageRepo, env);
+        cache.remove(p.name + "/" + env);
+        if (updated.equals(file.content())) return;
+        github.putFile(g.owner(), g.repo(), path, g.branch(), updated, file.sha(), message);
+    }
+
     /** Rewrites env: and resources: in every environment's values file; returns the envs that changed. */
     public List<String> applyRuntime(Project p, String message) {
         var g = props.gitops();

@@ -6,7 +6,7 @@ import Icon from './Icon.jsx'
 const PER_GROUP = 6
 
 /**
- * Ctrl K / ⌘K search: pages, projects and recent CI runs. Navigation only.
+ * Ctrl K / ⌘K search: pages, projects and recent CI runs, plus "Export <project>" (opens the project's Export dialog).
  * Arrow keys move, Enter opens, Esc closes; focus returns to where it was.
  */
 export default function CommandPalette({ open, onClose, pages, community }) {
@@ -48,7 +48,11 @@ export default function CommandPalette({ open, onClose, pages, community }) {
     const runItems = q ? runs.filter(({ run: r, project }) => hit(`#${r.id}`, String(r.id), project?.name, r.gitRef, r.commitSha?.slice(0, 7), r.status))
       .slice(0, PER_GROUP)
       .map(({ run: r, project }) => ({ key: `run:${r.id}`, group: 'CI runs', icon: 'zap', label: `${project?.name || 'Run'} #${r.id}`, hint: `${(r.status || '').toLowerCase()} · ${r.gitRef || ''} ${r.commitSha?.slice(0, 7) || ''}`.trim(), to: `/runs/${r.id}` })) : []
-    return [...pageItems, ...projectItems, ...runItems]
+    // Actions go to a page that opens a dialog (?export=1), so the palette stays navigation-only
+    const actionItems = q && !community ? projects.filter(({ project: p }) => hit(`export ${p.name}`))
+      .slice(0, 4)
+      .map(({ project: p }) => ({ key: `export:${p.id}`, group: 'Actions', icon: 'download', label: `Export ${p.name}`, hint: 'zip to run it without AIO', to: `/projects/${p.id}?export=1` })) : []
+    return [...pageItems, ...projectItems, ...actionItems, ...runItems]
   }, [query, pages, projects, runs, community])
 
   useEffect(() => { setActive(0) }, [query])

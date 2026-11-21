@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
 import Badge, { Vulns } from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
@@ -11,6 +11,8 @@ import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
 import CertificateManager from '../components/CertificateManager.jsx'
 import { DetailHead, StateWord } from '../components/flow/FlowParts.jsx'
+import ServicesTab from '../components/ServicesTab.jsx'
+import ExportDialog from '../components/ExportDialog.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const NEXT = { dev: 'staging', staging: 'prod' }
@@ -33,7 +35,13 @@ export default function ProjectDetail() {
   const nav = useNavigate()
   const [ref, setRef] = useState('')
   const [deployBuild, setDeployBuild] = useState(true)
-  const [tab, setTab] = useState('runs')
+  const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState(() => (params.get('tab') === 'services' ? 'services' : 'runs'))
+  // ?export=1 (from the command palette) opens the Export dialog once the project has loaded
+  const [exporting, setExporting] = useState(() => params.get('export') === '1')
+  useEffect(() => {
+    if (params.get('export') === '1') { setExporting(true); params.delete('export'); setParams(params, { replace: true }) }
+  }, [params, setParams])
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}`), 8000, [id])
   const { busy, run } = useAction(refresh)
 
@@ -94,6 +102,8 @@ export default function ProjectDetail() {
           <div className="fl-run-tools">
             <Link className="btn" to={`/pipelines/security?project=${p.id}`}><Icon name="shield" size={14} />Security scan</Link>
             <button className="btn" onClick={() => setTab('settings')} aria-label={`Edit ${p.name} settings`}><Icon name="settings" size={14} />Edit</button>
+            <button className="btn" onClick={() => setExporting(true)} aria-haspopup="dialog" title="Download a zip that runs this project without AIO">
+              <Icon name="download" size={14} />Export</button>
             {deployedEnvs.length > 0 && (anyRunning
               ? <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(0)} title="Stop every environment (0 pods)"><Icon name="stop" size={13} />Stop app</button>
               : <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(1)} title="Start every deployed environment"><Icon name="play" size={13} />Start app</button>)}
@@ -185,6 +195,7 @@ export default function ProjectDetail() {
         { id: 'promos', label: 'Promotions', icon: 'shield', count: promotions.length },
         { id: 'domains', label: 'Domains', icon: 'globe' },
         { id: 'certificates', label: 'Certificates', icon: 'shield' },
+        { id: 'services', label: 'Services', icon: 'box' },
         { id: 'settings', label: 'Settings', icon: 'settings' },
       ]} />
 
@@ -271,6 +282,8 @@ export default function ProjectDetail() {
 
       {tab === 'domains' && <DomainsTab id={id} />}
       {tab === 'certificates' && <CertificateManager projectId={id} onDomains={() => setTab('domains')} />}
+      {tab === 'services' && <ServicesTab id={id} project={p} />}
+      {exporting && <ExportDialog project={p} onClose={() => setExporting(false)} />}
 
       {tab === 'settings' && <>
         <Settings p={p} run={run} btn={btn} />

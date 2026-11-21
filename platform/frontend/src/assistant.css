@@ -1,0 +1,55 @@
+/* ============================================================ Assistant on every page: top-right button + side panel */
+
+.assistant-trigger {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px;
+  border: var(--border-w) solid var(--line); border-radius: 999px; background: var(--panel); color: var(--text);
+  font: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+}
+.assistant-trigger svg { color: var(--accent); }
+.assistant-trigger:hover { border-color: var(--accent); }
+.assistant-trigger.open { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.assistant-trigger.open svg { color: var(--on-accent); }
+.assistant-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.assistant-panel {
+  position: fixed; top: 64px; right: 0; bottom: 0; z-index: 60; width: min(440px, 100vw);
+  display: flex; flex-direction: column; background: var(--panel); border-left: var(--border-w) solid var(--line);
+  box-shadow: -12px 0 40px rgba(22, 26, 43, 0.12);
+  transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s;
+}
+.assistant-panel.open { transform: none; visibility: visible; transition: transform .22s ease; }
+.assistant-panel-head { display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 8px 10px 8px 16px; border-bottom: var(--border-w) solid var(--line); }
+.assistant-panel-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.assistant-panel-title svg { color: var(--accent); }
+.assistant-panel-model { font-size: 0.72rem; }
+.assistant-panel-head .spacer { flex: 1; }
+.assistant-panel-head .icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; }
+.assistant-panel-note { display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 14px 10px; font-size: 0.72rem; }
+.assistant-off { padding: 24px 16px; }
+
+/* the conversation inside the panel fills the height */
+.chat.chat-compact { flex: 1; min-height: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.chat-compact .chat-log { flex: 1; min-height: 0; max-height: none; padding: 16px; gap: 14px; }
+.chat-compact .chat-intro { max-width: none; }
+.chat-compact .chat-intro h3 { font-size: 1rem; }
+.chat-compact .chat-examples .chip { white-space: normal; text-align: left; }
+.chat-compact .chat-compose { padding: 10px; }
+.chat-compact .proposal { flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) { .assistant-panel, .assistant-panel.open { transition: none; } }
+@media (pointer: coarse) { .assistant-trigger, .assistant-panel-head .icon-btn { min-height: 44px; min-width: 44px; } }
+@media (max-width: 760px) {
+  .assistant-trigger { width: 44px; padding: 0; justify-content: center; }
+  .assistant-trigger-label { display: none; }
+  .assistant-panel { width: 100vw; border-left: 0; box-shadow: none; }
+}
+
+/* Bright: square, black borders, hard shadow */
+[data-theme="bright"] .assistant-trigger { border-radius: 0; border-color: #0A0A0A; box-shadow: 3px 3px 0 #0A0A0A; }
+[data-theme="bright"] .assistant-panel { border-left: 3px solid #0A0A0A; box-shadow: -6px 0 0 #0A0A0A; }
+[data-theme="bright"] .assistant-panel-head { border-bottom-width: 2px; border-color: #0A0A0A; }
+
+/* Dark: hairlines, mono label */
+[data-theme="dark"] .assistant-trigger:not(.open) { background: transparent; }
+[data-theme="dark"] .assistant-panel { box-shadow: -12px 0 40px rgba(0, 0, 0, 0.5); }
+[data-theme="dark"] .assistant-panel-title { font-family: var(--font-mono); font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; }

@@ -16,6 +16,7 @@ import CdDetail from './pages/CdDetail.jsx'
 import Clusters from './pages/Clusters.jsx'
 import Connectors from './pages/Connectors.jsx'
 import Assistant from './pages/Assistant.jsx'
+import AssistantPanel, { AssistantButton } from './components/AssistantPanel.jsx'
 import Approvals from './pages/Approvals.jsx'
 import Audit from './pages/Audit.jsx'
 import Metrics from './pages/Metrics.jsx'
@@ -40,12 +41,11 @@ function navGroups(me, pending) {
   const admin = me.accessTier === 'admin'
   const groups = [
     { key: 'overview', label: 'Overview', match: /^\/$/, items: [{ to: '/', label: 'Overview', icon: 'home', end: true }] },
-    { key: 'projects', label: 'Projects', match: /^\/(projects|new|templates|assistant)(\/|$)/, items: [
+    { key: 'projects', label: 'Projects', match: /^\/(projects|new|templates)(\/|$)/, items: [
       { to: '/projects', label: 'Projects', icon: 'grid', also: /^\/projects\// },
       ...(community ? [] : [
         { to: '/new', label: 'New project', icon: 'plus' },
         { to: '/templates', label: 'Templates', icon: 'layers' },
-        { to: '/assistant', label: 'Assistant', icon: 'zap' },
       ]),
     ] },
   ]
@@ -126,6 +126,8 @@ export default function App() {
   const [pending, setPending] = useState(0)
   const [mobileNav, setMobileNav] = useState(false)
   const [palette, setPalette] = useState(false)
+  const [assistant, setAssistant] = useState(false)   // the Assistant panel, top right on every page
+  const assistantButton = useRef(null)
   const menuButton = useRef(null)
   const sheet = useRef(null)
   const location = useLocation()
@@ -160,6 +162,7 @@ export default function App() {
     if (isLogin || !me) return undefined
     const onKey = e => {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(open => !open) }
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'j') { e.preventDefault(); setAssistant(open => !open) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -245,6 +248,7 @@ export default function App() {
             {!community && <Link to="/new" className="btn primary small new-project" aria-label="New project" title="New project">
               <Icon name="plus" size={14} /><span>New project</span>
             </Link>}
+            {!community && <AssistantButton open={assistant} onToggle={() => setAssistant(o => !o)} buttonRef={assistantButton} />}
             <AccountControls me={me} />
           </header>
           {crumbParts.length > 1 && <nav className="crumbs subbar" aria-label="Breadcrumb">
@@ -279,6 +283,9 @@ export default function App() {
           </main>
         </div>
       </div>
+      {!community && location.pathname !== '/assistant' && <AssistantPanel open={assistant}
+        onClose={() => { setAssistant(false); assistantButton.current?.focus() }}
+        pageContext={`${crumb} (${location.pathname})`} />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} pages={pages} community={community} />
     </ToastProvider>
   )

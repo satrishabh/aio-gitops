@@ -15,3 +15,6 @@ env: []
 resources:
   requests: { cpu: "50m", memory: "128Mi" }
   limits: { cpu: "500m", memory: "512Mi" }
+spot:
+  enabled: true
+  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

@@ -40,3 +40,6 @@ routes:
     certOwner: true
     forceHttps: true
     externalDns: false
+spot:
+  enabled: true
+  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

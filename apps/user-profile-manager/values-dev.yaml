@@ -72,3 +72,6 @@ podSecurityContext:
 resources:
   requests: {cpu: "40m", memory: "512Mi"}
   limits: {cpu: "1000m", memory: "1024Mi"}
+spot:
+  enabled: true
+  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

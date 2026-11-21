@@ -95,6 +95,9 @@ spec:
         appArmorProfile: { type: Unconfined }
       env:
         - { name: BUILDKITD_FLAGS, value: --oci-worker-no-process-sandbox }
+        # buildctl-daemonless.sh waits for buildkitd with this many tries (default 10). On a freshly autoscaled spot
+        # node buildkitd regularly took longer, failing the build with "could not connect to ... buildkitd.sock".
+        - { name: BUILDCTL_CONNECT_RETRIES_MAX, value: "60" }
         - { name: DOCKER_CONFIG, value: $(workspaces.dockerconfig.path) }
         # params go in through env, never spliced into the script, so odd values can't inject shell
         - { name: IMAGE, value: $(params.IMAGE) }

@@ -52,3 +52,6 @@ ingress:
   forceHttps: true
   externalDns: false
 routes: []
+spot:
+  enabled: true
+  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

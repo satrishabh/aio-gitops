@@ -92,3 +92,6 @@ resources:
     cpu: 30m   # idles at ~3m; single B2as_v2 node (docs/AZURE-COST-HIBERNATION-2026-11-15.md)
     memory: 768Mi
 routes: []
+spot:
+  enabled: true
+  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full

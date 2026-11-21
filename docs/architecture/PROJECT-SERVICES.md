@@ -195,3 +195,117 @@ Test, exit check, then the next phase.
 | 2 Trivy Operator, OpenCost, Goldilocks, kube-green | not started | from 2026-11-24, after phase 1's exit check; kube-green needs the sync windows |
 | 3 Velero, Renovate, KEDA, Descheduler | not started | Velero setup script (Azure storage + identity), Renovate token |
 | 4–7 | not started | capacity: spot pool / Node Auto Provisioning first; secrets scripts per phase |
+
+## API shapes
+
+Defined by part 2 (`ProjectServicesController`, `ConnectorController`); the portal codes against these. All under the
+usual session + CSRF rules. Project endpoints need the project (owner or admin, tiers admin/business); connector
+endpoints are admin-only. Errors are `{ "message": "..." }` with 400 (bad input: unknown connector or option, option not
+in its choices, env not allowed for the binding, missing confirmation), 404 (no such service), 409 (cannot right now:
+connector not switched on or not healthy, env on another cluster, Secret conflict, values file changed meanwhile, disable
+while used), 502 (Kubernetes / GitHub failure).
+
+### `GET /api/projects/{id}/services`
+
+```jsonc
+{
+  "envs": [   // always dev, staging, prod in that order
+    { "env": "dev", "cluster": "in-cluster", "platformCluster": true, "namespace": "dev" }
+  ],
+  "available": [   // every connector with a binding that supports this cloud, catalog order
+    {
+      "connector": "cloudnative-pg", "name": "CloudNativePG",
+      "label": "PostgreSQL database", "summary": "Your own PostgreSQL cluster ...",
+      "scope": "instance",              // instance | shared | config
+      "deletesData": true,              // scope instance: Remove deletes the data (ask for the project name)
+      "status": "HEALTHY",              // connector status as on the Connectors page (HEALTHY, PROGRESSING, DEGRADED,
+                                        // NOT_INSTALLED, OFF, UNKNOWN, ...)
+      "statusMessage": null,
+      "usable": true,                   // status HEALTHY or PROGRESSING
+      "options": [ { "id": "storage", "label": "Disk size", "default": "1Gi", "choices": ["1Gi", "5Gi", "10Gi"] } ],
+      "envVars": ["DATABASE_URL", "PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE"],   // names only
+      "podAnnotations": [],             // annotation keys it adds (Dapr)
+      "exportNote": "Needs the CloudNativePG operator ...",
+      "envs": {                         // one entry per env
+        "dev":     { "state": "attached",    "reason": null, "message": null },
+        "staging": { "state": "available",   "reason": null, "message": null },
+        "prod":    { "state": "unavailable", "reason": "OTHER_CLUSTER", "message": "not available on aks-prod: ..." }
+      }
+    }
+  ],
+  "attached": [   // rows recorded by AIO merged with what is in git (git is authoritative)
+    {
+      "connector": "cloudnative-pg", "name": "CloudNativePG", "label": "PostgreSQL database",
+      "scope": "instance",              // null when the connector is no longer in the catalog
+      "env": "dev",
+      "options": { "instances": "1", "storage": "5Gi" },
+      "status": "ATTACHED",             // ATTACHED | FAILED (attach failed, see detail; Remove clears it)
+                                        // | NOT_IN_GIT (row, but the block was removed from git by hand)
+                                        // | UNTRACKED (block in git, not attached through AIO)
+      "inGit": true,                    // null when the values file could not be read
+      "deletesData": true,
+      "envVars": ["DATABASE_URL", "..."],
+      "detail": null,
+      "createdBy": "alice", "createdAt": "2026-11-21T10:00:00Z"   // null for UNTRACKED
+    }
+  ],
+  "warnings": []                        // e.g. a values file that could not be read
+}
+```
+
+`reason` codes, in the order they are checked: `ENV_NOT_ALLOWED` (binding `envs`, e.g. Valkey is dev/staging only),
+`OTHER_CLUSTER` (env deploys to a cluster other than the platform's own), `NOT_INSTALLED` (connector not switched on;
+an admin enables it), `NOT_HEALTHY` (Degraded or unknown).
+
+### `POST /api/projects/{id}/services`
+
+Body `{ "connector": "cloudnative-pg", "env": "dev", "options": { "storage": "5Gi" } }`; `options` may be omitted
+(defaults are used) and values are strings that must be one of the option's `choices`. One env per call: the portal
+calls once per ticked env. Attaching a connector that is already attached in that env updates it (new options, Secret
+copied again). Response: one `attached` item as above (status `ATTACHED`). Commit message
+`services: attach <id> to <app> <env>`.
+
+### `DELETE /api/projects/{id}/services/{connector}?env=dev&confirm=<project name>`
+
+`confirm` is required (exactly the project name) when the service deletes data (`deletesData`), optional otherwise.
+Response:
+
+```json
+{ "connector": "opensearch", "env": "staging", "dataDeleted": true,
+  "leftBehind": ["staging/shop-opensearch-admin-password"] }
+```
+
+`leftBehind`: Secrets of the instance that its operator created without an owner reference (OpenSearch admin password,
+cert-manager CA), so Argo CD's prune does not remove them. They are not deleted by the platform (prod has no auto-sync,
+and the running instance still needs them until it is pruned); the UI lists them with the `kubectl delete secret`
+hint. Commit message `services: detach <id> from <app> <env>`.
+
+### `GET /api/connectors/{id}/usage` (admin)
+
+```json
+{ "connector": "valkey", "count": 2,
+  "projects": [ { "projectId": 7, "project": "shop", "envs": ["dev", "staging"] } ] }
+```
+
+`count` is the number of projects. `GET /api/connectors` also carries, per connector, `bindable` (boolean),
+`binding` (`{ "label", "scope" }`, only when bindable) and `usedBy` (the `projects` list above, only when bindable).
+
+### Disable and phase Switch off while used
+
+`POST /api/connectors/{id}/disable` answers 409 with a message naming the projects and envs while any project uses
+the connector; `POST /api/connectors/{id}/disable?force=true` disables anyway (audited as forced; the projects' services
+stay in git and stop working). `POST /api/connectors/phases/{phase}/off` reports such connectors as failed steps
+(`ok: false`, detail names the projects); `?force=true` switches them off too.
+
+### Implementation notes (part 2)
+
+- Chart: documents rendered from `services.<id>.manifests` get `app.kubernetes.io/part-of`, `app.kubernetes.io/instance`,
+  `managed-by`, `helm.sh/chart` and `aio.platform/service: <id>`, but not `app.kubernetes.io/name`: name + instance is
+  the app Service's selector, and operators such as Strimzi copy their resource's labels onto the pods they create.
+  Services' env vars are appended after `.Values.env`, services in key order, each service's vars in catalog order
+  (so `$(VAR)` references work). Integers beyond 2^53 in manifests lose precision (Helm `fromYaml`).
+- Copied Secrets (scope shared) are named by `copySecret.name`, carry the labels `aio.platform/managed=true`,
+  `aio.platform/project`, `aio.platform/service`, `aio.platform/env`, and are only overwritten or deleted when those
+  match; the name is kept in `project_services.copied_secret`. Project delete removes them as well.
+- RBAC: `delete` on Secrets added to `aio-platform-envs` (rbac.yaml); `get` on the three shared connectors' Secrets is
+  in `platform/deploy/rbac-shared-services.yaml` (separate file: it fails to apply before those namespaces exist).

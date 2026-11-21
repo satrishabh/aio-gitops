@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service;
 /**
  * DORA-style delivery metrics computed from data the platform already records.
  * <ul>
- *   <li><b>Deploy frequency</b>: Argo CD deployments per day (prod and dev), placeholder deploys excluded.</li>
+ *   <li><b>Deploy frequency</b>: Argo CD deployments per day (prod and dev), placeholder deploys excluded.
+ *       Staging deployments are counted too, for the Overview's pipeline strip.</li>
+ *   <li><b>Commits built</b>: distinct commit SHAs that CI ran on in the period (not every pushed commit).</li>
  *   <li><b>Lead time</b>: CI run start -> prod deployment of the image that run built (median, hours).</li>
  *   <li><b>Change failure rate</b>: completed prod rollbacks / prod deployments.</li>
  *   <li><b>Time to restore</b>: first failing deploy-eligible CI run -> next green one (mean, hours).
@@ -45,7 +47,8 @@ public class MetricsService {
 
     public record Dora(int days, int prodDeploys, int devDeploys, double prodDeploysPerDay, double devDeploysPerDay,
                        Double leadTimeHoursMedian, Double changeFailureRate, Double timeToRestoreHoursMean,
-                       int ciRuns, Double ciSuccessRate, Double ciDurationMinutesMean, int prodRollbacks) {}
+                       int ciRuns, Double ciSuccessRate, Double ciDurationMinutesMean, int prodRollbacks,
+                       int stagingDeploys, int commitsBuilt) {}
 
     public Map<String, Object> overview(int days) {
         int d = Math.max(1, Math.min(days, 365));
@@ -76,7 +79,7 @@ public class MetricsService {
         return out;
     }
 
-    /** Per-day CI outcomes and deployments for charts (UTC days, oldest first, zero-filled). */
+    /** Per-day CI outcomes and deployments for charts (UTC days, oldest first, zero-filled), with deploys split per environment. */
     static List<Map<String, Object>> daily(int days, List<CiRun> ciRuns, List<Deployment> deps) {
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
         List<Map<String, Object>> out = new ArrayList<>();
@@ -86,8 +89,12 @@ public class MetricsService {
             row.put("date", day.toString());
             row.put("succeeded", ciRuns.stream().filter(r -> CiRun.SUCCEEDED.equals(r.status) && day(r.createdAt).equals(day)).count());
             row.put("failed", ciRuns.stream().filter(r -> CiRun.FAILED.equals(r.status) && day(r.createdAt).equals(day)).count());
-            row.put("deploys", deps.stream().filter(x -> x.deployedAt != null && !GitOpsService.PLACEHOLDER_TAG.equals(x.imageTag)
-                    && day(x.deployedAt).equals(day)).count());
+            List<Deployment> that = deps.stream().filter(x -> x.deployedAt != null && !GitOpsService.PLACEHOLDER_TAG.equals(x.imageTag)
+                    && day(x.deployedAt).equals(day)).toList();
+            row.put("deploys", (long) that.size());
+            row.put("deploysDev", that.stream().filter(x -> "dev".equals(x.environment)).count());
+            row.put("deploysStaging", that.stream().filter(x -> "staging".equals(x.environment)).count());
+            row.put("deploysProd", that.stream().filter(x -> "prod".equals(x.environment)).count());
             out.add(row);
         }
         return out;
@@ -102,6 +109,8 @@ public class MetricsService {
                 .filter(x -> x.deployedAt != null && !GitOpsService.PLACEHOLDER_TAG.equals(x.imageTag)).toList();
         List<Deployment> prod = real.stream().filter(x -> "prod".equals(x.environment)).toList();
         int dev = (int) real.stream().filter(x -> "dev".equals(x.environment)).count();
+        int staging = (int) real.stream().filter(x -> "staging".equals(x.environment)).count();
+        int commits = (int) ciRuns.stream().map(r -> r.commitSha).filter(Objects::nonNull).filter(sha -> !sha.isBlank()).distinct().count();
 
         // lead time: match prod deploy tag -> the successful run that produced image ...:<tag>
         List<Double> leads = new ArrayList<>();
@@ -146,7 +155,9 @@ public class MetricsService {
                 ciRuns.size(),
                 finished.isEmpty() ? null : round(ok / (double) finished.size()),
                 mean(durations),
-                rollbacks);
+                rollbacks,
+                staging,
+                commits);
     }
 
     private static Instant end(CiRun r) {

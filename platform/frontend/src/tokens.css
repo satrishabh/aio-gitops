@@ -173,3 +173,8 @@ h1, .page-head h1 { font-weight: var(--display-weight); }
 [data-theme="dark"] .dot.green { box-shadow: 0 0 0 3px rgba(198, 244, 50, 0.15); }
 [data-theme="dark"] .dot.red { box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.18); }
 [data-theme="dark"] .dot.blue { box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.18); }
+
+/* Project avatars: tint + same-hue ink (>= 4.5:1 for any hue) instead of white on a mid-tone */
+:root .avatar { background: hsl(var(--hue, 220) 70% 90%); color: hsl(var(--hue, 220) 60% 24%); font-weight: 800; }
+:root[data-theme="bright"] .avatar { border: 2px solid #0A0A0A; border-radius: 0; }
+:root[data-theme="dark"] .avatar { background: hsl(var(--hue, 220) 35% 22%); color: hsl(var(--hue, 220) 80% 82%); }

@@ -18,6 +18,7 @@ import './styles.css'
 import './appearance.css'
 import './account.css'
 import './shell.css'
+import './overview.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

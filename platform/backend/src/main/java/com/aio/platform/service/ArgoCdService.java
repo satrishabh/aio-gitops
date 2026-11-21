@@ -300,8 +300,13 @@ public class ArgoCdService {
         argo.post().uri("/api/v1/applications?upsert=true").body(app).retrieve().toBodilessEntity();
     }
 
-    /** A project app as the platform labels it: Application name, the project it belongs to, its env. */
-    public record ProjectApp(String name, String project, String env) {}
+    /**
+     * A project app as the platform labels it: Application name, the project it belongs to, its env, and its
+     * source path (the app chart for platform-built apps; anything else is a hand-made app sharing the label).
+     */
+    public record ProjectApp(String name, String project, String env, String sourcePath) {
+        public ProjectApp(String name, String project, String env) { this(name, project, env, null); }
+    }
 
     /**
      * Every Application the platform created for a project ({@code aio.platform/project} label) in the apps
@@ -324,7 +329,9 @@ public class ArgoCdService {
             Map<String, Object> labels = meta.get("labels") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
             Object project = labels.get("aio.platform/project");
             if (project == null) continue;
-            out.add(new ProjectApp(String.valueOf(meta.get("name")), String.valueOf(project), String.valueOf(labels.getOrDefault("env", ""))));
+            Object path = spec.get("source") instanceof Map<?, ?> src ? src.get("path") : null;
+            out.add(new ProjectApp(String.valueOf(meta.get("name")), String.valueOf(project), String.valueOf(labels.getOrDefault("env", "")),
+                    path == null ? null : String.valueOf(path)));
         }
         return out;
     }
@@ -332,7 +339,9 @@ public class ArgoCdService {
     /** Deletes the Application and (cascade) everything it deployed. Missing apps are ignored. */
     public void deleteApp(String name) {
         try {
-            argo.delete().uri("/api/v1/applications/{n}?cascade=true", name).retrieve().toBodilessEntity();
+            argo.delete().uri("/api/v1/applications/{n}?cascade=true", name)
+                    .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/json")   // see ClientsConfig
+                    .retrieve().toBodilessEntity();
         } catch (HttpClientErrorException.NotFound e) {
             // already gone
         }

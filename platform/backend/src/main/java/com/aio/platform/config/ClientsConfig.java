@@ -53,6 +53,9 @@ public class ClientsConfig {
                 .baseUrl(props.argocd().url())
                 .requestFactory(boundedFactory(http))
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + props.argocd().token())
+                // Argo CD refuses every non-GET request whose Content-Type isn't application/json (CSRF guard):
+                // a bodiless DELETE or a String body otherwise gets 415 "Invalid content type"
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .build();
     }
 

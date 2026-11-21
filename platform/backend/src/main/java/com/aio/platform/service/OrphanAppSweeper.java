@@ -75,6 +75,11 @@ public class OrphanAppSweeper {
         Map<String, List<ArgoCdService.ProjectApp>> byProject = argo.projectApps().stream()
                 .filter(a -> !known.contains(a.project()))
                 .collect(Collectors.groupingBy(ArgoCdService.ProjectApp::project, LinkedHashMap::new, Collectors.toList()));
+        // Only apps the platform built from the app chart. A hand-made app that shares the label but deploys a plain
+        // manifest directory (scalesafe-data: apps/scalesafe-data with Postgres and Keycloak) is never an orphan of a
+        // portal project; if any app of a name is like that, the whole name is left alone.
+        String chart = props.gitops().chartPath();
+        byProject.values().removeIf(apps -> apps.stream().anyMatch(a -> !chart.equals(a.sourcePath())));
         // only projects with no values file left in git
         byProject.keySet().removeIf(this::hasValuesInGit);
         if (byProject.isEmpty()) return Map.of();

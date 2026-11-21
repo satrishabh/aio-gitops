@@ -10,11 +10,13 @@ pdb:
   enabled: false
 ingress:
   enabled: true
-  host: docgen.34.180.3.18.nip.io
+  host: docgen.52.140.55.184.nip.io
   tls: false
   issuer: gts
   forceHttps: true
   externalDns: false
+  className: aio-azure
+  controller: traefik
 blueGreen:
   enabled: true
-  previewHost: docgen-preview.34.180.3.18.nip.io
+  previewHost: docgen-preview.52.140.55.184.nip.io

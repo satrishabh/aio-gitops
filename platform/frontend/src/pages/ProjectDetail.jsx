@@ -10,11 +10,23 @@ import RuntimeFields, { RUNTIME_DEFAULTS, cleanEnv } from '../components/Runtime
 import DeliverySettings from '../components/DeliverySettings.jsx'
 import ToolLinks from '../components/ToolLinks.jsx'
 import CertificateManager from '../components/CertificateManager.jsx'
+import { DetailHead, StateWord } from '../components/flow/FlowParts.jsx'
 
 const ENVS = ['dev', 'staging', 'prod']
 const NEXT = { dev: 'staging', staging: 'prod' }
 /** Something real has been deployed to this env (not the 0.0.0 placeholder). */
 const isDeployed = s => !!s.desiredTag && s.desiredTag !== '0.0.0'
+
+/** The state of one environment in words (the dot colour only repeats it). */
+function envWord(s, tone, deployed, stopped) {
+  if (!deployed) return 'Not deployed'
+  if (stopped) return 'Scaled down'
+  if (tone === 'red') return s.healthStatus === 'Missing' ? 'Missing' : 'Degraded'
+  if (tone === 'blue') return 'Rolling out'
+  if (tone === 'amber') return 'Out of sync'
+  if (tone === 'green') return 'Healthy'
+  return s.healthStatus || 'Unknown'
+}
 
 export default function ProjectDetail() {
   const { id } = useParams()
@@ -40,6 +52,13 @@ export default function ProjectDetail() {
   const scale = (env, n) => run(`scale-${env}`,
     () => api(`/api/projects/${id}/environments/${env}/scale`, { method: 'POST', body: { replicas: n } }),
     n === 0 ? `${env} scaled down — the app is stopped` : `${env} scaling to ${n} replica${n > 1 ? 's' : ''}`)
+  /** Same call as the Roll back button on each deployment row. */
+  function rollback(d) {
+    if (!confirm(`Roll back ${d.environment} to ${d.imageTag}?`)) return
+    run(`rb-${d.id}`, () => api(`/api/projects/${id}/environments/${d.environment}/rollback`,
+      { method: 'POST', body: { deploymentId: d.id } }),
+      d.environment === 'prod' ? 'Prod rollback requested — waiting for approval' : 'Rollback committed')
+  }
   const deployedEnvs = ENVS.filter(e => isDeployed(envOf(e)))
   const anyRunning = deployedEnvs.some(e => (envOf(e).replicas || 0) > 0)
   function scaleAll(n) {
@@ -51,30 +70,28 @@ export default function ProjectDetail() {
   return (
     <>
       <Stale stale={stale} error={error} onRetry={refresh} />
-      <DeliverySettings key={p.id} project={p} onSaved={refresh} />
-      <ToolLinks key={p.id} projectId={p.id} />
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-        <input type="checkbox" checked={deployBuild} onChange={e => setDeployBuild(e.target.checked)} />
-        Deploy manual builds to dev after checks pass
-      </label>
 
-      <div className="card" style={{ padding: '22px 24px' }}>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Avatar name={p.name} size={54} />
-          <div style={{ flex: 1, minWidth: 240 }}>
-            <h1 style={{ margin: 0, fontSize: '1.55rem' }}>{p.name}</h1>
-            <div className="muted" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 4 }}>
-              <a href={p.repoUrl.replace(/\.git$/, '')} target="_blank" rel="noreferrer"><Icon name="github" size={13} /> {p.repoOwner}/{p.repoName}</a>
-              <span><Icon name="git" size={13} /> {p.defaultBranch}</span>
-              <span><Icon name="box" size={13} /> <code>{p.imageRepo}</code></span>
-              <span><Icon name="shield" size={13} /> gate <code>{p.scanSeverity}</code></span>
-              <span><Icon name="zap" size={13} /> webhook {p.webhookId ? 'on' : 'off'}</span>
-            </div>
-          </div>
-          <div className="row inline" style={{ margin: 0 }}>
+      <DetailHead
+        avatar={<Avatar name={p.name} size={54} />}
+        title={p.name}
+        sub={<>
+          <a href={p.repoUrl.replace(/\.git$/, '')} target="_blank" rel="noreferrer"><Icon name="github" size={13} /> {p.repoOwner}/{p.repoName}</a>
+          <span><Icon name="git" size={13} /> {p.defaultBranch}</span>
+          <span><Icon name="box" size={13} /> <code>{p.imageRepo}</code></span>
+          <span><Icon name="shield" size={13} /> gate <code>{p.scanSeverity}</code></span>
+          <span><Icon name="zap" size={13} /> webhook {p.webhookId ? 'on' : 'off'}</span>
+        </>}
+        below={<div className="fl-run-bar">
+          <div className="fl-run-ci">
             <input aria-label="Branch or commit to build" placeholder={`branch or SHA (default ${p.defaultBranch})`} value={ref} onChange={e => setRef(e.target.value)}
-                   onKeyDown={e => e.key === 'Enter' && startRun()} style={{ width: 240 }} />
+                   onKeyDown={e => e.key === 'Enter' && startRun()} />
             <button {...btn('run', 'btn primary')} onClick={startRun}><Icon name="play" size={14} />Run CI</button>
+            <label className="fl-inline-check">
+              <input type="checkbox" checked={deployBuild} onChange={e => setDeployBuild(e.target.checked)} />
+              Deploy manual builds to dev after checks pass
+            </label>
+          </div>
+          <div className="fl-run-tools">
             <Link className="btn" to={`/pipelines/security?project=${p.id}`}><Icon name="shield" size={14} />Security scan</Link>
             <button className="btn" onClick={() => setTab('settings')} aria-label={`Edit ${p.name} settings`}><Icon name="settings" size={14} />Edit</button>
             {deployedEnvs.length > 0 && (anyRunning
@@ -82,65 +99,84 @@ export default function ProjectDetail() {
               : <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(1)} title="Start every deployed environment"><Icon name="play" size={13} />Start app</button>)}
             <button {...btn('refresh', 'btn ghost')} title="Refresh" aria-label="Refresh" onClick={() => run('refresh', refresh)}><Icon name="refresh" size={15} /></button>
           </div>
-        </div>
-      </div>
+        </div>}
+      />
 
-      <div className="flow">
-        {ENVS.map((env, i) => {
-          const s = envOf(env)
-          const tone = envTone(s)
-          const deployed = isDeployed(s)
-          const parked = !deployed
-          const stopped = deployed && s.replicas === 0
-          const n = s.replicas || 0
-          const rolling = !stopped && s.desiredTag && s.imageTag && s.desiredTag !== s.imageTag
-          return [
-            <div key={env} className={`card env-card ${tone}`}>
-              <div className="env-title">
-                <span className={`dot ${tone}`} /><h3>{env}</h3>
-                {stopped && <span className="badge gray">Scaled down</span>}
-                {env === 'prod' && <span className="badge amber"><Icon name="lock" size={11} />gated</span>}
-              </div>
-              <div className="muted" style={{ fontSize: '0.75rem' }}>{parked ? 'NOT DEPLOYED' : stopped ? 'STOPPED · IMAGE' : 'RUNNING IMAGE'}</div>
-              <div className="big-tag">{parked ? <span className="muted">—</span> : (s.desiredTag || s.imageTag || '—')}</div>
-              {rolling && <div style={{ fontSize: '0.8rem' }}><Badge value="Progressing" label="Rolling out" /> <span className="muted">live {s.imageTag}</span></div>}
-              {env === 'prod' && rollout.enabled && <BlueGreen ro={rollout} appUrl={s.appUrl} p={p} btn={btn} run={run} id={id} />}
-              <div className="meta">
-                <span>Sync</span><span><Badge value={s.syncStatus} /></span>
-                <span>Health</span><span><Badge value={s.healthStatus} /></span>
-                <span>Cluster</span><span><Link to="/clusters"><code>{clusters[env] || 'in-cluster'}</code></Link></span>
-                <span>Namespace</span><span><code>{namespaces[env] || env}</code></span>
-                <span>Replicas</span>
-                <span>{deployed
-                  ? <span className="stepper">
-                      <button aria-label={`Fewer ${env} replicas`} disabled={!!busy || n === 0} onClick={() => scale(env, n - 1)}>−</button>
-                      <b aria-live="polite" aria-label={`${n} replicas`}>{n}</b>
-                      <button aria-label={`More ${env} replicas`} disabled={!!busy || n >= 5} onClick={() => scale(env, n + 1)}>+</button>
-                    </span>
-                  : (s.replicas ?? '—')}</span>
-                <span>Updated</span><span>{ago(s.updatedAt)}</span>
-              </div>
-              <div className="actions">
-                <Link className="btn small" to={`/projects/${id}/cd/${env}`} title={`Argo CD sync, resources, pod logs and config for ${env}`}>
-                  <Icon name="rocket" size={13} />CD</Link>
-                {s.appUrl && deployed && !stopped && <a className="btn small" href={s.appUrl} target="_blank" rel="noreferrer"><Icon name="external" size={13} />Open app</a>}
-                {deployed && (stopped
-                  ? <button {...btn(`scale-${env}`, 'btn small primary')} onClick={() => scale(env, 1)}><Icon name="play" size={12} />Start</button>
-                  : <button {...btn(`scale-${env}`, 'btn small')} onClick={() => scale(env, 0)} title="Scale down to 0 pods"><Icon name="stop" size={12} />Stop</button>)}
-                {parked && <span className="muted" style={{ fontSize: '0.8rem' }}>{env === 'dev' ? 'Run CI to deploy here' : `Promote from ${ENVS[i - 1]} to deploy`}</span>}
-              </div>
-            </div>,
-            NEXT[env] && (
-              <div key={`${env}-c`} className="connector">
-                <button className="arrow" title={`Promote ${env} → ${NEXT[env]}`} aria-label={`Promote ${env} to ${NEXT[env]}`} disabled={!!busy || parked}
-                        onClick={() => promote(env)}>
-                  {busy === `promote-${env}` ? <span className="btn busy" style={{ padding: 0, border: 0, background: 'none' }} /> : <Icon name="arrow" size={16} />}
-                </button>
-                {NEXT[env] === 'prod' && <span className="lock">approval</span>}
-              </div>
-            ),
-          ]
-        })}
+      <section className="fl-track" aria-labelledby="track-h">
+        <div className="fl-track-head">
+          <h2 id="track-h">Delivery track</h2>
+          <p>Each build goes dev → staging → prod. Promote moves the running image to the next stop; changes to prod wait for an approver.</p>
+        </div>
+        <ol className="fl-stops">
+          {ENVS.map((env, i) => {
+            const s = envOf(env)
+            const tone = envTone(s)
+            const deployed = isDeployed(s)
+            const parked = !deployed
+            const stopped = deployed && s.replicas === 0
+            const n = s.replicas || 0
+            const rolling = !stopped && s.desiredTag && s.imageTag && s.desiredTag !== s.imageTag
+            const current = s.desiredTag || s.imageTag
+            const back = deployments.find(d => d.environment === env && d.imageTag && d.imageTag !== '0.0.0' && d.imageTag !== current)
+            return (
+              <li key={env} className={`fl-stop is-${tone}${parked ? ' parked' : ''}`}>
+                <div className="fl-stop-head">
+                  <span className="fl-stop-n" aria-hidden="true">{i + 1}</span>
+                  <h3>{env}</h3>
+                  <StateWord tone={tone}>{envWord(s, tone, deployed, stopped)}</StateWord>
+                  {env === 'prod' && <span className="badge amber"><Icon name="lock" size={11} />gated</span>}
+                </div>
+                <div className="fl-stop-label">{parked ? 'Not deployed' : stopped ? 'Stopped · image' : 'Running image'}</div>
+                <div className="fl-stop-tag">{parked ? <span className="muted">—</span> : (current || '—')}</div>
+                {rolling && <div className="fl-stop-rolling"><Badge value="Progressing" label="Rolling out" /> <span className="muted">live {s.imageTag}</span></div>}
+                {env === 'prod' && rollout.enabled && <BlueGreen ro={rollout} appUrl={s.appUrl} p={p} btn={btn} run={run} id={id} />}
+
+                <dl className="fl-stop-meta">
+                  <div><dt>Sync</dt><dd><Badge value={s.syncStatus} /></dd></div>
+                  <div><dt>Health</dt><dd><Badge value={s.healthStatus} /></dd></div>
+                  <div><dt>Cluster</dt><dd><Link to="/clusters"><code>{clusters[env] || 'in-cluster'}</code></Link></dd></div>
+                  <div><dt>Namespace</dt><dd><code>{namespaces[env] || env}</code></dd></div>
+                  <div><dt>Replicas</dt>
+                    <dd>{deployed
+                      ? <span className="stepper">
+                          <button aria-label={`Fewer ${env} replicas`} disabled={!!busy || n === 0} onClick={() => scale(env, n - 1)}>−</button>
+                          <b aria-live="polite" aria-label={`${n} replicas`}>{n}</b>
+                          <button aria-label={`More ${env} replicas`} disabled={!!busy || n >= 5} onClick={() => scale(env, n + 1)}>+</button>
+                        </span>
+                      : (s.replicas ?? '—')}</dd></div>
+                  <div><dt>Updated</dt><dd>{ago(s.updatedAt)}</dd></div>
+                </dl>
+
+                <div className="fl-stop-foot">
+                  <div className="fl-stop-move">
+                    {NEXT[env] && <button {...btn(`promote-${env}`, 'btn primary small')} disabled={!!busy || parked}
+                                          title={parked ? `Nothing in ${env} to promote yet` : `Promote ${env} → ${NEXT[env]}`}
+                                          onClick={() => promote(env)}>
+                      {NEXT[env] === 'prod' ? <Icon name="lock" size={12} /> : <Icon name="arrow" size={12} />}
+                      Promote to {NEXT[env]}{NEXT[env] === 'prod' && <span className="fl-needs"> · needs approval</span>}
+                    </button>}
+                    {back && <button {...btn(`rb-${back.id}`, 'btn small')} onClick={() => rollback(back)} title={`Roll ${env} back to ${back.imageTag}, deployed ${ago(back.deployedAt)}`}>
+                      <Icon name="undo" size={12} />Roll back to <code>{back.imageTag.slice(0, 12)}</code></button>}
+                    {parked && <span className="fl-stop-hint">{env === 'dev' ? 'Run CI to deploy here' : `Promote from ${ENVS[i - 1]} to deploy`}</span>}
+                  </div>
+                  <div className="fl-stop-actions">
+                    <Link className="btn small" to={`/projects/${id}/cd/${env}`} title={`Argo CD sync, resources, pod logs and config for ${env}`}>
+                      <Icon name="rocket" size={13} />CD</Link>
+                    {s.appUrl && deployed && !stopped && <a className="btn small" href={s.appUrl} target="_blank" rel="noreferrer"><Icon name="external" size={13} />Open app</a>}
+                    {deployed && (stopped
+                      ? <button {...btn(`scale-${env}`, 'btn small primary')} onClick={() => scale(env, 1)}><Icon name="play" size={12} />Start</button>
+                      : <button {...btn(`scale-${env}`, 'btn small')} onClick={() => scale(env, 0)} title="Scale down to 0 pods"><Icon name="stop" size={12} />Stop</button>)}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      </section>
+
+      <div className="fl-extras">
+        <ToolLinks key={`tools-${p.id}`} projectId={p.id} />
+        <DeliverySettings key={p.id} project={p} onSaved={refresh} />
       </div>
 
       <Tabs label="Project sections" value={tab} onChange={setTab} tabs={[
@@ -154,23 +190,23 @@ export default function ProjectDetail() {
 
       {tab === 'runs' && (
         <div className="card flush">
-          <table>
-            <thead><tr><th>Run</th><th>Status</th><th>Commit</th><th>Image</th><th>Vulnerabilities</th><th>Trigger</th><th>Duration</th><th></th></tr></thead>
+          <table className="fl-table">
+            <thead><tr><th>Run</th><th>Status</th><th>Commit</th><th>Image</th><th>Vulnerabilities</th><th>Trigger</th><th>Duration</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {runs.map(r => (
                 <tr key={r.id} style={{ cursor: 'pointer' }} onClick={e => { if (!e.target.closest('button,a')) nav(`/runs/${r.id}`) }}>
-                  <td><Link to={`/runs/${r.id}`}><b>#{r.id}</b></Link><div className="muted" style={{ fontSize: '0.75rem' }}>{ago(r.createdAt)}</div></td>
-                  <td>
+                  <td data-label="Run"><Link to={`/runs/${r.id}`}><b>#{r.id}</b></Link><div className="muted fl-small">{ago(r.createdAt)}</div></td>
+                  <td data-label="Status">
                     <Badge value={r.status} />{r.gateOverridden && <> <Badge value="RISK ACCEPTED" /></>}
                     {failedSteps[r.id] && <div className="failed-step"><Icon name="x" size={11} /> {failedSteps[r.id]}</div>}
                     {r.status === 'FAILED' && !failedSteps[r.id] && r.message && <div className="failed-step">{r.message.slice(0, 80)}</div>}
                   </td>
-                  <td><code>{(r.commitSha || r.gitRef).slice(0, 10)}</code></td>
-                  <td><code>{r.imageUrl ? r.imageUrl.split(':').pop().slice(0, 12) : '—'}</code></td>
-                  <td><Vulns run={r} /></td>
-                  <td><span className="muted">{r.trigger.toLowerCase()} · {r.triggeredBy}</span></td>
-                  <td className="mono">{duration(r.startedAt, r.finishedAt)}</td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td data-label="Commit"><code>{(r.commitSha || r.gitRef).slice(0, 10)}</code></td>
+                  <td data-label="Image"><code>{r.imageUrl ? r.imageUrl.split(':').pop().slice(0, 12) : '—'}</code></td>
+                  <td data-label="Vulnerabilities"><Vulns run={r} /></td>
+                  <td data-label="Trigger"><span className="muted">{r.trigger.toLowerCase()} · {r.triggeredBy}</span></td>
+                  <td data-label="Duration" className="mono">{duration(r.startedAt, r.finishedAt)}</td>
+                  <td className="fl-cell-actions">
                     {['FAILED', 'SUCCEEDED', 'CANCELLED'].includes(r.status) && (
                       <button {...btn(`rerun-${r.id}`, 'btn small')} onClick={async () => {
                         const n = await run(`rerun-${r.id}`, () => api(`/api/runs/${r.id}/rerun`, { method: 'POST', body: {} }), n => `Re-run #${n.id} started`)
@@ -188,24 +224,19 @@ export default function ProjectDetail() {
 
       {tab === 'deploys' && (
         <div className="card flush">
-          <table>
-            <thead><tr><th>Environment</th><th>Image tag</th><th>GitOps revision</th><th>Deployed</th><th></th></tr></thead>
+          <table className="fl-table">
+            <thead><tr><th>Environment</th><th>Image tag</th><th>GitOps revision</th><th>Deployed</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {deployments.map(d => (
                 <tr key={d.id}>
-                  <td><Link to={`/projects/${id}/cd/${d.environment}`} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><span className="dot green" />{d.environment}</Link>
+                  <td data-label="Environment"><Link to={`/projects/${id}/cd/${d.environment}`} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><span className="dot green" />{d.environment}</Link>
                     <span className="muted"> · #{d.argoHistoryId}</span></td>
-                  <td><code>{d.imageTag || '?'}</code></td>
-                  <td><code>{(d.revision || '').slice(0, 10)}</code></td>
-                  <td>{fmtTime(d.deployedAt)} <span className="muted">({ago(d.deployedAt)})</span></td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td data-label="Image tag"><code>{d.imageTag || '?'}</code></td>
+                  <td data-label="GitOps revision"><code>{(d.revision || '').slice(0, 10)}</code></td>
+                  <td data-label="Deployed">{fmtTime(d.deployedAt)} <span className="muted">({ago(d.deployedAt)})</span></td>
+                  <td className="fl-cell-actions">
                     {d.imageTag && d.imageTag !== '0.0.0' && (
-                      <button {...btn(`rb-${d.id}`, 'btn small')} onClick={() => {
-                        if (!confirm(`Roll back ${d.environment} to ${d.imageTag}?`)) return
-                        run(`rb-${d.id}`, () => api(`/api/projects/${id}/environments/${d.environment}/rollback`,
-                          { method: 'POST', body: { deploymentId: d.id } }),
-                          d.environment === 'prod' ? 'Prod rollback requested — waiting for approval' : 'Rollback committed')
-                      }}><Icon name="undo" size={12} />Roll back</button>
+                      <button {...btn(`rb-${d.id}`, 'btn small')} onClick={() => rollback(d)}><Icon name="undo" size={12} />Roll back</button>
                     )}
                   </td>
                 </tr>
@@ -218,21 +249,21 @@ export default function ProjectDetail() {
 
       {tab === 'promos' && (
         <div className="card flush">
-          <table>
+          <table className="fl-table">
             <thead><tr><th>#</th><th>Kind</th><th>Target</th><th>Tag</th><th>Status</th><th>Requested</th><th>Decided</th></tr></thead>
             <tbody>
               {promotions.map(pr => (
                 <tr key={pr.id}>
-                  <td>{pr.id}</td>
-                  <td><Icon name={pr.kind === 'ROLLBACK' ? 'undo' : 'rocket'} size={13} /> {pr.kind.toLowerCase()}</td>
-                  <td>{pr.fromEnv ? <>{pr.fromEnv} <Icon name="arrow" size={11} /> </> : ''}<b>{pr.toEnv}</b></td>
-                  <td><code>{pr.imageTag}</code></td>
-                  <td><Badge value={pr.status} /> {pr.message && <div className="muted" style={{ fontSize: '0.75rem' }}>{pr.message}</div>}</td>
-                  <td>{pr.requestedBy} <div className="muted" style={{ fontSize: '0.75rem' }}>{ago(pr.requestedAt)}</div></td>
-                  <td>{pr.decidedBy || '—'} <div className="muted" style={{ fontSize: '0.75rem' }}>{pr.decidedAt ? ago(pr.decidedAt) : ''}</div></td>
+                  <td data-label="#">{pr.id}</td>
+                  <td data-label="Kind"><Icon name={pr.kind === 'ROLLBACK' ? 'undo' : 'rocket'} size={13} /> {pr.kind.toLowerCase()}</td>
+                  <td data-label="Target">{pr.fromEnv ? <>{pr.fromEnv} <Icon name="arrow" size={11} /> </> : ''}<b>{pr.toEnv}</b></td>
+                  <td data-label="Tag"><code>{pr.imageTag}</code></td>
+                  <td data-label="Status"><Badge value={pr.status} /> {pr.message && <div className="muted fl-small">{pr.message}</div>}</td>
+                  <td data-label="Requested">{pr.requestedBy} <div className="muted fl-small">{ago(pr.requestedAt)}</div></td>
+                  <td data-label="Decided">{pr.decidedBy || '—'} <div className="muted fl-small">{pr.decidedAt ? ago(pr.decidedAt) : ''}</div></td>
                 </tr>
               ))}
-              {promotions.length === 0 && <tr><td colSpan="7" className="empty">No promotions yet. Use the arrows above to promote.</td></tr>}
+              {promotions.length === 0 && <tr><td colSpan="7" className="empty">No promotions yet. Use Promote on the track above.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -248,6 +279,7 @@ export default function ProjectDetail() {
     </>
   )
 }
+
 
 function DomainsTab({ id }) {
   const [form, setForm] = useState({
@@ -316,26 +348,26 @@ function DomainsTab({ id }) {
         {data == null ? error ? <p className="error" style={{ padding: 18 }}>{error}</p> : <Skeleton h={100} />
           : domains.length === 0 ? <Empty icon="globe" title="No custom domains yet">Add a hostname above to route traffic to this project.</Empty>
             : (
-              <table>
-                <thead><tr><th>Route</th><th>Environment</th><th>Certificate</th><th>DNS</th><th></th></tr></thead>
+              <table className="fl-table">
+                <thead><tr><th>Route</th><th>Environment</th><th>Certificate</th><th>DNS</th><th><span className="sr-only">Actions</span></th></tr></thead>
                 <tbody>
                   {domains.map(d => (
                     <tr key={d.id}>
-                      <td><a href={d.url} target="_blank" rel="noreferrer"><b>{d.host}</b>{d.path !== '/' && <code>{d.path}</code>}</a>
+                      <td data-label="Route"><a href={d.url} target="_blank" rel="noreferrer"><b>{d.host}</b>{d.path !== '/' && <code>{d.path}</code>}</a>
                         <div className="muted">{d.stripPrefix ? 'path prefix stripped' : 'path preserved'}{d.wwwRedirect ? ' · www redirects here' : ''}</div>
                       </td>
-                      <td>{d.env}</td>
-                      <td><Badge value={d.status} />{d.message && <div className="muted" style={{ fontSize: '0.75rem', maxWidth: 320 }}>{d.message}</div>}
+                      <td data-label="Environment">{d.env}</td>
+                      <td data-label="Certificate"><Badge value={d.status} />{d.message && <div className="muted" style={{ fontSize: '0.75rem', maxWidth: 320 }}>{d.message}</div>}
                         {d.certExpiresAt && <div className="muted" style={{ fontSize: '0.75rem' }}>Expires {fmtTime(d.certExpiresAt)}</div>}
                       </td>
-                      <td>{d.dnsRecords.length
+                      <td data-label="DNS">{d.dnsRecords.length
                         ? d.dnsRecords.map((record, i) => <div key={`${record.name}-${i}`} className="mono" style={{ fontSize: '0.75rem' }}>
                             A {record.name} → {record.value}
                           </div>)
                         : d.managedDns ? <span className="muted">Managed automatically</span>
                           : <span className="muted">Ingress IP not reported yet</span>}
                       </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td className="fl-cell-actions">
                         <button className="btn small" disabled={!!busy} title="Check DNS and certificate status"
                           onClick={() => run(`domain-check-${d.id}`, () => api(`/api/projects/${id}/domains/${d.id}/check`, { method: 'POST' }), 'Domain status checked')}>
                           <Icon name="refresh" size={12} />Check

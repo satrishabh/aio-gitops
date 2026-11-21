@@ -52,6 +52,29 @@ public class TektonService {
     }
 
     /**
+     * Where CI and scan runs are scheduled: {@code aks} or {@code gke} put every task of the run (and Tekton's affinity
+     * assistant, which follows the pod template) on the cloud's spot capacity, autoscaled from zero, so builds no
+     * longer wait for room on the regular nodes; {@code off} (default) leaves scheduling as it was.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.delivery.ci-spot:off}")
+    String ciSpot = "off";
+
+    Map<String, Object> podTemplate() {
+        Map<String, Object> pt = new LinkedHashMap<>();
+        pt.put("securityContext", Map.of("fsGroup", 65532));
+        switch (ciSpot == null ? "off" : ciSpot.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "aks" -> {
+                pt.put("tolerations", List.of(Map.of("key", "kubernetes.azure.com/scalesetpriority", "operator", "Equal",
+                        "value", "spot", "effect", "NoSchedule")));
+                pt.put("nodeSelector", Map.of("kubernetes.azure.com/scalesetpriority", "spot"));
+            }
+            case "gke" -> pt.put("nodeSelector", Map.of("cloud.google.com/compute-class", "aio-spot"));
+            default -> { }
+        }
+        return pt;
+    }
+
+    /**
      * fabric8 often reports only "An error has occurred."; the useful part (HTTP code, API server or
      * admission-webhook message, connection failure) is in the status or the cause chain.
      */
@@ -122,7 +145,7 @@ public class TektonService {
         spec.put("timeouts", Map.of("pipeline", timeout()));
         spec.put("taskRunTemplate", Map.of(
                 "serviceAccountName", t.serviceAccount(),
-                "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
+                "podTemplate", podTemplate()));
         boolean externalRegistry = independent && run.externalRegistry;
         java.util.List<Map<String, Object>> workspaces = new java.util.ArrayList<>(List.of(
                 Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", workspaceClaim(t))),
@@ -187,7 +210,7 @@ public class TektonService {
         spec.put("timeouts", Map.of("pipeline", timeout()));
         spec.put("taskRunTemplate", Map.of(
                 "serviceAccountName", t.serviceAccount(),
-                "podTemplate", Map.of("securityContext", Map.of("fsGroup", 65532))));
+                "podTemplate", podTemplate()));
         spec.put("workspaces", List.of(
                 Map.of("name", "source", "volumeClaimTemplate", Map.of("spec", workspaceClaim(t))),
                 Map.of("name", "dockerconfig", "secret", Map.of("secretName", t.registrySecret())),

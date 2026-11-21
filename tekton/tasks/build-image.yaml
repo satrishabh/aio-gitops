@@ -70,7 +70,15 @@ spec:
         esac
         DF="$(workspaces.source.path)/$DOCKERFILE"
         if [ "$STRATEGY" = auto ]; then
-          if [ -f "$DF" ]; then STRATEGY=dockerfile; else STRATEGY=buildpacks; fi
+          if [ -f "$DF" ]; then STRATEGY=dockerfile
+          else
+            # A project that names its own Dockerfile path (e.g. services/x/Dockerfile in a monorepo) meant that file:
+            # falling back to buildpacks would build the whole repository root instead and fail confusingly.
+            case "$DOCKERFILE" in
+              Dockerfile|./Dockerfile) STRATEGY=buildpacks ;;
+              *) echo "Dockerfile $DOCKERFILE not found in this commit. Check the project's Dockerfile path, or set the build strategy to buildpacks."; exit 1 ;;
+            esac
+          fi
         fi
         if { [ "$STRATEGY" = dockerfile ] || [ "$STRATEGY" = buildah ]; } && [ ! -f "$DF" ]; then
           echo "Dockerfile $DOCKERFILE not found. Add one, or use the buildpacks strategy."; exit 1

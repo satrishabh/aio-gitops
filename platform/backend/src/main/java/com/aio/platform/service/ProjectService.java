@@ -36,6 +36,9 @@ public class ProjectService {
     /** The environments (was GitOpsService.ENVS); field-injected to keep the constructor stable. */
     @org.springframework.beans.factory.annotation.Autowired
     EnvironmentRegistry environments;
+    /** Project -> Services (absent in unit tests that do not need it). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    ProjectServicesService projectServices;
 
     public ProjectService(ProjectRepo projects, GitHubClient github, GitOpsService gitops, ArgoCdService argo,
                           ClusterService cluster, AuditService audit, AppProperties props, DomainService domains,
@@ -173,6 +176,11 @@ public class ProjectService {
         }
         try { registryConnections.deleteProject(p); }
         catch (Exception e) { warnings.add("registry connection cleanup pending"); }
+        // Secrets copied for shared services live in the shared env namespaces; the service rows go with the project
+        if (projectServices != null) {
+            try { warnings.addAll(projectServices.deleteProjectSecrets(p)); }
+            catch (Exception e) { warnings.add("service secrets: " + e.getMessage()); }
+        }
         // Hosts shared with other projects (path routing) need a new certificate owner once this project is gone
         java.util.List<String> sharedHosts = domains.list(p).stream().map(d -> d.host).distinct().toList();
         projects.delete(p); // runs, steps, deployments, env status, promotions, domains cascade in the DB

@@ -1,0 +1,174 @@
+---
+# Source: app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: scalesafe-clients
+  labels:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "58fb70681f9c"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Source: app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scalesafe-clients
+  labels:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "58fb70681f9c"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scalesafe-clients
+      app.kubernetes.io/instance: demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scalesafe-clients
+        app.kubernetes.io/instance: demo
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        fsGroup: 10001
+        runAsNonRoot: true
+      tolerations:
+        - effect: NoSchedule
+          key: kubernetes.azure.com/scalesetpriority
+          operator: Equal
+          value: spot
+      containers:
+        - name: app
+          image: "ghcr.io/satrishabh/scalesafe-clients:58fb70681f9c"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SCALESAFE_PII_KEK_PROVIDER
+              value: local
+            - name: JAVA_TOOL_OPTIONS
+              value: -XX:MaxRAMPercentage=60 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k
+            - name: SCALESAFE_SAGA_ORCHESTRATOR_URL
+              value: http://scalesafe-orchestrator
+            - name: SCALESAFE_SAGA_SERVICE_NAME
+              value: client-service
+            - name: SCALESAFE_SAGA_BASE_URL
+              value: http://scalesafe-clients
+            - name: SCALESAFE_CORS_ALLOWED_ORIGINS
+              value: https://app.scalesafe.capital,https://admin.scalesafe.capital,https://scalesafe.capital
+            - name: SCALESAFE_CLIENT_PUBLIC_APP_URL
+              value: https://app.scalesafe.capital
+            - name: SCALESAFE_CLIENT_VERIFICATION_URL
+              value: http://scalesafe-verification
+            - name: SCALESAFE_PARTNER_SERVICE_URL
+              value: http://scalesafe-partners
+            - name: SCALESAFE_PARTNER_SERVICE_PUBLIC_URL
+              value: https://api.scalesafe.capital/partners
+          envFrom:
+            - secretRef:
+                name: scalesafe-clients-runtime
+            - secretRef:
+                name: scalesafe-clients-pii-v2
+          livenessProbe:
+            httpGet: { path: /health/liveness, port: http }
+            initialDelaySeconds: 180
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health/readiness, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 25m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+---
+# Source: app/templates/extras.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: scalesafe-clients-r-6dcf8ceb
+  labels:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "58fb70681f9c"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+    aio.platform/route-host: "api-scalesafe-capital"
+  annotations:
+    
+    traefik.ingress.kubernetes.io/router.middlewares: "dev-scalesafe-clients-r-6dcf8ceb-https@kubernetescrd,dev-scalesafe-clients-r-6dcf8ceb-strip@kubernetescrd"
+spec:
+  ingressClassName: aio-azure
+  tls:
+    - hosts:
+        - "api.scalesafe.capital"
+      secretName: tls-api-scalesafe-capital
+  rules:
+    - host: "api.scalesafe.capital"
+      http:
+        paths:
+          - path: "/clients"
+            pathType: Prefix
+            backend:
+              service:
+                name: scalesafe-clients
+                port: { name: http }
+---
+# Source: app/templates/extras.yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: scalesafe-clients-r-6dcf8ceb-https
+  labels:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "58fb70681f9c"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  redirectScheme: { scheme: https, permanent: true }
+---
+# Source: app/templates/extras.yaml
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: scalesafe-clients-r-6dcf8ceb-strip
+  labels:
+    app.kubernetes.io/name: scalesafe-clients
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "58fb70681f9c"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  stripPrefix:
+    prefixes: ["/clients"]

@@ -1,5 +1,7 @@
 package com.aio.platform.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -73,7 +75,9 @@ public class ConnectorCatalog {
                             // single sign-on: mode oidc | proxy | none, clientId for oidc
                             Map<String, String> sso,
                             // how the pinned version's age was verified when the chart index cannot prove it
-                            String pinNote) {
+                            String pinNote,
+                            // how a project uses this connector (Project -> Services); null = not bindable
+                            Binding binding) {
         public Kind kindEnum() {
             return Kind.valueOf(kind.toUpperCase(Locale.ROOT));
         }
@@ -109,6 +113,61 @@ public class ConnectorCatalog {
         public boolean supports(String cloud) {
             return clouds == null || clouds.isEmpty() || clouds.contains("any") || cloud == null
                     || "any".equals(cloud) || clouds.contains(cloud);
+        }
+    }
+
+    // ---- binding: how a project uses a connector (docs/architecture/PROJECT-SERVICES.md section 1) ----
+
+    public enum Scope { INSTANCE, SHARED, CONFIG }
+
+    /** An option shown when attaching; values are strings. Empty choices = free text (restricted characters). */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BindingOption(String id, String label, @JsonProperty("default") String defaultValue, List<String> choices) {
+        public List<String> choiceList() {
+            return choices == null ? List.of() : choices;
+        }
+    }
+
+    /** An env var added to the app container: a plain {@code value}, or {@code secret} + {@code key}. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record BindingEnv(String name, String value, String secret, String key) {}
+
+    /** scope shared: one Secret copied from the connector's namespace into the app namespace. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record CopySecret(String from, Map<String, String> keys, String name) {}
+
+    /**
+     * Unknown fields are ignored (unlike the rest of the catalog) so a newer catalog with more binding fields still
+     * loads; the fields below are validated strictly.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Binding(String label, String summary, String scope, List<String> envs, List<BindingOption> options,
+                          String manifests, String manifestsText, List<BindingEnv> env, CopySecret copySecret,
+                          Map<String, String> podAnnotations, String exportNote) {
+        public Scope scopeEnum() {
+            return Scope.valueOf(scope.toUpperCase(Locale.ROOT));
+        }
+
+        /** Environments it may be attached to (default: every environment). */
+        public List<String> envList() {
+            return envs == null || envs.isEmpty() ? EnvironmentRegistry.DEFAULT_ENVS : envs;
+        }
+
+        /** No {@code envs} in the catalog = any environment, including ones added later. */
+        public boolean allowsEnv(String env) {
+            return envs == null || envs.isEmpty() || envs.contains(env);
+        }
+
+        public List<BindingOption> optionList() {
+            return options == null ? List.of() : options;
+        }
+
+        public List<BindingEnv> envVars() {
+            return env == null ? List.of() : env;
+        }
+
+        public Map<String, String> annotations() {
+            return podAnnotations == null ? Map.of() : podAnnotations;
         }
     }
 
@@ -332,6 +391,92 @@ public class ConnectorCatalog {
             case PLANNED -> {
             }
         }
+        if (c.binding() != null) {
+            require(kind == Kind.MANAGED, where + ": only managed connectors can have a binding");
+            validateBinding(where, c.binding());
+        }
+    }
+
+    static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([^}]*)}");
+    private static final Pattern OPTION_ID = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_-]{0,30}$");
+    private static final Pattern ENV_NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]{0,127}$");
+    static final Pattern SECRET_KEY = Pattern.compile("^[-._a-zA-Z0-9]{1,253}$");
+    private static final Pattern ANNOTATION_KEY =
+            Pattern.compile("^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$");
+    static final Set<String> BASE_PLACEHOLDERS = Set.of("app", "env", "namespace", "name");
+
+    static void validateBinding(String where, Binding b) {
+        String w = where + ": binding";
+        require(b.label() != null && !b.label().isBlank(), w + ".label is required");
+        Scope scope;
+        try {
+            scope = b.scopeEnum();
+        } catch (RuntimeException e) {
+            throw new IllegalStateException(w + ".scope must be instance, shared or config");
+        }
+        for (String env : b.envList())
+            require(EnvironmentRegistry.DEFAULT_ENVS.contains(env), w + ".envs: unknown environment " + env);
+        Set<String> optionIds = new HashSet<>();
+        for (BindingOption o : b.optionList()) {
+            require(o.id() != null && OPTION_ID.matcher(o.id()).matches(), w + ".options: invalid id " + o.id());
+            require(optionIds.add(o.id()), w + ".options: duplicate id " + o.id());
+            for (String ch : o.choiceList())
+                require(validOptionValue(ch), w + ".options." + o.id() + ": invalid choice " + ch);
+            require(o.defaultValue() == null || validOptionValue(o.defaultValue()), w + ".options." + o.id() + ": invalid default");
+            require(o.defaultValue() == null || o.choiceList().isEmpty() || o.choiceList().contains(o.defaultValue()),
+                    w + ".options." + o.id() + ": default must be one of the choices");
+        }
+        for (BindingEnv e : b.envVars()) {
+            require(e.name() != null && ENV_NAME.matcher(e.name()).matches(), w + ".env: invalid name " + e.name());
+            boolean plain = e.value() != null, fromSecret = e.secret() != null || e.key() != null;
+            require(plain != fromSecret, w + ".env." + e.name() + ": set value, or secret and key");
+            require(!fromSecret || (e.secret() != null && e.key() != null && SECRET_KEY.matcher(e.key()).matches()),
+                    w + ".env." + e.name() + ": secret needs a valid key");
+        }
+        b.annotations().forEach((k, v) -> require(ANNOTATION_KEY.matcher(k).matches() && v != null,
+                w + ".podAnnotations: invalid entry " + k));
+        if (b.manifests() != null) {
+            require(isRelYaml(b.manifests()), w + ".manifests must be a relative .yaml path");
+            require(b.manifestsText() != null && !b.manifestsText().isBlank(),
+                    w + ".manifestsText is missing (catalog not built with tools/build.py?)");
+        }
+        switch (scope) {
+            case INSTANCE -> require(b.manifestsText() != null && !b.manifestsText().isBlank(), w + ": scope instance needs manifests");
+            case SHARED -> require(b.manifestsText() == null, w + ": scope shared cannot have manifests");
+            case CONFIG -> require(b.manifestsText() == null && b.copySecret() == null,
+                    w + ": scope config has only env and podAnnotations");
+        }
+        if (b.copySecret() != null) {
+            CopySecret cs = b.copySecret();
+            require(scope == Scope.SHARED, w + ".copySecret is for scope shared only");
+            require(isName(cs.from()), w + ".copySecret.from must be a Secret name");
+            require(cs.name() != null && !cs.name().isBlank(), w + ".copySecret.name is required");
+            require(cs.keys() != null && !cs.keys().isEmpty(), w + ".copySecret.keys is required");
+            cs.keys().forEach((from, to) -> require(SECRET_KEY.matcher(from).matches() && to != null
+                    && SECRET_KEY.matcher(to).matches(), w + ".copySecret.keys: invalid key " + from));
+        }
+        require(scope == Scope.INSTANCE || !b.envVars().isEmpty() || !b.annotations().isEmpty(),
+                w + ": adds nothing (no env, podAnnotations or manifests)");
+        // Every placeholder must be known: ${app} ${env} ${namespace} ${name} ${opt.<id>}
+        List<String> texts = new ArrayList<>();
+        b.envVars().forEach(e -> { texts.add(e.value()); texts.add(e.secret()); });
+        texts.addAll(b.annotations().values());
+        texts.add(b.manifestsText());
+        if (b.copySecret() != null) texts.add(b.copySecret().name());
+        for (String t : texts) {
+            if (t == null) continue;
+            Matcher m = PLACEHOLDER.matcher(t);
+            while (m.find()) {
+                String ph = m.group(1);
+                require(BASE_PLACEHOLDERS.contains(ph) || (ph.startsWith("opt.") && optionIds.contains(ph.substring(4))),
+                        w + ": unknown placeholder ${" + ph + "}");
+            }
+        }
+    }
+
+    /** Option values end up inside YAML manifests: letters, digits and . _ : / - only. */
+    static boolean validOptionValue(String v) {
+        return v != null && v.matches("^[A-Za-z0-9][A-Za-z0-9._:/-]{0,62}$");
     }
 
     /** Probes may only reach in-cluster services, so a catalog entry cannot turn the platform into a proxy. */

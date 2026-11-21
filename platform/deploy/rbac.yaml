@@ -58,6 +58,16 @@ rules:
   - apiGroups: [""]
     resources: ["secrets", "limitranges"]
     verbs: ["get", "create", "update", "patch"]
+  # Pre-promotion check: does a ConfigMap an app mounts exist in the target env namespace (metadata only)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+  # Project -> Services: Detach (and project delete) removes the Secret the platform copied into dev/staging/prod for a
+  # shared connector. Only Secrets labelled aio.platform/managed + aio.platform/project + aio.platform/service are
+  # deleted (checked in code; RBAC cannot select by label).
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["delete"]
   # Env namespace baseline (default-deny ingress + ingress controller), applied when the cluster names its
   # ingress namespace (V13 environments/clusters). Without it the rest of the baseline still applies.
   - apiGroups: ["networking.k8s.io"]
@@ -110,6 +120,8 @@ roleRef:
   kind: ClusterRole
   name: aio-platform-envs
 ---
+# Project -> Services, reading the shared connectors' credentials (Valkey, Langfuse, Milvus): see
+# rbac-shared-services.yaml, applied once those connectors' namespaces exist.
 # Single-cluster fallback only: detect whether Argo Rollouts is installed on the hub (workload clusters
 # declare it with rollouts: true in app.clusters instead)
 apiVersion: rbac.authorization.k8s.io/v1

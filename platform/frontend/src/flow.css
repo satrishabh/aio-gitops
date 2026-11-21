@@ -419,3 +419,52 @@
 [data-theme="dark"] .fl-stepper li:not(.current):not(.done) .fl-step-n { background: var(--panel-2); color: var(--text); }
 [data-theme="dark"] .fl-tag, [data-theme="dark"] .fl-stop-tag { letter-spacing: 0; }
 .fl-tag-none { color: var(--text-2); font-size: 0.95rem; font-weight: 600; }
+
+/* ---------------------------------------------------------------- promotion: dialog + status */
+.pm-dialog { width: min(600px, calc(100% - 24px)); }
+.pm-dialog h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pm-dialog h4 { margin: 12px 0 6px; font-size: 0.9rem; }
+.pm-ok, .pm-warn { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-weight: 600; }
+.pm-ok { background: var(--green-bg); color: var(--green); }
+.pm-warn { background: var(--amber-bg); color: var(--amber); }
+.pm-ok svg, .pm-warn svg { flex-shrink: 0; margin-top: 2px; }
+.pm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pm-list li { overflow-wrap: anywhere; }
+.pm-kind { display: inline-block; min-width: 5.5em; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-2); }
+.pm-kind.bad { color: var(--red); }
+.pm-diff { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.pm-diff th, .pm-diff td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.pm-diff thead th { color: var(--text-2); font-weight: 600; }
+.pm-cmd { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.pm-cmd code { flex: 1; min-width: 0; display: block; padding: 6px 8px; font-size: 0.78rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pm-note { display: flex; gap: 6px; align-items: flex-start; }
+.pm-confirm { display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; }
+.pm-confirm input { font-family: var(--font-mono, var(--mono)); }
+.pm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
+.pm-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.pm-deploying { gap: 6px; }
+.pm-deploying::before { display: none; }
+.pm-spin { width: 10px; height: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+.pm-reason { color: var(--red); font-size: 0.85rem; overflow-wrap: anywhere; }
+.pm-logs summary { cursor: pointer; font-size: 0.82rem; color: var(--text-2); min-height: 24px; }
+.pm-logs summary:focus-visible, .pm-logs pre:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pm-logs pre { margin: 6px 0 0; max-height: 240px; max-width: min(640px, 80vw); overflow: auto; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: #1d1d1f; color: #e5e5ea; font-family: var(--font-mono, var(--mono)); font-size: 0.76rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.fl-stop-promo { font-size: 0.82rem; }
+@media (prefers-reduced-motion: reduce) { .pm-spin { border-right-color: currentColor; opacity: 0.6; } }
+@media (max-width: 760px) {
+  .pm-diff thead { display: none; }
+  .pm-diff tr { display: block; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .pm-diff th, .pm-diff td { display: block; border: 0; padding: 2px 0; }
+  .pm-diff td::before { content: attr(data-label) ": "; color: var(--text-2); font-size: 0.78rem; }
+  .pm-actions .btn { flex: 1 1 100%; justify-content: center; }
+}
+[data-theme="bright"] .pm-ok, [data-theme="bright"] .pm-warn { border: 2px solid #0A0A0A; border-radius: 0; color: #0A0A0A; }
+[data-theme="bright"] .pm-logs pre, [data-theme="bright"] .pm-cmd code { border-radius: 0; }
+[data-theme="dark"] .pm-logs pre { background: var(--bg); border: 1px solid var(--line); }
+.pm-env li { display: grid; grid-template-columns: minmax(8em, 38%) 1fr; gap: 4px 10px; align-items: center; }
+.pm-env input { width: 100%; min-width: 0; font-family: var(--font-mono, var(--mono)); font-size: 0.82rem; }
+.pm-env .pm-hint { grid-column: 2; display: inline-flex; gap: 4px; align-items: center; color: var(--amber); font-size: 0.78rem; font-weight: 600; }
+.pm-env-flag input { border-color: var(--warn-fill); box-shadow: 0 0 0 1px var(--warn-fill); }
+.pm-ref { font-size: 0.82rem; color: var(--text-2); }
+@media (max-width: 760px) { .pm-env li { grid-template-columns: 1fr; } .pm-env .pm-hint { grid-column: 1; } }

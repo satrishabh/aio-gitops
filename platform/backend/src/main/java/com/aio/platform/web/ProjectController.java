@@ -225,13 +225,26 @@ public class ProjectController {
         return scaleService.scaleAll(projects.findById(id).orElseThrow(), req.replicas(), Me.login(user));
     }
 
-    public record PromoteRequest(String from, String to) {}
+    /**
+     * copySettings: also copy the source env's runtime settings (see GET promotions/check); confirm: the project
+     * name, required when check findings remain ("promote anyway"); envOverrides: edited values of env vars that
+     * Copy settings adds (plain values only).
+     */
+    public record PromoteRequest(String from, String to, Boolean copySettings, String confirm,
+                                 Map<String, String> envOverrides) {}
 
     @PostMapping("/{id}/promote")
     public Object promote(@PathVariable Long id, @RequestBody PromoteRequest req,
                           @AuthenticationPrincipal OAuth2User user) {
         Project p = projects.findById(id).orElseThrow();
-        return promotionService.promote(p, req.from(), req.to(), Me.login(user));
+        return promotionService.promote(p, req.from(), req.to(), Me.login(user),
+                Boolean.TRUE.equals(req.copySettings()), req.confirm(), req.envOverrides());
+    }
+
+    /** Pre-promotion check: settings the target env lacks and Secrets/ConfigMaps missing in its namespace (existence only). */
+    @GetMapping("/{id}/promotions/check")
+    public PromotionService.CheckResult checkPromotion(@PathVariable Long id, @RequestParam String from, @RequestParam String to) {
+        return promotionService.check(projects.findById(id).orElseThrow(), from, to);
     }
 
     public record RollbackRequest(Long deploymentId) {}

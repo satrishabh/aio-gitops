@@ -1,0 +1,33 @@
+{{- /*
+Project services (Project -> Services in the portal; written only by the platform). Each services.<connector>.manifests
+is multi-document YAML with every placeholder already substituted; it is rendered as-is, with the chart's labels
+added to each document. app.kubernetes.io/name is left out on purpose: name + instance is the app's Service selector,
+and operators (Strimzi, for example) copy their resource's labels onto the pods they create, which would put a
+database pod behind the app's Service. aio.platform/service names the connector instead.
+*/ -}}
+{{- range $id, $svc := (.Values.services | default dict) }}
+{{- with $svc }}
+{{- range $doc := regexSplit "(?m)^---[ \\t]*$" (.manifests | default "") -1 }}
+{{- $obj := fromYaml $doc }}
+{{- if hasKey $obj "Error" }}
+{{- fail (printf "services.%s.manifests: invalid YAML: %s" $id (get $obj "Error")) }}
+{{- end }}
+{{- if $obj }}
+{{- if not (and (hasKey $obj "apiVersion") (hasKey $obj "kind") (hasKey $obj "metadata")) }}
+{{- fail (printf "services.%s.manifests: every document needs apiVersion, kind and metadata" $id) }}
+{{- end }}
+{{- $labels := dict
+      "app.kubernetes.io/part-of" (include "app.name" $)
+      "app.kubernetes.io/instance" $.Release.Name
+      "app.kubernetes.io/managed-by" $.Release.Service
+      "helm.sh/chart" (printf "%s-%s" $.Chart.Name $.Chart.Version)
+      "aio.platform/service" $id }}
+{{- $meta := get $obj "metadata" | default dict }}
+{{- $_ := set $meta "labels" (merge (get $meta "labels" | default dict) $labels) }}
+{{- $_ := set $obj "metadata" $meta }}
+---
+{{ toYaml $obj }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

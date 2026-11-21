@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, duration, fmtTime } from '../api.js'
 import Badge, { Vulns } from '../components/Badge.jsx'
 import Icon from '../components/Icon.jsx'
@@ -12,6 +12,9 @@ import ToolLinks from '../components/ToolLinks.jsx'
 import CertificateManager from '../components/CertificateManager.jsx'
 import { DetailHead, StateWord } from '../components/flow/FlowParts.jsx'
 import { useEnvironments } from '../environments.js'
+import { PromoteDialog, PromotionStatus } from '../components/Promotion.jsx'
+import ServicesTab from '../components/ServicesTab.jsx'
+import ExportDialog from '../components/ExportDialog.jsx'
 
 /** Something real has been deployed to this env (not the 0.0.0 placeholder). */
 const isDeployed = s => !!s.desiredTag && s.desiredTag !== '0.0.0'
@@ -32,7 +35,14 @@ export default function ProjectDetail() {
   const nav = useNavigate()
   const [ref, setRef] = useState('')
   const [deployBuild, setDeployBuild] = useState(true)
-  const [tab, setTab] = useState('runs')
+  const [promoting, setPromoting] = useState(null)   // env whose Promote dialog is open
+  const [params, setParams] = useSearchParams()
+  const [tab, setTab] = useState(() => (params.get('tab') === 'services' ? 'services' : 'runs'))
+  // ?export=1 (from the command palette) opens the Export dialog once the project has loaded
+  const [exporting, setExporting] = useState(() => params.get('export') === '1')
+  useEffect(() => {
+    if (params.get('export') === '1') { setExporting(true); params.delete('export'); setParams(params, { replace: true }) }
+  }, [params, setParams])
   const { data, error, stale, refresh } = usePoll(() => api(`/api/projects/${id}`), 8000, [id])
   const { busy, run } = useAction(refresh)
   const { names: ENVS, next: NEXT, gated, prev, many, path, byName } = useEnvironments()
@@ -46,9 +56,8 @@ export default function ProjectDetail() {
     const r = await run('run', () => api(`/api/projects/${id}/runs`, { method: 'POST', body: { ref, deploy: deployBuild } }), r => `CI run #${r.id} started`)
     if (r) nav(`/runs/${r.id}`)
   }
-  const promote = env => run(`promote-${env}`,
-    () => api(`/api/projects/${id}/promote`, { method: 'POST', body: { from: env, to: NEXT[env] } }),
-    gated(NEXT[env]) ? `${NEXT[env]} promotion requested — approve it on the Approvals page` : `Promoted to ${NEXT[env]}`)
+  /** Latest promotion or rollback that reached this env (DEPLOYING / FAILED are shown on the stop). */
+  const lastPromotionTo = env => promotions.find(pr => pr.toEnv === env && pr.status !== 'PENDING' && pr.status !== 'REJECTED')
   const scale = (env, n) => run(`scale-${env}`,
     () => api(`/api/projects/${id}/environments/${env}/scale`, { method: 'POST', body: { replicas: n } }),
     n === 0 ? `${env} scaled down — the app is stopped` : `${env} scaling to ${n} replica${n > 1 ? 's' : ''}`)
@@ -94,6 +103,8 @@ export default function ProjectDetail() {
           <div className="fl-run-tools">
             <Link className="btn" to={`/pipelines/security?project=${p.id}`}><Icon name="shield" size={14} />Security scan</Link>
             <button className="btn" onClick={() => setTab('settings')} aria-label={`Edit ${p.name} settings`}><Icon name="settings" size={14} />Edit</button>
+            <button className="btn" onClick={() => setExporting(true)} aria-haspopup="dialog" title="Download a zip that runs this project without AIO">
+              <Icon name="download" size={14} />Export</button>
             {deployedEnvs.length > 0 && (anyRunning
               ? <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(0)} title="Stop every environment (0 pods)"><Icon name="stop" size={13} />Stop app</button>
               : <button {...btn('scale-all', 'btn')} onClick={() => scaleAll(1)} title="Start every deployed environment"><Icon name="play" size={13} />Start app</button>)}
@@ -130,6 +141,11 @@ export default function ProjectDetail() {
                 <div className="fl-stop-label">{parked ? 'Not deployed' : stopped ? 'Stopped · image' : 'Running image'}</div>
                 <div className="fl-stop-tag">{parked ? <span className="muted">—</span> : (current || '—')}</div>
                 {rolling && <div className="fl-stop-rolling"><Badge value="Progressing" label="Rolling out" /> <span className="muted">live {s.imageTag}</span></div>}
+                {(() => {
+                  const last = lastPromotionTo(env)
+                  if (!last || !['DEPLOYING', 'FAILED'].includes(last.status)) return null
+                  return <div className="fl-stop-promo" aria-label={`Last ${last.kind.toLowerCase()} to ${env}`}><PromotionStatus pr={last} compact /></div>
+                })()}
                 {env === 'prod' && rollout.enabled && <BlueGreen ro={rollout} appUrl={s.appUrl} p={p} btn={btn} run={run} id={id} />}
 
                 <dl className="fl-stop-meta">
@@ -152,7 +168,7 @@ export default function ProjectDetail() {
                   <div className="fl-stop-move">
                     {NEXT[env] && <button {...btn(`promote-${env}`, 'btn primary small')} disabled={!!busy || parked}
                                           title={parked ? `Nothing in ${env} to promote yet` : `Promote ${env} → ${NEXT[env]}`}
-                                          onClick={() => promote(env)}>
+                                          onClick={() => setPromoting(env)}>
                       {gated(NEXT[env]) ? <Icon name="lock" size={12} /> : <Icon name="arrow" size={12} />}
                       Promote to {NEXT[env]}{gated(NEXT[env]) && <span className="fl-needs"> · needs approval</span>}
                     </button>}
@@ -175,6 +191,9 @@ export default function ProjectDetail() {
         </ol>
       </section>
 
+      {promoting && <PromoteDialog project={p} from={promoting} to={NEXT[promoting]}
+                                   onClose={() => setPromoting(null)} onDone={() => { setPromoting(null); refresh() }} />}
+
       <div className="fl-extras">
         <ToolLinks key={`tools-${p.id}`} projectId={p.id} />
         <DeliverySettings key={p.id} project={p} onSaved={refresh} />
@@ -186,6 +205,7 @@ export default function ProjectDetail() {
         { id: 'promos', label: 'Promotions', icon: 'shield', count: promotions.length },
         { id: 'domains', label: 'Domains', icon: 'globe' },
         { id: 'certificates', label: 'Certificates', icon: 'shield' },
+        { id: 'services', label: 'Services', icon: 'box' },
         { id: 'settings', label: 'Settings', icon: 'settings' },
       ]} />
 
@@ -259,7 +279,7 @@ export default function ProjectDetail() {
                   <td data-label="Kind"><Icon name={pr.kind === 'ROLLBACK' ? 'undo' : 'rocket'} size={13} /> {pr.kind.toLowerCase()}</td>
                   <td data-label="Target">{pr.fromEnv ? <>{pr.fromEnv} <Icon name="arrow" size={11} /> </> : ''}<b>{pr.toEnv}</b></td>
                   <td data-label="Tag"><code>{pr.imageTag}</code></td>
-                  <td data-label="Status"><Badge value={pr.status} /> {pr.message && <div className="muted fl-small">{pr.message}</div>}</td>
+                  <td data-label="Status"><PromotionStatus pr={pr} /></td>
                   <td data-label="Requested">{pr.requestedBy} <div className="muted fl-small">{ago(pr.requestedAt)}</div></td>
                   <td data-label="Decided">{pr.decidedBy || '—'} <div className="muted fl-small">{pr.decidedAt ? ago(pr.decidedAt) : ''}</div></td>
                 </tr>
@@ -272,6 +292,8 @@ export default function ProjectDetail() {
 
       {tab === 'domains' && <DomainsTab id={id} />}
       {tab === 'certificates' && <CertificateManager projectId={id} onDomains={() => setTab('domains')} />}
+      {tab === 'services' && <ServicesTab id={id} project={p} />}
+      {exporting && <ExportDialog project={p} onClose={() => setExporting(false)} />}
 
       {tab === 'settings' && <>
         <Settings p={p} run={run} btn={btn} />

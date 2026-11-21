@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, fmtTime } from '../api.js'
 import Icon from '../components/Icon.jsx'
 import { useToast } from '../components/Toast.jsx'
@@ -38,6 +39,31 @@ const phaseOrder = (a, b) => {
 }
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+// Connectors projects can attach (Project → Services). The API marks them (binding / bindable); until it does,
+// the first wave from docs/architecture/PROJECT-SERVICES.md stands in.
+const FIRST_WAVE = ['cloudnative-pg', 'valkey', 'strimzi', 'opensearch', 'opentelemetry-collector', 'temporal', 'dapr', 'langfuse', 'milvus']
+const isInstalled = c => c.kind === 'MANAGED' && !['NOT_INSTALLED', 'NOT_FOR_THIS_CLOUD', 'PLANNED'].includes(c.status)
+function bindableIds(connectors) {
+  const flagged = connectors.some(c => 'bindable' in c || 'binding' in c)
+  return new Set(connectors.filter(c => (flagged ? c.bindable === true || !!c.binding : FIRST_WAVE.includes(c.id))).map(c => c.id))
+}
+
+/** /usage -> [{ id, name, envs }] whatever the exact shape (list of rows, or { projects: [...] }). */
+function normUsage(raw) {
+  const rows = Array.isArray(raw) ? raw : Array.isArray(raw?.projects) ? raw.projects : Array.isArray(raw?.usage) ? raw.usage : []
+  const byProject = new Map()
+  for (const r of rows) {
+    const p = r.project && typeof r.project === 'object' ? r.project : null
+    const id = r.projectId ?? p?.id ?? r.id
+    const name = r.projectName ?? p?.name ?? r.name ?? (typeof r.project === 'string' ? r.project : String(id))
+    const key = String(id ?? name)
+    if (!byProject.has(key)) byProject.set(key, { id, name, envs: [] })
+    const envs = r.envs || (r.env ? [r.env] : [])
+    for (const e of envs) if (!byProject.get(key).envs.includes(e)) byProject.get(key).envs.push(e)
+  }
+  return [...byProject.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)))
+}
 
 /** Groups: core platform (no phase), each phase, then planned (no phase). */
 function groupConnectors(connectors) {
@@ -90,8 +116,27 @@ export default function Connectors() {
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState('')
   const [status, setStatus] = useState('')
+  // connector id -> [{ id, name, envs }]; missing = not loaded / not available (404 hides it)
+  const [usage, setUsage] = useState({})
+  const [usageGen, setUsageGen] = useState(0)
 
   const connectors = data?.connectors || []
+  const usageKey = connectors.filter(isInstalled).map(c => c.id).join(',')
+  useEffect(() => {
+    if (!usageKey) return undefined
+    let alive = true
+    const ids = bindableIds(connectors)
+    for (const c of connectors.filter(x => isInstalled(x) && ids.has(x.id))) {
+      // GET /api/connectors carries usedBy for bindable connectors; ask /usage only when it does not
+      if (Array.isArray(c.usedBy)) { setUsage(u => ({ ...u, [c.id]: normUsage(c.usedBy) })); continue }
+      api(`/api/connectors/${encodeURIComponent(c.id)}/usage`)
+        .then(r => { if (alive) setUsage(u => ({ ...u, [c.id]: normUsage(r) })) })
+        .catch(() => { if (alive) setUsage(u => { const n = { ...u }; delete n[c.id]; return n }) })
+    }
+    return () => { alive = false }
+    // connectors is read through usageKey: refetch only when the installed set changes or after an action
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usageKey, usageGen])
   const phases = useMemo(() => new Map((data?.phases || []).map(p => [String(p.phase), p])), [data])
   const q = query.trim().toLowerCase()
   const filtered = useMemo(() => connectors.filter(c => {
@@ -124,6 +169,7 @@ export default function Connectors() {
         toast(r.ok ? 'ok' : 'error', `${c.name}: ${r.ok ? 'all checks passed' : 'some checks failed'}`)
       } else {
         toast('ok', `${c.name}: ${r.status}${r.version ? ` (${r.version})` : ''}`)
+        setUsageGen(g => g + 1)
       }
       refresh()
     } catch (err) {
@@ -257,7 +303,7 @@ export default function Connectors() {
                   </div>}
                 </header>
                 <ul className="cn-grid">
-                  {g.list.map(c => <ConnectorCard key={c.id} c={c} test={tests[c.id] || c.lastTest} busy={busy[c.id]} act={act} links={data.links} />)}
+                  {g.list.map(c => <ConnectorCard key={c.id} c={c} test={tests[c.id] || c.lastTest} busy={busy[c.id]} act={act} links={data.links} usage={Array.isArray(c.usedBy) ? normUsage(c.usedBy) : usage[c.id]} />)}
                 </ul>
               </section>
             )
@@ -267,7 +313,24 @@ export default function Connectors() {
   )
 }
 
-function ConnectorCard({ c, test, busy: b, act, links }) {
+/** "Used by N projects" with the list (each project and its environments). */
+function Usage({ c, usage }) {
+  if (!usage) return null
+  if (usage.length === 0) return <p className="cn-usage muted"><Icon name="grid" size={13} />Not used by any project</p>
+  return (
+    <details className="cn-usage">
+      <summary><Icon name="grid" size={13} />Used by {plural(usage.length, 'project')}</summary>
+      <ul aria-label={`Projects using ${c.name}`}>
+        {usage.map(u => <li key={String(u.id ?? u.name)}>
+          {u.id != null ? <Link to={`/projects/${u.id}?tab=services`}>{u.name}</Link> : <b>{u.name}</b>}
+          {u.envs.length > 0 && <span className="muted"> · {u.envs.join(', ')}</span>}
+        </li>)}
+      </ul>
+    </details>
+  )
+}
+
+function ConnectorCard({ c, test, busy: b, act, links, usage }) {
   const [tone, label] = STATUS[statusOf(c)]
   const installed = c.kind === 'MANAGED' && c.status !== 'NOT_INSTALLED' && c.status !== 'NOT_FOR_THIS_CLOUD'
   const version = c.installedVersion || c.pinnedVersion
@@ -302,6 +365,8 @@ function ConnectorCard({ c, test, busy: b, act, links }) {
         {c.sso && c.sso !== 'none' && <span className="cn-tag" title="Single sign-on">SSO: {c.sso === 'oidc' ? 'Keycloak' : 'gate'}</span>}
         {c.homepage && <a className="cn-home" href={c.homepage} target="_blank" rel="noreferrer">Project site<span className="sr-only"> of {c.name} (opens in a new tab)</span> <Icon name="external" size={11} /></a>}
       </div>
+
+      <Usage c={c} usage={usage} />
 
       {test && <details className={`cn-test${test.ok ? '' : ' failed'}`} open={!test.ok}>
         <summary>
@@ -339,7 +404,8 @@ function ConnectorCard({ c, test, busy: b, act, links }) {
             <Icon name="refresh" size={13} />Use {c.pinnedVersion}</button>}
         {installed &&
           <button className={`btn small danger cn-disable${b === 'disable' ? ' busy' : ''}`} disabled={!!b} aria-label={`Disable ${c.name}`}
-                  onClick={() => act(c, 'disable', `Disable ${c.name}? This deletes everything it installed (dashboards and stored data included).`)}>
+                  onClick={() => act(c, 'disable', `Disable ${c.name}? This deletes everything it installed (dashboards and stored data included).`
+                    + (usage?.length ? ` It is used by ${usage.map(u => `${u.name}${u.envs.length ? ` (${u.envs.join(', ')})` : ''}`).join(', ')}; AIO refuses while projects use it. Remove it from their Services tab first.` : ''))}>
             <Icon name="trash" size={13} />Disable</button>}
         {c.kind === 'PLANNED' && <span className="cn-noaction muted">No actions: planned</span>}
         {c.status === 'NOT_FOR_THIS_CLOUD' && c.kind !== 'PLANNED' && <span className="cn-noaction muted">No actions on this cloud</span>}

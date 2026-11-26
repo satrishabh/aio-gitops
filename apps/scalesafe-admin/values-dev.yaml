@@ -5,7 +5,7 @@ nameOverride: scalesafe-admin
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-admin
-  tag: "8b0249713f5b"
+  tag: "69d736ec2e0b"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

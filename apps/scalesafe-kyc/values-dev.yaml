@@ -4,7 +4,7 @@ nameOverride: scalesafe-kyc
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-kyc
-  tag: "58fb70681f9c"
+  tag: "8b0249713f5b"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -54,4 +54,4 @@ routes:
     externalDns: false
 spot:
   enabled: true
-  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full
+  provider: aks # tolerate the AKS spot pool; pods may land there when the regular node is full

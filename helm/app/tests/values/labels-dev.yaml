@@ -1,0 +1,6 @@
+# Extra labels land on the Deployment only, not on the pod template (so adding one restarts nothing)
+image:
+  repository: ghcr.io/example/nightly
+  tag: "0a1b2c3d4e5f"
+labels:
+  kube-green.dev/exclude: "true"

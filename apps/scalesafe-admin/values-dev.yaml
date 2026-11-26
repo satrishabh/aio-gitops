@@ -60,3 +60,7 @@ spot:
 # Postgres and Keycloak stay on regular nodes. If Azure reclaims spot capacity, this pod waits Pending.
 nodeSelector:
   kubernetes.azure.com/scalesetpriority: spot
+# Keep out of the kube-green connector's 20:00 sleep: ScaleSafe dev has its own night schedule (scalesafe-night-down/up,
+# 23:00-08:00 every day, Postgres and Keycloak included). Label on the Deployment only, so no restart.
+labels:
+  kube-green.dev/exclude: "true"

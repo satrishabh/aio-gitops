@@ -25,6 +25,7 @@
       }
     },
     "nodeSelector": { "type": "object", "additionalProperties": { "type": "string" } },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } },
     "tolerations": { "type": "array", "items": { "type": "object" } },
     "autoscaling": {
       "type": "object",

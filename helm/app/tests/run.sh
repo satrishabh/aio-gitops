@@ -30,4 +30,15 @@ if helm template demo "$chart" --namespace dev -f "$bad" > /dev/null 2>&1; then
   echo "invalid services manifests rendered without an error" >&2
   fail=1
 fi
+# Labels the chart sets itself cannot be overridden
+printf 'image:
+  repository: x
+  tag: "1"
+labels:
+  app.kubernetes.io/name: other
+' > "$bad"
+if helm template demo "$chart" --namespace dev -f "$bad" > /dev/null 2>&1; then
+  echo "a reserved label key rendered without an error" >&2
+  fail=1
+fi
 exit "$fail"

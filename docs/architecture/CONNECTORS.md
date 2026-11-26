@@ -229,6 +229,7 @@ Trade-offs to know:
 - OpenCost prices: compare the node cost it shows with the Azure price of `Standard_B2as_v2` in South India before trusting it. If they differ, configure Azure pricing as described in the OpenCost docs. Reservations, savings plans and negotiated discounts are never reflected.
 - Goldilocks only recommends. The VPA updater and admission webhook are not installed, so nothing is resized automatically.
 - The connectors project may create anything in `dev` and `staging` (needed for SleepInfo). Changes still only come from reviewed files in the GitOps repo.
+- kube-green sleeps every Deployment in `dev` and `staging` and suspends their CronJobs. An app with its own night schedule (ScaleSafe dev: `scalesafe-night-down`/`-up`) must opt out, or kube-green also suspends that schedule: set `labels: { kube-green.dev/exclude: "true" }` in the app's values (Deployment label only, no restart) and put the same label on its CronJobs. The SleepInfos skip that label (aio-catalog `extras/kube-green-sleepinfo`). The sync windows still cover the opted-out apps, so their automatic syncs also pause 20:00-08:00 and on weekends; manual syncs go through.
 
 ## Activation (phase 3)
 

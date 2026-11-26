@@ -19,8 +19,8 @@ spec:
   template:
     metadata:
       labels: { app.kubernetes.io/name: scalesafe-keycloak, app.kubernetes.io/part-of: scalesafe }
-      # Changes with the sign-in theme files, so Argo CD rolls Keycloak and it serves the new theme.
-      annotations: { scalesafe.io/theme-checksum: "06fadf18999adfdc" }
+      # Change with the theme files and the extension JAR, so Argo CD rolls Keycloak and it serves the new ones.
+      annotations: { scalesafe.io/theme-checksum: "74291564a444bd06", scalesafe.io/providers-checksum: "da9474b39d2d2472" }
     spec:
       securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
       containers:
@@ -38,7 +38,11 @@ spec:
             - { name: KC_HEALTH_ENABLED, value: "true" }
             - { name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin }
             - { name: JAVA_OPTS_KC_HEAP, value: "-XX:MaxRAMPercentage=65" }
-          envFrom: [{ secretRef: { name: scalesafe-keycloak } }]
+            # dev/preview only: the sign-in OTP may run in sandbox mode (123456, nothing sent). Never on production.
+            - { name: SCALESAFE_AUTH_SANDBOX_ALLOWED, value: "true" }
+          # Optional Secret scalesafe-sms: KC_SPI_SCALESAFE_SMS_SENDER_HTTP_GATEWAY_URL, _API_KEY, _SENDER_ID,
+          # _TEMPLATE_ID, _ENTITY_ID (DLT). Without it the SMS channel stays inactive.
+          envFrom: [{ secretRef: { name: scalesafe-keycloak } }, { secretRef: { name: scalesafe-sms, optional: true } }]
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
           resources:
             requests: { cpu: 25m, memory: 384Mi }
@@ -48,18 +52,34 @@ spec:
           livenessProbe: { httpGet: { path: /health/live, port: management }, periodSeconds: 20 }
           volumeMounts:
             - { name: realm, mountPath: /opt/keycloak/data/import, readOnly: true }
-            - { name: theme, mountPath: /opt/keycloak/themes/scalesafe/login, readOnly: true }
+            - { name: theme, mountPath: /opt/keycloak/themes/scalesafe, readOnly: true }
+            - { name: providers, mountPath: /opt/keycloak/providers, readOnly: true }
       volumes:
         - { name: realm, configMap: { name: scalesafe-keycloak-realm } }
+        - name: providers
+          configMap:
+            name: scalesafe-keycloak-providers
+            items:
+              - { key: scalesafe-auth.jar, path: scalesafe-auth.jar }
         - name: theme
           configMap:
             name: scalesafe-keycloak-theme
             items:
-              - { key: resources__css__scalesafe.css, path: resources/css/scalesafe.css }
-              - { key: resources__fonts__inter-latin-var.woff2, path: resources/fonts/inter-latin-var.woff2 }
-              - { key: resources__fonts__source-serif-4-latin-var.woff2, path: resources/fonts/source-serif-4-latin-var.woff2 }
-              - { key: resources__img__logo.svg, path: resources/img/logo.svg }
-              - { key: theme.properties, path: theme.properties }
+              - { key: email__html__scalesafe-otp.ftl, path: email/html/scalesafe-otp.ftl }
+              - { key: email__messages__messages_en.properties, path: email/messages/messages_en.properties }
+              - { key: email__text__scalesafe-otp.ftl, path: email/text/scalesafe-otp.ftl }
+              - { key: email__theme.properties, path: email/theme.properties }
+              - { key: login__login-update-password.ftl, path: login/login-update-password.ftl }
+              - { key: login__messages__messages_en.properties, path: login/messages/messages_en.properties }
+              - { key: login__resources__css__scalesafe.css, path: login/resources/css/scalesafe.css }
+              - { key: login__resources__fonts__inter-latin-var.woff2, path: login/resources/fonts/inter-latin-var.woff2 }
+              - { key: login__resources__fonts__source-serif-4-latin-var.woff2, path: login/resources/fonts/source-serif-4-latin-var.woff2 }
+              - { key: login__resources__img__logo.svg, path: login/resources/img/logo.svg }
+              - { key: login__resources__js__scalesafe-codes.js, path: login/resources/js/scalesafe-codes.js }
+              - { key: login__scalesafe-identify.ftl, path: login/scalesafe-identify.ftl }
+              - { key: login__scalesafe-otp.ftl, path: login/scalesafe-otp.ftl }
+              - { key: login__scalesafe-pin.ftl, path: login/scalesafe-pin.ftl }
+              - { key: login__theme.properties, path: login/theme.properties }
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

@@ -24,7 +24,142 @@ data:
       "duplicateEmailsAllowed": false,
       "resetPasswordAllowed": true,
       "accessTokenLifespan": 300,
-      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionIdleTimeout": 5400,
+      "ssoSessionMaxLifespan": 36000,
+      "emailTheme": "scalesafe",
+      "eventsEnabled": true,
+      "eventsExpiration": 2592000,
+      "passwordPolicy": "length(6) and maxLength(6) and digits(6) and notUsername and passwordHistory(3)",
+      "bruteForceProtected": true,
+      "bruteForceStrategy": "MULTIPLE",
+      "failureFactor": 5,
+      "permanentLockout": true,
+      "maxTemporaryLockouts": 3,
+      "waitIncrementSeconds": 900,
+      "maxFailureWaitSeconds": 900,
+      "minimumQuickLoginWaitSeconds": 60,
+      "quickLoginCheckMilliSeconds": 1000,
+      "maxDeltaTimeSeconds": 43200,
+      "browserFlow": "scalesafe browser",
+      "resetCredentialsFlow": "scalesafe reset credentials",
+      "authenticatorConfig": [
+        {
+          "alias": "scalesafe otp sign-in",
+          "config": {
+            "channel": "SMS_WITH_EMAIL_FALLBACK",
+            "mode": "sandbox",
+            "portalName": "ScaleSafe"
+          }
+        },
+        {
+          "alias": "scalesafe otp forgot pin",
+          "config": {
+            "channel": "SMS_WITH_EMAIL_FALLBACK",
+            "mode": "sandbox",
+            "portalName": "ScaleSafe"
+          }
+        }
+      ],
+      "authenticationFlows": [
+        {
+          "alias": "scalesafe browser",
+          "description": "Sign-in: session cookie, else mobile number / User ID -> OTP -> PIN (docs/NUVAMA-WORKFLOW.md §8a)",
+          "providerId": "basic-flow",
+          "topLevel": true,
+          "builtIn": false,
+          "authenticationExecutions": [
+            {
+              "authenticator": "auth-cookie",
+              "authenticatorFlow": false,
+              "requirement": "ALTERNATIVE",
+              "priority": 10,
+              "userSetupAllowed": false
+            },
+            {
+              "authenticatorFlow": true,
+              "requirement": "ALTERNATIVE",
+              "priority": 20,
+              "flowAlias": "scalesafe browser forms",
+              "userSetupAllowed": false
+            }
+          ]
+        },
+        {
+          "alias": "scalesafe browser forms",
+          "description": "Identify, OTP, PIN",
+          "providerId": "basic-flow",
+          "topLevel": false,
+          "builtIn": false,
+          "authenticationExecutions": [
+            {
+              "authenticator": "scalesafe-identify",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 10,
+              "userSetupAllowed": false
+            },
+            {
+              "authenticator": "scalesafe-otp",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 20,
+              "userSetupAllowed": false,
+              "authenticatorConfig": "scalesafe otp sign-in"
+            },
+            {
+              "authenticator": "scalesafe-pin",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 30,
+              "userSetupAllowed": false
+            }
+          ]
+        },
+        {
+          "alias": "scalesafe reset credentials",
+          "description": "Forgot PIN: mobile number / User ID -> OTP -> set a new PIN (no e-mail link)",
+          "providerId": "basic-flow",
+          "topLevel": true,
+          "builtIn": false,
+          "authenticationExecutions": [
+            {
+              "authenticator": "scalesafe-identify",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 10,
+              "userSetupAllowed": false
+            },
+            {
+              "authenticator": "scalesafe-otp",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 20,
+              "userSetupAllowed": false,
+              "authenticatorConfig": "scalesafe otp forgot pin"
+            },
+            {
+              "authenticator": "reset-password",
+              "authenticatorFlow": false,
+              "requirement": "REQUIRED",
+              "priority": 30,
+              "userSetupAllowed": false
+            }
+          ]
+        }
+      ],
+      "components": {
+        "org.keycloak.userprofile.UserProfileProvider": [
+          {
+            "providerId": "declarative-user-profile",
+            "subComponents": {},
+            "config": {
+              "kc.user.profile.config": [
+                "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"mobile\",\"displayName\":\"Registered mobile number\",\"validations\":{\"pattern\":{\"pattern\":\"^\\\\+91[0-9]{10}$\",\"error-message\":\"Use +91 followed by 10 digits\"}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+              ]
+            }
+          }
+        ]
+      },
       "roles": {
         "realm": [
           {
@@ -58,6 +193,14 @@ data:
           {
             "name": "partner-manager",
             "description": "Partner manager: dashboard, rules overrides"
+          },
+          {
+            "name": "operator-maker",
+            "description": "Platform operator (Nuvama Maker): first operator review of submitted client cases, any tenant"
+          },
+          {
+            "name": "operator-checker",
+            "description": "Platform operator (Nuvama Checker): final operator approval of client cases (not their own), any tenant"
           },
           {
             "name": "default-roles-scalesafe",

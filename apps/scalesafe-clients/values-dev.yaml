@@ -36,6 +36,16 @@ env:
     value: "https://app.scalesafe.capital"
   - name: SCALESAFE_CLIENT_VERIFICATION_URL
     value: "http://scalesafe-verification"
+  # Workflow v2 (scalesafe-platform docs/NUVAMA-WORKFLOW.md): eSign health tile, operator name, admin console for
+  # operator review links; sandbox keeps the consent-link inbox for e2e (platform-admin only), as esign/verification.
+  - name: SCALESAFE_ESIGN_SERVICE_URL
+    value: "http://scalesafe-esign"
+  - name: SCALESAFE_CLIENT_OPERATOR_NAME
+    value: "Nuvama"
+  - name: SCALESAFE_CLIENT_ADMIN_APP_URL
+    value: "https://admin.scalesafe.capital"
+  - name: SCALESAFE_PROVIDERS_MODE
+    value: "sandbox"
   # partner-service: confirms a partner application is ACTIVE before ScaleSafe approves a partner workspace.
   - name: SCALESAFE_PARTNER_SERVICE_URL
     value: "http://scalesafe-partners"

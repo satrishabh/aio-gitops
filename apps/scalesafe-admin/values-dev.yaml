@@ -5,7 +5,7 @@ nameOverride: scalesafe-admin
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-admin
-  tag: "58fb70681f9c"
+  tag: "cf8454e13643"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080
@@ -54,4 +54,4 @@ ingress:
 routes: []
 spot:
   enabled: true
-  provider: aks           # tolerate the AKS spot pool; pods may land there when the regular node is full
+  provider: aks # tolerate the AKS spot pool; pods may land there when the regular node is full

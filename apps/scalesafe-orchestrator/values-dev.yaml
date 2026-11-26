@@ -4,7 +4,7 @@ nameOverride: scalesafe-orchestrator
 replicaCount: 1 # AIO scales to 1 when it deploys the first scanned image
 image:
   repository: ghcr.io/satrishabh/scalesafe-orchestrator
-  tag: "45a0627ea120"
+  tag: "21e3631fefca"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

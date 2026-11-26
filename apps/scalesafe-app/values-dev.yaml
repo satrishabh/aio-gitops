@@ -57,3 +57,8 @@ routes: []
 spot:
   enabled: true
   provider: aks # tolerate the AKS spot pool; pods may land there when the regular node is full
+# Run on the spot pool, not just tolerate it: the regular nodes reached 95% memory in use while their requests
+# still looked roomy, so no pod went Pending and the autoscaler never added a spot node (2026-11-26).
+# Postgres and Keycloak stay on regular nodes. If Azure reclaims spot capacity, this pod waits Pending.
+nodeSelector:
+  kubernetes.azure.com/scalesetpriority: spot

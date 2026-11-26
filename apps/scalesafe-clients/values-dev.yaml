@@ -41,7 +41,7 @@ env:
   - name: SCALESAFE_ESIGN_SERVICE_URL
     value: "http://scalesafe-esign"
   - name: SCALESAFE_CLIENT_OPERATOR_NAME
-    value: "Nuvama"
+    value: "ScaleSafe"
   - name: SCALESAFE_CLIENT_ADMIN_APP_URL
     value: "https://admin.scalesafe.capital"
   - name: SCALESAFE_PROVIDERS_MODE

@@ -1,0 +1,81 @@
+---
+# Source: app/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0a1b2c3d4e5f"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Source: app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: demo
+    app.kubernetes.io/version: "0a1b2c3d4e5f"
+    app.kubernetes.io/managed-by: Helm
+    helm.sh/chart: app-0.1.0
+    kube-green.dev/exclude: "true"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo
+      app.kubernetes.io/instance: demo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo
+        app.kubernetes.io/instance: demo
+    spec:
+      securityContext:
+        fsGroup: 10001
+        runAsNonRoot: true
+      containers:
+        - name: app
+          image: "ghcr.io/example/nightly:0a1b2c3d4e5f"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false

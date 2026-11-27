@@ -23,6 +23,10 @@ spot:
   provider: aks           # aks | gke
 nodeSelector: {}          # extra node selector, merged with the spot one
 tolerations: []           # extra tolerations, added to the spot one
+# Extra labels on the Deployment/Rollout object only (not on its pods, so adding one does not restart anything).
+# e.g. kube-green.dev/exclude: "true" keeps the app out of the kube-green connector's night sleep (an app that has its
+# own night schedule). Keys under app.kubernetes.io/ and helm.sh/ are reserved for the chart.
+labels: {}
 
 containerPort: 8080
 

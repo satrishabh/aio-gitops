@@ -16,7 +16,14 @@ kind: Deployment
 {{- end }}
 metadata:
   name: {{ include "app.name" . }}
-  labels: {{- include "app.labels" . | nindent 4 }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    {{- range $k, $v := .Values.labels }}
+    {{- if or (hasPrefix "app.kubernetes.io/" $k) (hasPrefix "helm.sh/" $k) }}
+    {{- fail (printf "labels: %s is set by the chart" $k) }}
+    {{- end }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
 spec:
   {{- if ne (include "app.autoscalingActive" .) "true" }}
   {{- if or (default false .Values.scaledDown) (and .Values.autoscaling.enabled (eq .Values.image.tag "0.0.0")) }}

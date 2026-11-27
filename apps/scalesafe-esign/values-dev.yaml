@@ -5,7 +5,7 @@ nameOverride: scalesafe-esign
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-esign
-  tag: "efbc33b291b8"
+  tag: "2db4cdf1716f"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

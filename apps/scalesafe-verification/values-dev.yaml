@@ -5,7 +5,7 @@ nameOverride: scalesafe-verification
 replicaCount: 1
 image:
   repository: ghcr.io/satrishabh/scalesafe-verification
-  tag: "a84dfff3e230"
+  tag: "c170aa413756"
 imagePullSecrets:
   - name: ghcr-pull
 containerPort: 8080

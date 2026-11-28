@@ -32,6 +32,18 @@ GitHub ─► https://app.sarvaikam.com/api/webhooks/github/{id}      (GitHub se
 - 2xx and 4xx replies from AIO end the retry, because a 4xx (bad signature, unknown project) will never succeed.
 - 5xx, 429 and timeouts retry.
 
+**Duplicates:** a delivery can reach AIO twice, for example when AIO took longer than the 5 s direct-forward timeout
+but still started the build, and the buffer then replayed it. AIO de-duplicates by `X-GitHub-Delivery` per project
+(table `webhook_deliveries`, `WebhookInbox`), after the signature check:
+- already handled: AIO answers with the first reply (header `X-AIO-Webhook-Replay: true`) and starts nothing;
+- first attempt still running: `429` with `Retry-After: 30`, so the buffer retries; after 2 min without a reply
+  (`app.webhooks.stale-after`) the next attempt takes it over;
+- same id, different body: `409`, never processed;
+- first attempt failed (e.g. `400`): the id is released, so a redelivery from GitHub is processed again.
+
+A **Redeliver** from GitHub's webhook settings re-sends the same id, so it no longer starts a second build once the
+first succeeded; use **Rerun** in AIO instead. Entries are kept 14 days (`app.webhooks.inbox-retention`).
+
 **Ordering:** `maximumInstanceCount 1` + `batchSize 1` replays one delivery at a time.
 
 **Cost:** Flex Consumption free grant (100 000 GB-s and 250 000 executions per month) plus a few cents of storage.
